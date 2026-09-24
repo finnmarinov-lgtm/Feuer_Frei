@@ -26,7 +26,8 @@ Danach `http://localhost:5173` öffnen und auf **1 gegen 1** oder **Training** k
 Regeln:
 
 - Host startet im Westen, Gast im Osten. Jeder hat seine eigene Kaufzone am Startpunkt.
-- Pro Runde hat jeder so viele Leben wie eingestellt. Wer stirbt und noch Leben hat, ist nach 3 Sekunden am eigenen Startpunkt zurück (mit voller Gesundheit, eigener Ausrüstung und kurz unverwundbar).
+- Pro Runde hat jeder so viele Leben wie eingestellt. Wer stirbt und noch Leben hat, ist nach 3 Sekunden am eigenen Startpunkt zurück (mit voller Gesundheit und eigener Ausrüstung).
+- **Spawn-Schutz:** 2 Sekunden nach dem Rundenstart und nach jedem Wiedereinstieg zählen keine Treffer (auch keine Granaten). Der Schutz endet sofort, wenn man selbst schießt, sticht oder wirft. Den eigenen Schutz zeigt ein Hinweis unten in der Mitte, ein geschützter Gegner schimmert bläulich und Treffer auf ihn werden blau markiert.
 - Die Runde gewinnt, wer dem anderen alle Leben nimmt. Läuft die Zeit ab, gewinnt, wer mehr Leben übrig hat, danach wer mehr Lebenspunkte hat.
 - Geld wie im Training: 800 $ zum Start, Prämie pro Abschuss, Siegprämie, Niederlagenbonus. Wer am Rundenende tot ist, verliert seine Ausrüstung.
 - In der Pause läuft das Duell weiter (man steht still). Wer das Duell verlässt oder den Tab schließt, verliert. Bricht die Verbindung länger als 30 Sekunden ab, gewinnt der andere.

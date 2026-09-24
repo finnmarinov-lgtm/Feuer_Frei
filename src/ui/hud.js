@@ -34,6 +34,7 @@ export class Hud {
       stats: $('stats-panel'), fps: $('fps'), scope: $('scope'), vignette: $('vignette'), flash: $('flash'),
       duelbar: $('duelbar'), duelMe: $('duel-me'), duelThem: $('duel-them'), duelScore: $('duel-score'),
       livesMe: $('lives-me'), livesThem: $('lives-them'), net: $('net-status'), dmgdir: $('dmgdir'),
+      protect: $('protect'),
     };
     this.mode = 'training';
     this.dirT = 0;
@@ -63,6 +64,7 @@ export class Hud {
     this.el.duelbar.hidden = !duel;
     this.el.net.hidden = !duel;
     this.el.targets.hidden = duel;
+    this.el.protect.hidden = true;
   }
 
   /** Roter Bogen am Bildschirmrand in Richtung der Schadensquelle */
@@ -138,8 +140,10 @@ export class Hud {
     this.g.buyMenu?.refresh();
   }
 
-  hitmarker(head, kill) {
-    this.el.hit.classList.toggle('head', head);
+  /** shield: Gegner hat Spawn-Schutz, der Treffer zählt nicht */
+  hitmarker(head, kill, shield = false) {
+    this.el.hit.classList.toggle('shield', shield);
+    this.el.hit.classList.toggle('head', head && !shield);
     this.el.hit.style.transform = kill ? 'scale(1.35)' : 'scale(1)';
     this.hitT = kill ? 0.35 : 0.22;
   }
@@ -238,6 +242,10 @@ export class Hud {
     this._text(el.net, netText(m.net));
     el.net.classList.toggle('bad', m.net.lost || m.net.mode === 'getrennt');
     el.net.classList.toggle('server', m.net.mode === 'server');
+    // eigener Spawn-Schutz mit Restzeit
+    const guarded = m.phase === 'live' && m.protectT > 0 && this.g.player.alive;
+    if (el.protect.hidden !== !guarded) el.protect.hidden = !guarded;
+    if (guarded) this._text(el.protect, `Spawn-Schutz · ${m.protectT.toFixed(1).replace('.', ',')} s`);
   }
 
   update(dt, camera, fps) {

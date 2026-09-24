@@ -51,7 +51,8 @@ export const DUEL = {
   roundTimePerLife: 30,
   roundEndTime: 5,
   respawnTime: 3,
-  spawnProtect: 1.5,
+  // Spawn-Schutz nach Rundenstart und Wiedereinstieg, endet früher beim ersten eigenen Angriff
+  spawnProtect: 2,
   forfeitAfter: 30,
   legMul: 0.75,
 };

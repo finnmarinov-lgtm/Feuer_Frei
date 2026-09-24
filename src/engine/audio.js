@@ -415,6 +415,13 @@ export class Audio {
         this._noise(o, t, { type: 'lowpass', freq: 800, q: 1, gain: 0.7, decay: 0.06 });
         break;
       }
+      // Treffer auf einen Gegner mit Spawn-Schutz: heller, abprallender Klang
+      case 'shield': {
+        const o = this._out(null, 0.3 * vol, 0.1);
+        this._tone(o, t, { type: 'triangle', freq: 1900, freqEnd: 1300, gain: 0.6, decay: 0.12 });
+        this._noise(o, t, { type: 'highpass', freq: 5000, q: 1, gain: 0.3, decay: 0.03 });
+        break;
+      }
       case 'kill': {
         const o = this._out(null, 0.3 * vol, 0.1);
         this._tone(o, t, { type: 'triangle', freq: 880, gain: 0.7, decay: 0.12 });

@@ -11,7 +11,7 @@ export const TEAMS = {
 };
 
 // Bits im Zustand, den jeder Spieler 30-mal pro Sekunde schickt
-export const FLAG = { ALIVE: 1, GROUND: 2, RELOAD: 4, ADS: 8, WALK: 16 };
+export const FLAG = { ALIVE: 1, GROUND: 2, RELOAD: 4, ADS: 8, WALK: 16, PROTECT: 32 };
 
 const DOWN = { x: 0, y: -1, z: 0 };
 const THIGH = 0.43;
@@ -70,6 +70,10 @@ export class RemotePlayer {
     });
     // Körperteile am selben Gelenk mit gleichem Material zu einem Mesh (30 Teile -> 16)
     mergeByMaterial(model);
+    // Materialien der Figur (ohne Waffen) für den Schimmer während des Spawn-Schutzes
+    this.bodyMaterials = new Set();
+    model.traverse((o) => { if (o.isMesh && o.material.emissive) this.bodyMaterials.add(o.material); });
+    this.glow = 0;
 
     // Waffen in der Hand (ohne die Arme aus der Ego-Ansicht)
     this.weapons = {};
@@ -148,6 +152,8 @@ export class RemotePlayer {
     this.jab = -1;
     this.flashT = 0;
     this.lastFlags = 0;
+    this.glow = 0;
+    for (const m of this.bodyMaterials ?? []) m.emissive.setRGB(0, 0, 0);
   }
 
   /** team: Seite des Gegners ('host' oder 'guest') */
@@ -165,6 +171,11 @@ export class RemotePlayer {
 
   get alive() {
     return this.shown && !this.dead;
+  }
+
+  /** Gegner hat gerade Spawn-Schutz (Treffer zählen nicht) */
+  get protected() {
+    return this.alive && (this.state.f & FLAG.PROTECT) !== 0;
   }
 
   get position() {
@@ -344,6 +355,7 @@ export class RemotePlayer {
     n.anchor.position.z = this.anchorRestZ - jab * 0.18;
     this.flashT -= dt;
     this.flash.visible = this.flashT > 0;
+    this._protectGlow(dt);
 
     // Körper für die Kollision mitführen (geduckt niedriger)
     const on = !this.dead;
@@ -377,6 +389,15 @@ export class RemotePlayer {
     n.head.rotation.x = s.pitch * 0.45 + 0.18 * s.duck;
     this.fall.rotation.set(0, 0, 0);
     this.fall.position.set(0, 0, 0);
+  }
+
+  // Spawn-Schutz: Figur schimmert bläulich (pulsierend), damit man sieht, warum Treffer nicht zählen
+  _protectGlow(dt) {
+    const target = this.protected ? 1 : 0;
+    if (target === 0 && this.glow === 0) return;
+    this.glow = target ? Math.min(1, this.glow + dt * 6) : Math.max(0, this.glow - dt * 4);
+    const pulse = this.glow * (0.65 + 0.35 * Math.sin(performance.now() / 110));
+    for (const m of this.bodyMaterials) m.emissive.setRGB(0.12 * pulse, 0.22 * pulse, 0.42 * pulse);
   }
 
   _animateDeath(dt) {

@@ -277,6 +277,7 @@ export class WeaponSystem {
   _shoot(w) {
     const def = w.def;
     const p = this.g.player;
+    this.g.match.onAttack?.();
     w.mag--;
     const interval = 60 / def.rpm;
     this.nextFire = (this.time - this.nextFire < 0.03 ? this.nextFire : this.time) + interval;
@@ -397,6 +398,7 @@ export class WeaponSystem {
     const hits = new Map();
     // am Gegner pro Zone zusammenzählen, weil Weste und Helm je Zone anders schützen
     const remote = { head: 0, body: 0, legs: 0 };
+    const shielded = this.g.remote.protected;
     let remotePoint = null;
     let firstImpact = null;
     for (let i = 0; i < def.pellets; i++) {
@@ -409,7 +411,7 @@ export class WeaponSystem {
       if (hit?.remote) {
         remote[hit.zone] += this._rawDamage(def, hit);
         remotePoint ||= hit.point.clone();
-        this.g.effects.bloodHit(hit.point, hit.normal, hit.zone === 'head');
+        if (!shielded) this.g.effects.bloodHit(hit.point, hit.normal, hit.zone === 'head');
         ends.push(shotEnd(hit.point));
       } else if (hit) {
         const head = hit.zone === 'head';
@@ -441,8 +443,13 @@ export class WeaponSystem {
     }
     if (remotePoint) {
       const head = remote.head > 0;
-      this.g.audio.play(head ? 'hitHead' : 'hitBody');
-      this.g.hud.hitmarker(head, false);
+      if (shielded) {
+        this.g.audio.play('shield');
+        this.g.hud.hitmarker(false, false, true);
+      } else {
+        this.g.audio.play(head ? 'hitHead' : 'hitBody');
+        this.g.hud.hitmarker(head, false);
+      }
       this.g.match.onHit(0, head);
       for (const zone of ['head', 'body', 'legs']) {
         if (remote[zone] > 0) this.g.match.sendHit?.(remote[zone], zone, def, remotePoint);
@@ -450,12 +457,18 @@ export class WeaponSystem {
     }
   }
 
-  // Treffer am Gegner: sofort Rückmeldung, den Schaden rechnet sein Spiel aus
+  // Treffer am Gegner: sofort Rückmeldung, den Schaden rechnet sein Spiel aus.
+  // Hat er Spawn-Schutz, gibt es eine blaue Markierung statt Blut (sein Spiel ignoriert den Treffer).
   _hitRemote(hit, def, raw) {
     const head = hit.zone === 'head';
-    this.g.effects.bloodHit(hit.point, hit.normal, head);
-    this.g.audio.play(head ? 'hitHead' : 'hitBody');
-    this.g.hud.hitmarker(head, false);
+    if (this.g.remote.protected) {
+      this.g.audio.play('shield');
+      this.g.hud.hitmarker(false, false, true);
+    } else {
+      this.g.effects.bloodHit(hit.point, hit.normal, head);
+      this.g.audio.play(head ? 'hitHead' : 'hitBody');
+      this.g.hud.hitmarker(head, false);
+    }
     this.g.match.onHit(0, head);
     this.g.match.sendHit?.(raw, hit.zone, def, hit.point);
   }
@@ -488,6 +501,7 @@ export class WeaponSystem {
     this.g.viewmodel.knife(kind);
     this.g.audio.play('swing');
     this.g.match.swingFx?.();
+    this.g.match.onAttack?.();
     this.g.match.onShot();
   }
 
@@ -551,6 +565,7 @@ export class WeaponSystem {
     start.y -= mode === 'lob' ? 0.35 : 0.05;
     const id = this.g.grenades.throw(w.def.grenade, start, _vel);
     this.g.match.nadeFx?.(id, w.def.grenade, start, _vel);
+    this.g.match.onAttack?.();
     this.g.viewmodel.grenadeThrow();
     this.g.audio.play('throw');
     this.inv.remove(this.inv.current);

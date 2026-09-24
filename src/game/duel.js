@@ -157,9 +157,16 @@ export class Duel extends Match {
     this.phase = 'live';
     this.buyTimer = DUEL.buyWindow;
     g.player.frozen = false;
+    // Spawn-Schutz auch beim Rundenstart: sonst trifft man sich sofort durch den Tunnel in der Mitte
+    this.protectT = DUEL.spawnProtect;
     g.audio.play('roundStart');
     const lives = this.cfg.lives > 1 ? ` · ${this.cfg.lives} Leben` : '';
     g.hud.message('Los!', `${this.names[this.them]} kommt von der anderen Seite${lives}`, 1.8);
+  }
+
+  /** eigener Angriff (Schuss, Messer, Wurf) beendet den Spawn-Schutz sofort */
+  onAttack() {
+    this.protectT = 0;
   }
 
   _roundOver(msg) {
@@ -302,7 +309,7 @@ export class Duel extends Match {
     g.viewmodel.root.visible = true;
     this.protectT = DUEL.spawnProtect;
     const n = this.lives[this.me];
-    g.hud.message('Weiter geht’s', `${n} ${n === 1 ? 'Leben' : 'Leben'} übrig`, 1.5);
+    g.hud.message('Weiter geht’s', `Noch ${n} Leben · ${DUEL.spawnProtect} s Spawn-Schutz`, 1.5);
   }
 
   _feed(killer, victim, w, head) {
@@ -385,6 +392,7 @@ export class Duel extends Match {
     if (ws.reloading) f |= FLAG.RELOAD;
     if (ws.ads > 0.5) f |= FLAG.ADS;
     if (g.input.isDown('walk')) f |= FLAG.WALK;
+    if (this.protectT > 0 && this.phase === 'live') f |= FLAG.PROTECT;
     const msg = {
       t: 's', k: Math.round(performance.now()), p: pack(p.feet),
       y: Math.round(p.yaw * 1000), a: Math.round(p.pitch * 1000), d: Math.round(p.duckAmount * 100),
