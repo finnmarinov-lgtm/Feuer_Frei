@@ -65,10 +65,13 @@ def build_wolf():
     box('DustCover', (0.039, 0.26, 0.024), (0, 0.035, 0.058), m['gun'], bevel=0.009, segs=4)
     box('RearSight', (0.03, 0.05, 0.026), (0, 0.205, 0.064), m['gun'], bevel=0.004)
     box('RearSightLeaf', (0.02, 0.045, 0.006), (0, 0.2, 0.08), m['gun_dark'], bevel=0.0015)
+    for sx in (-1, 1):
+        box(f'RearNotch{sx}', (0.005, 0.012, 0.005), (0.0048 * sx, 0.2, 0.0855), m['gun_dark'], bevel=0.0008)
     cyl('Barrel', 0.0085, 0.39, (0, 0.385, 0.035), m['gun_dark'])
     box('GasBlock', (0.024, 0.035, 0.05), (0, 0.43, 0.055), m['gun'], bevel=0.004)
     cyl('GasTube', 0.011, 0.21, (0, 0.325, 0.072), m['gun'])
-    box('UpperGuard', (0.034, 0.175, 0.024), (0, 0.3125, 0.079), m['wood'], bevel=0.009, segs=3)
+    # oben flach genug, damit das Korn beim Zielen frei in der Kimme steht
+    box('UpperGuard', (0.034, 0.175, 0.022), (0, 0.3125, 0.074), m['wood'], bevel=0.008, segs=3)
     profile('LowerGuard', [(0.2, 0.058), (0.395, 0.058), (0.405, 0.047), (0.405, 0.0), (0.393, -0.013),
                            (0.21, -0.019), (0.2, -0.01)], 0.052, m['wood'], bevel=0.008, segs=3)
     box('GuardBand', (0.055, 0.012, 0.078), (0, 0.405, 0.021), m['gun'], bevel=0.003)
@@ -95,6 +98,9 @@ def build_wolf():
         wrist=(-0.035, 0.26, -0.035))
     empty('Muzzle', (0, 0.63, 0.035))
     empty('Eject', (0.025, 0.06, 0.05))
+    # Visierlinie: Oberkante Kimme -> Kornspitze
+    empty('SightRear', (0, 0.2, 0.088))
+    empty('SightFront', (0, 0.54, 0.094))
     parent_all(root)
     return root
 
@@ -105,9 +111,12 @@ def build_falke():
     root = empty('Falke')
     cyl('ReceiverTube', 0.024, 0.38, (0, 0.1, 0.045), m['gun'])
     box('TopRail', (0.016, 0.26, 0.01), (0, 0.06, 0.072), m['gun_dark'], bevel=0.002)
-    box('RearSightBase', (0.02, 0.03, 0.012), (0, -0.07, 0.078), m['gun'], bevel=0.002)
-    cyl('RearSightDrum', 0.013, 0.024, (0, -0.07, 0.09), m['gun'], axis='X')
-    box('FrontSightHood', (0.028, 0.02, 0.036), (0, 0.272, 0.072), m['gun'], bevel=0.004)
+    # Ring-Diopter hinten, Korn mit Kornschutz vorne, beide auf der Visierhöhe 0.095
+    box('RearSightBase', (0.018, 0.02, 0.016), (0, -0.07, 0.08), m['gun'], bevel=0.002)
+    torus('RearAperture', 0.0055, 0.0022, (0, -0.07, 0.095), m['gun_dark'], axis='Y', seg=20, rseg=6)
+    box('FrontSightBase', (0.024, 0.02, 0.012), (0, 0.272, 0.078), m['gun'], bevel=0.002)
+    torus('FrontHood', 0.011, 0.0025, (0, 0.272, 0.095), m['gun'], axis='Y', seg=24, rseg=6)
+    box('FrontPost', (0.002, 0.003, 0.011), (0, 0.272, 0.0895), m['gun_dark'], bevel=0.0004)
     box('LowerReceiver', (0.036, 0.15, 0.03), (0, 0.015, 0.012), m['polymer'], bevel=0.004)
     box('MagWell', (0.034, 0.045, 0.03), (0, 0.125, 0.012), m['gun'], bevel=0.003)
     profile('Grip', [(-0.012, -0.002), (0.03, -0.002), (0.022, -0.03), (0.008, -0.11), (-0.028, -0.112),
@@ -133,6 +142,8 @@ def build_falke():
         wrist=(-0.032, 0.18, -0.02))
     empty('Muzzle', (0, 0.342, 0.045))
     empty('Eject', (0.026, 0.07, 0.05))
+    empty('SightRear', (0, -0.07, 0.095))
+    empty('SightFront', (0, 0.272, 0.095))
     parent_all(root)
     return root
 
@@ -196,7 +207,8 @@ def build_natter():
     root = empty('Natter')
     slide = empty('Slide', (0, 0.06, 0.042))
     box('SlideBody', (0.024, 0.19, 0.032), (0, 0.06, 0.042), m['gun'], bevel=0.003, parent=slide)
-    box('RearSight', (0.016, 0.008, 0.006), (0, -0.028, 0.061), m['gun_dark'], bevel=0.001, parent=slide)
+    for sx in (-1, 1):
+        box(f'RearSight{sx}', (0.005, 0.008, 0.006), (0.005 * sx, -0.028, 0.061), m['gun_dark'], bevel=0.0008, parent=slide)
     box('FrontSight', (0.004, 0.006, 0.005), (0, 0.148, 0.0605), m['gun_dark'], bevel=0.001, parent=slide)
     box('EjectPort', (0.0035, 0.03, 0.012), (0.011, 0.07, 0.049), m['bore'], bevel=0.0008, parent=slide)
     for i in range(5):
@@ -217,6 +229,8 @@ def build_natter():
         wrist=(-0.045, -0.03, -0.085))
     empty('Muzzle', (0, 0.16, 0.045))
     empty('Eject', (0.013, 0.07, 0.055))
+    empty('SightRear', (0, -0.028, 0.064))
+    empty('SightFront', (0, 0.148, 0.063))
     parent_all(root)
     return root
 
@@ -228,7 +242,8 @@ def build_kobra():
     slide = empty('Slide', (0, 0.09, 0.057))
     box('SlideBody', (0.03, 0.26, 0.045), (0, 0.09, 0.057), m['steel'], bevel=0.003, parent=slide)
     box('TopRib', (0.012, 0.25, 0.007), (0, 0.09, 0.083), m['steel'], bevel=0.002, parent=slide)
-    box('RearSight', (0.018, 0.01, 0.008), (0, -0.032, 0.089), m['gun_dark'], bevel=0.001, parent=slide)
+    for sx in (-1, 1):
+        box(f'RearSight{sx}', (0.0065, 0.01, 0.008), (0.0058 * sx, -0.032, 0.089), m['gun_dark'], bevel=0.001, parent=slide)
     box('FrontSight', (0.005, 0.008, 0.008), (0, 0.21, 0.089), m['gun_dark'], bevel=0.001, parent=slide)
     box('EjectPort', (0.004, 0.04, 0.014), (0.0142, 0.07, 0.064), m['bore'], bevel=0.0008, parent=slide)
     for i in range(6):
@@ -249,6 +264,8 @@ def build_kobra():
         wrist=(-0.05, -0.035, -0.09))
     empty('Muzzle', (0, 0.225, 0.06))
     empty('Eject', (0.016, 0.08, 0.07))
+    empty('SightRear', (0, -0.032, 0.093))
+    empty('SightFront', (0, 0.21, 0.093))
     parent_all(root)
     return root
 

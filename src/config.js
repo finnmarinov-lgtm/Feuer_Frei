@@ -52,6 +52,9 @@ export const ARMOR = {
   helmet: { name: 'Weste + Helm', price: 1000, upgrade: 350 },
 };
 
+// Zielen über Kimme und Korn (rechte Maustaste, "ads"): eye = Abstand Auge -> hinteres Visier,
+// zoom = Vergrößerung, time = Sekunden bis voll im Anschlag, speed/spread = Faktoren für Tempo und Streuung.
+
 // Rückstoßmuster: [hoch, rechts] in Grad pro Schuss
 const WOLF_PATTERN = [
   [0, 0], [0.6, 0.0], [0.8, 0.06], [0.9, -0.05], [0.95, 0.1], [0.9, 0.16], [0.8, 0.22], [0.55, -0.35],
@@ -71,6 +74,7 @@ export const WEAPONS = {
     mag: 20, reserve: 120, reload: 2.2, draw: 0.45, speed: 6.0,
     spread: { base: 6, move: 24, air: 80, fire: 16, recovery: 0.3 },
     recoil: { up: 0.85, side: 0.15, decay: 8, viewKick: 1.4 },
+    ads: { eye: 0.4, zoom: 1.15, time: 0.14, speed: 0.72, spread: 0.45 },
     view: { pos: [0.125, -0.15, -0.44], rot: [0.03, 0.12, -0.04] },
     sound: 'pistol', tracer: 0, anim: 'pistol', slide: 0.024,
   },
@@ -80,6 +84,7 @@ export const WEAPONS = {
     mag: 7, reserve: 35, reload: 2.2, draw: 0.55, speed: 5.8,
     spread: { base: 3, move: 45, air: 110, fire: 45, recovery: 0.45 },
     recoil: { up: 2.8, side: 0.4, decay: 4, viewKick: 3.2 },
+    ads: { eye: 0.42, zoom: 1.15, time: 0.16, speed: 0.72, spread: 0.45 },
     view: { pos: [0.13, -0.16, -0.47], rot: [0.03, 0.12, -0.04] },
     sound: 'heavy', tracer: 0, anim: 'pistol', slide: 0.03,
   },
@@ -89,6 +94,7 @@ export const WEAPONS = {
     mag: 30, reserve: 120, reload: 2.6, draw: 0.7, speed: 5.9,
     spread: { base: 9, move: 14, air: 55, fire: 5, recovery: 0.22 },
     recoil: { pattern: FALKE_PATTERN, up: 0.05, side: 0.3, decay: 12, viewKick: 0.5 },
+    ads: { eye: 0.07, zoom: 1.2, time: 0.18, speed: 0.7, spread: 0.5 },
     view: { pos: [0.15, -0.18, -0.44], rot: [0.03, 0.1, -0.03] },
     sound: 'smg', tracer: 2, anim: 'rifle',
   },
@@ -98,6 +104,7 @@ export const WEAPONS = {
     mag: 30, reserve: 90, reload: 2.45, draw: 0.9, speed: 5.5,
     spread: { base: 3.5, move: 45, air: 90, fire: 7, recovery: 0.3 },
     recoil: { pattern: WOLF_PATTERN, up: 0.05, side: 0.5, decay: 10, viewKick: 0.7 },
+    ads: { eye: 0.13, zoom: 1.3, time: 0.24, speed: 0.6, spread: 0.4 },
     view: { pos: [0.16, -0.19, -0.48], rot: [0.03, 0.1, -0.03] },
     sound: 'rifle', tracer: 2, anim: 'rifle',
   },

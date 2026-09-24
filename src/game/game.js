@@ -61,6 +61,8 @@ export class Game {
     this.sunCheckT = 0;
     this.viewLight = 1;
     this.menuAngle = 0;
+    this._aim = { pitch: 0, yaw: 0 };
+    this._size = new THREE.Vector2();
   }
 
   /** Shader vorab übersetzen, damit es beim ersten Schuss nicht ruckelt */
@@ -148,12 +150,25 @@ export class Game {
     this.shakeAmt = Math.max(this.shakeAmt, amount);
   }
 
+  /** Aktuelles Sichtfeld: Zielfernrohr, Zielen über Kimme und Korn oder normal */
+  _targetFov() {
+    const ws = this.weapons;
+    const def = ws.active?.def;
+    const base = this.settings.fov;
+    if (def?.scope && ws.zoom > 0) return def.scope[ws.zoom - 1];
+    if (def?.ads && ws.ads > 0) {
+      const zoomed = (2 * Math.atan(Math.tan((base * DEG) / 2) / def.ads.zoom)) / DEG;
+      const e = ws.ads * ws.ads * (3 - 2 * ws.ads);
+      return base + (zoomed - base) * e;
+    }
+    return base;
+  }
+
   _look(mouse) {
     const p = this.player;
-    const ws = this.weapons;
-    let k = this.settings.sensitivity * 0.022 * DEG;
-    const def = ws.active?.def;
-    if (def?.scope && ws.zoom > 0) k *= def.scope[ws.zoom - 1] / this.settings.fov;
+    // Empfindlichkeit wie in CS; beim Zoomen im Verhältnis des Sichtfelds langsamer
+    const k = this.settings.sensitivity * 0.022 * DEG
+      * (Math.tan((this._targetFov() * DEG) / 2) / Math.tan((this.settings.fov * DEG) / 2));
     p.yaw -= mouse.x * k;
     p.pitch = Math.max(-89 * DEG, Math.min(89 * DEG, p.pitch - mouse.y * k));
   }
@@ -206,7 +221,10 @@ export class Game {
     const showVm = this.state === 'playing' && this.player.alive && !scoped;
     if (showVm) {
       this._viewLighting(dt);
-      this.viewmodel.update(dt, this.player, mouse, scoped);
+      const ws = this.weapons;
+      this._aim.pitch = ws.recoil.pitch * 0.5 * DEG;
+      this._aim.yaw = ws.recoil.yaw * 0.5 * DEG;
+      this.viewmodel.update(dt, this.player, mouse, scoped, ws.ads, this._aim);
     }
     if (this.state === 'playing') this.hud.update(dt, this.camera);
     this.player.forward(_fwd);
@@ -234,12 +252,11 @@ export class Game {
     const pitch = p.pitch + (ws.recoil.pitch * 0.5 + ws.kick.pitch) * DEG + (Math.random() - 0.5) * sh * 0.05;
     const yaw = p.yaw + (ws.recoil.yaw * 0.5 + ws.kick.yaw) * DEG + (Math.random() - 0.5) * sh * 0.05;
     cam.rotation.set(pitch, yaw, (Math.random() - 0.5) * sh * 0.03);
-    const def = ws.active?.def;
-    const fov = def?.scope && ws.zoom > 0 ? def.scope[ws.zoom - 1] : this.settings.fov;
+    const fov = this._targetFov();
     if (cam.fov !== fov) {
       cam.fov = fov;
       cam.updateProjectionMatrix();
-      this.effects.setViewport(this.renderer.renderer.getDrawingBufferSize(new THREE.Vector2()).y, fov);
+      this.effects.setViewport(this.renderer.renderer.getDrawingBufferSize(this._size).y, fov);
     }
     cam.updateMatrixWorld();
     this.viewCamera.quaternion.copy(cam.quaternion);

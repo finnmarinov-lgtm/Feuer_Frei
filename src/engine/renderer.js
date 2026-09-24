@@ -9,7 +9,14 @@ import { QUALITY } from '../settings.js';
 // damit sie nie in Wänden verschwindet.
 export class Renderer {
   constructor(container) {
-    this.renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance', stencil: false });
+    // "desynchronized" gibt Bilder ohne Umweg über den Compositor aus: spürbar weniger
+    // Verzögerung zwischen Maus und Bild (dafür sind vereinzelt Bildrisse möglich)
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('webgl2', {
+      alpha: false, antialias: false, depth: true, stencil: false,
+      powerPreference: 'high-performance', desynchronized: true,
+    });
+    this.renderer = new THREE.WebGLRenderer({ canvas, context, antialias: false, powerPreference: 'high-performance', stencil: false });
     const r = this.renderer;
     // Neutral (Khronos PBR Neutral) hält die Farben satter als ACES, passend zum Wüstenlook
     r.toneMapping = THREE.NeutralToneMapping;
@@ -53,7 +60,10 @@ export class Renderer {
     c.addPass(new RenderPass(this.scene, this.camera));
     this.gtao = null;
     if (q.ao) {
-      const g = new GTAOPass(this.scene, this.camera, size.x, size.y);
+      // Verdeckung in halber Auflösung: sieht fast gleich aus, kostet ein Viertel
+      const g = new GTAOPass(this.scene, this.camera, Math.ceil(size.x / 2), Math.ceil(size.y / 2));
+      const setSize = g.setSize.bind(g);
+      g.setSize = (w, h) => setSize(Math.max(1, Math.ceil(w / 2)), Math.max(1, Math.ceil(h / 2)));
       g.updateGtaoMaterial({ radius: 0.6, distanceExponent: 1.4, thickness: 1.2, scale: 1.1, samples: 12 });
       g.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 12 });
       g.blendIntensity = 0.9;

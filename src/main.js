@@ -169,6 +169,7 @@ function setupMenus(game, input, audio) {
     bind('set-vol', 'volume', (v) => `${Math.round(v * 100)} %`),
     bind('set-quality', 'quality', (v) => v, String),
     bind('set-cross', 'crosshairColor', (v) => v, String),
+    bind('set-adstoggle', 'adsToggle', () => ''),
     bind('set-fullscreen', 'fullscreen', () => ''),
     bind('set-fps', 'showFps', () => ''),
   ];

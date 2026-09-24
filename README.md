@@ -20,7 +20,7 @@ Danach `http://localhost:5173` öffnen und auf **Training starten** klicken.
 | `W` `A` `S` `D` | Laufen |
 | Maus | Umsehen |
 | Linksklick | Schießen, Messerhieb, Granate weit werfen |
-| Rechtsklick | Zielfernrohr, Messerstich, Granate kurz werfen |
+| Rechtsklick | Zielen über Kimme und Korn (langsamer, genauer, leichter Zoom), Zielfernrohr, Messerstich, Granate kurz werfen |
 | Leertaste | Springen |
 | `Strg` oder `C` | Ducken |
 | `Shift` | Schleichen (lautlos und genauer) |

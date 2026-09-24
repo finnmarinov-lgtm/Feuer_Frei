@@ -15,6 +15,7 @@ const DEFAULTS = {
   crosshairColor: '#5cff7a',
   showFps: false,
   fullscreen: true,
+  adsToggle: false,
 };
 
 export function loadSettings() {

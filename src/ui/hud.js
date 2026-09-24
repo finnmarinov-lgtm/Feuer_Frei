@@ -41,6 +41,26 @@ export class Hud {
     this.el.root.hidden = !on;
   }
 
+  // DOM nur anfassen, wenn sich der Wert ändert (spart dem Browser Layout-Arbeit pro Bild)
+  _text(el, v) {
+    if (el._v !== v) {
+      el._v = v;
+      el.textContent = v;
+    }
+  }
+
+  _set(style, prop, v) {
+    if (style[prop] !== v) style[prop] = v;
+  }
+
+  _setVar(el, name, v) {
+    const key = '_var' + name;
+    if (el[key] !== v) {
+      el[key] = v;
+      el.style.setProperty(name, v);
+    }
+  }
+
   reset() {
     this.el.roundEnd.hidden = true;
     this.el.flash.style.opacity = 0;
@@ -166,39 +186,41 @@ export class Hud {
     const ws = g.weapons;
     const el = this.el;
 
-    el.round.textContent = `Runde ${m.round}/${TRAINING.rounds}`;
+    this._text(el.round, `Runde ${m.round}/${TRAINING.rounds}`);
     let phase = '', time = m.timer;
     if (m.phase === 'freeze') phase = 'Kaufzeit';
     else if (m.phase === 'live') phase = 'Runde läuft';
     else if (m.phase === 'end') phase = 'Rundenende';
-    el.phase.textContent = phase;
-    el.timer.textContent = fmtTime(time);
+    this._text(el.phase, phase);
+    this._text(el.timer, fmtTime(time));
     el.timer.classList.toggle('low', m.phase === 'live' && time <= 10);
-    el.targets.textContent = m.phase === 'live' || m.phase === 'end'
-      ? `Ziele: ${g.targets.total - g.targets.remaining} / ${g.targets.total}` : '';
-    el.health.textContent = Math.ceil(p.health);
+    this._text(el.targets, m.phase === 'live' || m.phase === 'end'
+      ? `Ziele: ${g.targets.total - g.targets.remaining} / ${g.targets.total}` : '');
+    this._text(el.health, String(Math.ceil(p.health)));
     el.health.parentElement.classList.toggle('hurt', p.health <= 25);
-    el.armor.textContent = Math.ceil(p.armor);
-    el.helmet.hidden = !p.helmet;
+    this._text(el.armor, String(Math.ceil(p.armor)));
+    if (el.helmet.hidden !== !p.helmet) el.helmet.hidden = !p.helmet;
     el.ammo.classList.toggle('reloading', ws.reloading);
 
     const canBuy = m.canBuy;
-    el.buyhint.hidden = !canBuy || g.buyMenu.open;
-    if (canBuy) el.buyhintTime.textContent = `· noch ${Math.ceil(m.buyTimeLeft)} s`;
+    const hideHint = !canBuy || g.buyMenu.open;
+    if (el.buyhint.hidden !== hideHint) el.buyhint.hidden = hideHint;
+    if (canBuy) this._text(el.buyhintTime, `· noch ${Math.ceil(m.buyTimeLeft)} s`);
 
     // Fadenkreuz spreizt sich mit der echten Streuung
     const def = ws.active?.def;
     const scoped = ws.zoom > 0;
-    const showCross = !!def && !scoped && def.anim !== 'grenade';
-    el.cross.style.display = showCross ? '' : 'none';
+    const showCross = !!def && !scoped && def.anim !== 'grenade' && ws.ads < 0.5;
+    this._set(el.cross.style, 'display', showCross ? '' : 'none');
     if (showCross) {
       const px = Math.tan(ws.spread / 1000) * (window.innerHeight / 2) / Math.tan((camera.fov * Math.PI) / 360);
-      el.cross.style.setProperty('--gap', `${Math.round(4 + Math.min(px, 90))}px`);
+      this._setVar(el.cross, '--gap', `${Math.round(4 + Math.min(px, 90))}px`);
+      this._set(el.cross.style, 'opacity', String(1 - ws.ads * 2));
     }
     el.scope.classList.toggle('on', scoped);
 
     this.hitT -= dt;
-    el.hit.style.opacity = this.hitT > 0 ? Math.min(1, this.hitT * 6) : 0;
+    this._set(el.hit.style, 'opacity', this.hitT > 0 ? String(Math.min(1, this.hitT * 6)) : '0');
 
     for (let i = this.numbers.length - 1; i >= 0; i--) {
       const n = this.numbers[i];
@@ -237,19 +259,19 @@ export class Hud {
     if (this.flashT > 0) {
       this.flashT -= dt;
       const k = this.flashT / this.flashDur;
-      el.flash.style.opacity = String(this.flashAmt * Math.min(1, k * 2.2));
+      this._set(el.flash.style, 'opacity', String(this.flashAmt * Math.min(1, k * 2.2)));
     } else {
-      el.flash.style.opacity = 0;
+      this._set(el.flash.style, 'opacity', '0');
     }
     this.hurtT = Math.max(0, this.hurtT - dt * 0.8);
-    el.vignette.style.opacity = String(Math.max(this.hurtT, p.health < 30 && p.alive ? 0.35 : 0));
+    this._set(el.vignette.style, 'opacity', String(Math.max(this.hurtT, p.health < 30 && p.alive ? 0.35 : 0)));
 
-    el.fps.hidden = !g.settings.showFps;
+    if (el.fps.hidden !== !g.settings.showFps) el.fps.hidden = !g.settings.showFps;
     if (g.settings.showFps) {
       this.fpsFrames++;
       this.fpsTime += dt;
       if (this.fpsTime >= 0.5) {
-        el.fps.textContent = `${Math.round(this.fpsFrames / this.fpsTime)} FPS`;
+        this._text(el.fps, `${Math.round(this.fpsFrames / this.fpsTime)} FPS`);
         this.fpsFrames = 0;
         this.fpsTime = 0;
       }

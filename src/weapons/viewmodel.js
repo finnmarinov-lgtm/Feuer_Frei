@@ -13,6 +13,24 @@ const seg = (t, a, b) => smooth((t - a) / (b - a));
 
 const _v = new THREE.Vector3();
 const _q = new THREE.Quaternion();
+const _q2 = new THREE.Quaternion();
+const _off = new THREE.Vector3();
+const _offRot = new THREE.Euler();
+const FORWARD = new THREE.Vector3(0, 0, -1);
+
+// Anschlagshaltung aus den Visierpunkten im Modell: die Linie Kimme -> Korn liegt genau
+// auf der Blickachse, die Kimme sitzt "eye" Meter vor dem Auge.
+function adsPose(model, eye) {
+  const rear = model.getObjectByName('SightRear');
+  const front = model.getObjectByName('SightFront');
+  if (!rear || !front) return null;
+  model.updateMatrixWorld(true);
+  const r = rear.getWorldPosition(new THREE.Vector3());
+  const f = front.getWorldPosition(new THREE.Vector3());
+  const quat = new THREE.Quaternion().setFromUnitVectors(f.sub(r).normalize(), FORWARD);
+  const pos = new THREE.Vector3(0, 0, -eye).sub(r.applyQuaternion(quat));
+  return { pos, quat };
+}
 
 // Die Waffe in der Hand, in einer eigenen Szene und Kamera gezeichnet.
 export class Viewmodel {
@@ -38,8 +56,13 @@ export class Viewmodel {
       for (const [k, o] of Object.entries(parts)) {
         if (o) rest[k] = { p: o.position.clone(), r: o.rotation.clone() };
       }
+      const hip = {
+        pos: new THREE.Vector3(...def.view.pos),
+        quat: new THREE.Quaternion().setFromEuler(new THREE.Euler(...def.view.rot)),
+      };
+      const ads = def.ads ? adsPose(model, def.ads.eye) : null;
       this.root.add(model);
-      this.models[id] = { model, parts, rest };
+      this.models[id] = { model, parts, rest, hip, ads };
     }
 
     // Mündungsfeuer: zwei Längsflächen und eine Frontfläche
@@ -193,13 +216,21 @@ export class Viewmodel {
     return out;
   }
 
-  update(dt, player, mouse, scoped) {
+  /**
+   * ads: 0 = aus der Hüfte, 1 = im Anschlag.
+   * aim: Teil des Rückstoßes (Radiant), den die Kamera nicht zeigt; im Anschlag wandert das Korn
+   * mit, damit es immer dort steht, wo die Kugeln hingehen.
+   */
+  update(dt, player, mouse, scoped, ads = 0, aim = null) {
     this.t += dt;
     if (!this.current) return;
     const def = this.def;
-    const { parts, rest } = this.current;
-    const pos = _v.set(...def.view.pos);
-    const rot = new THREE.Euler(def.view.rot[0], def.view.rot[1], def.view.rot[2]);
+    const { parts, rest, hip } = this.current;
+    const adsPoseData = this.current.ads;
+    const e = adsPoseData ? smooth(ads) : 0;
+    const calm = 1 - 0.85 * e;
+    const pos = _off.set(0, 0, 0);
+    const rot = _offRot.set(0, 0, 0);
 
     // Ziehen
     this.drawT = Math.min(1, this.drawT + dt / this.drawDur);
@@ -208,38 +239,44 @@ export class Viewmodel {
     rot.x -= 0.9 * d;
     rot.z += 0.2 * d;
 
-    // Atmen und Laufen
-    pos.y += Math.sin(this.t * 1.7) * 0.0018;
-    rot.x += Math.sin(this.t * 1.7) * 0.004;
+    // Atmen und Laufen (im Anschlag fast ruhig)
+    pos.y += Math.sin(this.t * 1.7) * 0.0018 * calm;
+    rot.x += Math.sin(this.t * 1.7) * 0.004 * calm;
     const speed = player.horizontalSpeed;
     const targetAmp = player.onGround ? Math.min(1, speed / 5.5) : 0;
     this.bobAmp += (targetAmp - this.bobAmp) * Math.min(1, dt * 8);
     this.bobPhase += dt * (4 + speed * 1.35);
-    pos.x += Math.sin(this.bobPhase) * 0.009 * this.bobAmp;
-    pos.y -= Math.abs(Math.cos(this.bobPhase)) * 0.011 * this.bobAmp;
-    rot.z += Math.sin(this.bobPhase) * 0.012 * this.bobAmp;
+    const bob = this.bobAmp * calm;
+    pos.x += Math.sin(this.bobPhase) * 0.009 * bob;
+    pos.y -= Math.abs(Math.cos(this.bobPhase)) * 0.011 * bob;
+    rot.z += Math.sin(this.bobPhase) * 0.012 * bob;
     const airTarget = player.onGround ? 0 : Math.max(-0.02, Math.min(0.02, player.vel.y * 0.003));
     this.airOffset += (airTarget - this.airOffset) * Math.min(1, dt * 10);
-    pos.y += this.airOffset - player.landImpact * 0.035;
-    pos.y -= player.duckAmount * 0.008;
+    pos.y += (this.airOffset - player.landImpact * 0.035) * calm;
+    pos.y -= player.duckAmount * 0.008 * calm;
 
-    // Nachziehen bei Mausbewegung (gedämpfte Feder)
-    const tx = Math.max(-0.035, Math.min(0.035, -mouse.x * 0.00018));
-    const ty = Math.max(-0.035, Math.min(0.035, mouse.y * 0.00018));
-    this.swayVel.x += ((tx - this.sway.x) * 180 - this.swayVel.x * 22) * dt;
-    this.swayVel.y += ((ty - this.sway.y) * 180 - this.swayVel.y * 22) * dt;
+    // Nur ein Hauch Nachziehen bei Mausbewegung, straff gefedert (sonst wirkt die Steuerung träge)
+    const tx = Math.max(-0.01, Math.min(0.01, -mouse.x * 0.00005));
+    const ty = Math.max(-0.01, Math.min(0.01, mouse.y * 0.00005));
+    this.swayVel.x += ((tx - this.sway.x) * 700 - this.swayVel.x * 50) * dt;
+    this.swayVel.y += ((ty - this.sway.y) * 700 - this.swayVel.y * 50) * dt;
     this.sway.x += this.swayVel.x * dt;
     this.sway.y += this.swayVel.y * dt;
-    pos.x += this.sway.x;
-    pos.y += this.sway.y;
-    rot.y += this.sway.x * 1.6;
-    rot.x += this.sway.y * 1.2;
+    pos.x += this.sway.x * calm;
+    pos.y += this.sway.y * calm;
+    rot.y += this.sway.x * 1.2 * calm;
+    rot.x += this.sway.y * 1.0 * calm;
 
     // Rückstoß
     this.kickZ *= Math.exp(-dt * 16);
     this.kickRot *= Math.exp(-dt * 13);
-    pos.z += this.kickZ;
-    rot.x += this.kickRot;
+    const kick = 1 - 0.45 * e;
+    pos.z += this.kickZ * kick;
+    rot.x += this.kickRot * kick;
+    if (aim && e > 0) {
+      rot.x += aim.pitch * e;
+      rot.y += aim.yaw * e;
+    }
 
     // Nachladen
     if (this.reloadT >= 0) {
@@ -343,8 +380,15 @@ export class Viewmodel {
       if (this.inspectT >= 1) this.inspectT = -1;
     }
 
-    this.root.position.copy(pos);
-    this.root.rotation.copy(rot);
+    // Grundhaltung zwischen Hüfte und Anschlag, darauf die Bewegungen von oben
+    if (adsPoseData && e > 0) {
+      this.root.position.lerpVectors(hip.pos, adsPoseData.pos, e).add(pos);
+      _q.slerpQuaternions(hip.quat, adsPoseData.quat, e);
+    } else {
+      this.root.position.copy(hip.pos).add(pos);
+      _q.copy(hip.quat);
+    }
+    this.root.quaternion.copy(_q).multiply(_q2.setFromEuler(rot));
     this.root.visible = !scoped;
 
     // Mündungsfeuer und Hülsen

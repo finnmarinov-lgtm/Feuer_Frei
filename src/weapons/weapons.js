@@ -40,6 +40,9 @@ export class WeaponSystem {
     this.pendingKnife = null;
     this.shotCounter = 0;
     this.spread = 0;
+    // Zielen über Kimme und Korn: 0 = aus der Hüfte, 1 = voll im Anschlag
+    this.ads = 0;
+    this.adsToggled = false;
   }
 
   get active() {
@@ -53,6 +56,8 @@ export class WeaponSystem {
   resetForRound() {
     this.reloading = false;
     this.zoom = this.rezoom = 0;
+    this.ads = 0;
+    this.adsToggled = false;
     this.grenade = null;
     this.throwTimer = 0;
     this.pendingKnife = null;
@@ -69,6 +74,8 @@ export class WeaponSystem {
     if (slot === this.inv.current && !force) return;
     this.reloading = false;
     this.zoom = this.rezoom = 0;
+    this.ads = 0;
+    this.adsToggled = false;
     this.grenade = null;
     this.pendingKnife = null;
     if (slot !== this.inv.current) this.inv.last = this.inv.current;
@@ -96,11 +103,16 @@ export class WeaponSystem {
     if (!s) return 0;
     const p = this.g.player;
     let base = def.scope && this.zoom > 0 ? s.scoped : s.base;
+    let move = s.move;
+    if (def.ads && this.ads > 0) {
+      base *= 1 + (def.ads.spread - 1) * this.ads;
+      move *= 1 - 0.25 * this.ads;
+    }
     if (p.ducked) base *= 0.75;
     const max = def.speed;
     const speed = p.horizontalSpeed;
     const moveFrac = Math.min(1, Math.max(0, (speed - MOVE.accurateSpeed * max) / (max * (1 - MOVE.accurateSpeed))));
-    return base + s.move * moveFrac + (p.onGround ? 0 : s.air) + this.fireInacc;
+    return base + move * moveFrac + (p.onGround ? 0 : s.air) + this.fireInacc;
   }
 
   tick(dt, input) {
@@ -135,7 +147,9 @@ export class WeaponSystem {
     else if (def.slot === 'knife') this._tickKnife(input);
     else this._tickGun(dt, input, w);
 
-    p.maxSpeed = def.scope && this.zoom > 0 ? def.scopedSpeed : def.speed;
+    if (def.scope && this.zoom > 0) p.maxSpeed = def.scopedSpeed;
+    else if (def.ads) p.maxSpeed = def.speed * (1 + (def.ads.speed - 1) * this.ads);
+    else p.maxSpeed = def.speed;
 
     if (def.spread) this.fireInacc *= Math.exp(-dt / def.spread.recovery);
     const interval = def.rpm ? 60 / def.rpm : 0.4;
@@ -169,6 +183,7 @@ export class WeaponSystem {
       this.rezoom = 0;
     }
     if (input.consume('reload')) this.startReload(w);
+    if (def.ads) this._tickAds(dt, input);
     if (def.scope && input.altPressed && !this.reloading && this.drawTimer <= 0 && this.time >= this.nextFire - 0.05) {
       this.zoom = (this.zoom + 1) % (def.scope.length + 1);
       this.rezoom = 0;
@@ -186,6 +201,24 @@ export class WeaponSystem {
     } else if (w.mag === 0 && w.reserve > 0 && !this.reloading && this.time >= this.nextFire && !input.fire) {
       this.startReload(w);
     }
+  }
+
+  // Rechte Maustaste: halten (Standard) oder umschalten. Beim Nachladen und Ziehen geht es nicht.
+  _tickAds(dt, input) {
+    const cfg = this.def.ads;
+    let want;
+    if (this.g.settings.adsToggle) {
+      if (input.altPressed) this.adsToggled = !this.adsToggled;
+      want = this.adsToggled;
+    } else {
+      want = input.alt;
+    }
+    if (this.reloading || this.drawTimer > 0) {
+      want = false;
+      this.adsToggled = false;
+    }
+    const step = dt / cfg.time;
+    this.ads = want ? Math.min(1, this.ads + step) : Math.max(0, this.ads - step);
   }
 
   startReload(w) {
@@ -242,8 +275,9 @@ export class WeaponSystem {
       this.recoil.pitch += rc.up * (0.85 + Math.random() * 0.3);
       this.recoil.yaw -= (Math.random() * 2 - 1) * rc.side;
     }
-    this.kick.pitch += rc.viewKick * (0.8 + Math.random() * 0.4);
-    this.kick.yaw += (Math.random() - 0.5) * rc.viewKick * 0.4;
+    const kickScale = 1 - 0.35 * this.ads;
+    this.kick.pitch += rc.viewKick * (0.8 + Math.random() * 0.4) * kickScale;
+    this.kick.yaw += (Math.random() - 0.5) * rc.viewKick * 0.4 * kickScale;
     this.fireInacc += def.spread.fire;
 
     this.g.viewmodel.fire(def);
