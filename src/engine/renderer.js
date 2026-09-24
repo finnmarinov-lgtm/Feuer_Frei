@@ -10,7 +10,10 @@ import { QUALITY } from '../settings.js';
 export class Renderer {
   constructor(container) {
     // "desynchronized" gibt Bilder ohne Umweg über den Compositor aus: spürbar weniger
-    // Verzögerung zwischen Maus und Bild (dafür sind vereinzelt Bildrisse möglich)
+    // Verzögerung zwischen Maus und Bild (dafür sind vereinzelt Bildrisse möglich).
+    // Achtung: Die Leinwand kann dabei schon angezeigt werden, während noch gezeichnet wird.
+    // Deshalb nie mehrere Durchgänge direkt ins Bild, sondern immer über den Composer,
+    // der das fertige Bild am Ende in einem Zug ausgibt (sonst flackert es).
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('webgl2', {
       alpha: false, antialias: false, depth: true, stencil: false,
@@ -69,11 +72,7 @@ export class Renderer {
 
   _buildComposer() {
     this.composer?.dispose();
-    this.composer = null;
-    this.gtao = null;
-    this.viewPass = null;
     const q = this.quality;
-    if (q.direct) return;
     const size = this.renderer.getDrawingBufferSize(new THREE.Vector2());
     const target = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: q.msaa });
     const c = new EffectComposer(this.renderer, target);
@@ -123,19 +122,7 @@ export class Renderer {
   }
 
   render(showViewmodel) {
-    if (this.composer) {
-      this.viewPass.enabled = showViewmodel;
-      this.composer.render();
-      return;
-    }
-    // niedrige Grafik: Welt und Waffe direkt ins Bild, Tonemapping machen dann die Materialien selbst
-    const r = this.renderer;
-    r.render(this.scene, this.camera);
-    if (showViewmodel) {
-      r.autoClear = false;
-      r.clearDepth();
-      r.render(this.viewScene, this.viewCamera);
-      r.autoClear = true;
-    }
+    this.viewPass.enabled = showViewmodel;
+    this.composer.render();
   }
 }

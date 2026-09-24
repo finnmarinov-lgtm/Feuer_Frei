@@ -154,13 +154,13 @@ export class Viewmodel {
     });
     const anchor = model.getObjectByName('RedDot');
     if (!anchor) return null;
-    // Farben setzt setDirectOutput (hängt davon ab, ob mit Nachbearbeitung gezeichnet wird)
     const core = new THREE.MeshBasicMaterial({
-      transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false,
+      color: new THREE.Color(9, 0.35, 0.25), transparent: true, opacity: 0, depthWrite: false,
+      blending: THREE.AdditiveBlending,
     });
     const glow = new THREE.MeshBasicMaterial({
-      map: sparkTexture(), transparent: true, opacity: 0, depthWrite: false,
-      blending: THREE.AdditiveBlending, toneMapped: false,
+      map: sparkTexture(), color: new THREE.Color(3, 0.15, 0.1), transparent: true, opacity: 0,
+      depthWrite: false, blending: THREE.AdditiveBlending,
     });
     const dotMesh = new THREE.Mesh(new THREE.CircleGeometry(0.0006, 16), core);
     const glowMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.004, 0.004), glow);
@@ -171,27 +171,6 @@ export class Viewmodel {
       anchor.add(m);
     }
     return { core, glow };
-  }
-
-  /**
-   * Mit Nachbearbeitung wird das ganze Bild am Ende abgeflacht, dann braucht der Rotpunkt ein
-   * überhelles Rot. Ohne (niedrige Grafik) würde dieses Rot einzeln abgeflacht und rosa,
-   * deshalb dort ein fertiges, kräftiges Rot.
-   */
-  setDirectOutput(direct) {
-    for (const m of Object.values(this.models)) {
-      if (!m.dot) continue;
-      if (direct) {
-        // deckend statt aufaddiert: auf hellem Hintergrund bliebe sonst nur ein rosa Fleck
-        m.dot.core.color.setRGB(1, 0.06, 0.05);
-        m.dot.core.blending = THREE.NormalBlending;
-        m.dot.glow.color.setRGB(0.75, 0.04, 0.03);
-      } else {
-        m.dot.core.color.setRGB(9, 0.35, 0.25);
-        m.dot.core.blending = THREE.AdditiveBlending;
-        m.dot.glow.color.setRGB(3, 0.15, 0.1);
-      }
-    }
   }
 
   equip(def) {

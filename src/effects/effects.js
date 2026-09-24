@@ -178,6 +178,9 @@ export class Effects {
     this.decals.count = 0;
     this.decals.frustumCulled = false;
     this.decals.receiveShadow = true;
+    // Löcher liegen auf Wänden: vor allen anderen durchsichtigen Dingen zeichnen, sonst
+    // springt die Reihenfolge zum Rauch je nach Standort um und Löcher schimmern hindurch
+    this.decals.renderOrder = -1;
     this.decals.name = 'Einschusslöcher';
     scene.add(this.decals);
     this.decalIndex = 0;

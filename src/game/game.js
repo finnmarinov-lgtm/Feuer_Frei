@@ -70,7 +70,7 @@ export class Game {
     this.hud.setCrosshairColor(settings.crosshairColor);
 
     this.renderer.applyQuality(settings.quality, this.env.sun, settings.renderScale);
-    this._applyQualityExtras();
+    this._applyTextureFilter();
     this.effects.setViewport(this.renderer.renderer.getDrawingBufferSize(new THREE.Vector2()).y, this.camera.fov);
     this.sunCheckT = 0;
     this.viewLight = 1;
@@ -98,15 +98,13 @@ export class Game {
     this.hud.setCrosshairColor(s.crosshairColor);
     if (this.renderer.qualityKey !== s.quality || this.renderer.renderScale !== s.renderScale) {
       this.renderer.applyQuality(s.quality, this.env.sun, s.renderScale);
-      this._applyQualityExtras();
+      this._applyTextureFilter();
     }
     this.onResize();
   }
 
-  // Texturfilterung für schräg gesehene Flächen je nach Grafikstufe (vor allem der Boden),
-  // dazu die Farbe des Rotpunkts passend zur Zeichenart
-  _applyQualityExtras() {
-    this.viewmodel.setDirectOutput(this.renderer.quality.direct);
+  // Texturfilterung für schräg gesehene Flächen je nach Grafikstufe (vor allem der Boden)
+  _applyTextureFilter() {
     const n = Math.min(this.renderer.quality.aniso, this.renderer.renderer.capabilities.getMaxAnisotropy());
     for (const set of Object.values(this.assets.textures)) {
       for (const t of [set.diff, set.nor, set.arm]) {

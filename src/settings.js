@@ -2,13 +2,14 @@ const KEY = 'feuer-frei-einstellungen';
 // Stand der gespeicherten Einstellungen. Ab Version 2 startet das Spiel auf niedriger Grafik.
 const VERSION = 2;
 
-// direct: ohne Nachbearbeitung direkt ins Bild zeichnen (spart Zwischenbilder und Bandbreite)
 // staticShadows: Schatten der Arena nur einmal berechnen, Bewegliches wirft dann keinen Schatten
 // aniso: Texturfilterung für schräg gesehene Flächen (Boden)
+// Jede Stufe setzt das Bild erst im Hintergrund zusammen und gibt es dann in einem Stück aus:
+// die Leinwand zeigt Zwischenstände sonst sichtbar an (Flackern, siehe renderer.js).
 export const QUALITY = {
-  niedrig: { label: 'Niedrig', pixelRatio: 1, shadowSize: 2048, ao: false, msaa: 0, direct: true, staticShadows: true, aniso: 2 },
-  mittel: { label: 'Mittel', pixelRatio: 1, shadowSize: 2048, ao: false, msaa: 4, direct: false, staticShadows: false, aniso: 4 },
-  hoch: { label: 'Hoch', pixelRatio: 1.5, shadowSize: 4096, ao: true, msaa: 4, direct: false, staticShadows: false, aniso: 8 },
+  niedrig: { label: 'Niedrig', pixelRatio: 1, shadowSize: 2048, ao: false, msaa: 0, staticShadows: true, aniso: 2 },
+  mittel: { label: 'Mittel', pixelRatio: 1, shadowSize: 2048, ao: false, msaa: 4, staticShadows: false, aniso: 4 },
+  hoch: { label: 'Hoch', pixelRatio: 1.5, shadowSize: 4096, ao: true, msaa: 4, staticShadows: false, aniso: 8 },
 };
 
 // Anteil der Bildschirmauflösung, in dem gezeichnet wird (hilft schwachen Grafikchips am meisten)

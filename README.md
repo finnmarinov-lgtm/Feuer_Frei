@@ -126,13 +126,15 @@ Das Spiel startet auf **Niedrig**, damit es auch auf schwachen Laptops (Intel-Gr
 
 | Stufe | Was sie macht |
 |---|---|
-| Niedrig | zeichnet direkt ins Bild ohne Nachbearbeitung, Schatten der Arena werden nur einmal berechnet (Bewegliches wirft keinen Schatten), wenig Texturfilterung |
+| Niedrig | ohne Kantenglättung und Umgebungsverdeckung, Schatten der Arena werden nur einmal berechnet (Bewegliches wirft keinen Schatten), wenig Texturfilterung |
 | Mittel | Schatten in jedem Bild, 4-fache Kantenglättung |
 | Hoch | dazu Umgebungsverdeckung (weiche Kontaktschatten), schärfere Schatten, höhere Auflösung auf hochauflösenden Bildschirmen |
 
 Dazu die **Auflösung** (100 %, 85 %, 70 %, 50 %): weniger Pixel sind der größte Hebel für schwache Grafikchips, das Bild wird dafür etwas unschärfer.
 
 Damit das Spiel sparsam bleibt: Teile, die sich gemeinsam bewegen und dasselbe Material haben, werden beim Laden zu einem Mesh zusammengefasst (`src/engine/merge.js`). Einschusslöcher und Rauchschwaden sind je ein Instanz-Mesh, also ein Zeichenaufruf statt vieler.
+
+Die Leinwand ist auf geringe Verzögerung eingestellt (`desynchronized`). Dabei kann der Browser Zwischenstände anzeigen, deshalb wird jedes Bild erst im Hintergrund fertig zusammengesetzt und dann in einem Zug ausgegeben. Direkt in mehreren Durchgängen ins sichtbare Bild zu zeichnen führt zu Flackern.
 
 ## Veröffentlichen (GitHub Pages)
 
