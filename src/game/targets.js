@@ -1,0 +1,152 @@
+import * as THREE from 'three';
+
+const UP_TIME = 0.35;
+const FALL_TIME = 0.45;
+const DOWN_ANGLE = -Math.PI / 2;
+
+// Klappziele aus Stahl: Kopf- und Körperplatte, klappen hoch, fallen bei 0 Lebenspunkten nach hinten um.
+export class Targets {
+  constructor(scene, template, audio, effects) {
+    this.scene = scene;
+    this.template = template;
+    this.audio = audio;
+    this.effects = effects;
+    this.list = [];
+    this.raycaster = new THREE.Raycaster();
+    this.hitMeshes = [];
+  }
+
+  _create() {
+    const root = this.template.clone();
+    const pivot = root.getObjectByName('Pivot');
+    const t = { root, pivot, hp: 100, state: 'hidden', angle: DOWN_ANGLE, timer: 0, delay: 0, move: null, spot: null };
+    root.traverse((o) => {
+      if (!o.isMesh) return;
+      o.castShadow = true;
+      o.receiveShadow = true;
+      const zone = o.name.startsWith('Head') ? 'head' : o.name.startsWith('Body') ? 'body' : null;
+      o.userData.target = t;
+      o.userData.zone = zone;
+    });
+    root.visible = false;
+    this.scene.add(root);
+    this.list.push(t);
+    return t;
+  }
+
+  clear() {
+    for (const t of this.list) {
+      t.state = 'hidden';
+      t.root.visible = false;
+    }
+    this.hitMeshes = [];
+  }
+
+  /** Stellt Ziele an den Standorten auf. moving = Anzahl beweglicher Ziele */
+  setup(spots, moving, facingFrom) {
+    this.clear();
+    while (this.list.length < spots.length) this._create();
+    spots.forEach((spot, i) => {
+      const t = this.list[i];
+      t.spot = spot.clone();
+      t.hp = 100;
+      t.angle = DOWN_ANGLE;
+      t.state = 'waiting';
+      t.delay = 0.3 + Math.random() * 1.4;
+      t.root.visible = true;
+      t.root.position.copy(spot);
+      t.root.rotation.y = Math.atan2(facingFrom.x - spot.x, facingFrom.z - spot.z);
+      t.pivot.rotation.x = t.angle;
+      t.move = null;
+      if (i < moving) {
+        const side = new THREE.Vector3(Math.cos(t.root.rotation.y), 0, -Math.sin(t.root.rotation.y));
+        t.move = { side, range: 1.4, speed: 1.2 + Math.random() * 0.8, phase: Math.random() * Math.PI * 2 };
+      }
+    });
+    this._collectMeshes();
+  }
+
+  _collectMeshes() {
+    this.hitMeshes = [];
+    for (const t of this.list) {
+      if (!t.root.visible) continue;
+      t.root.traverse((o) => { if (o.isMesh) this.hitMeshes.push(o); });
+    }
+  }
+
+  get remaining() {
+    return this.list.filter((t) => t.root.visible && (t.state === 'waiting' || t.state === 'rising' || t.state === 'up')).length;
+  }
+
+  get total() {
+    return this.list.filter((t) => t.root.visible).length;
+  }
+
+  tick(dt, time) {
+    for (const t of this.list) {
+      if (!t.root.visible) continue;
+      if (t.state === 'waiting') {
+        t.delay -= dt;
+        if (t.delay <= 0) {
+          t.state = 'rising';
+          t.timer = 0;
+          this.audio.play('targetUp', { position: t.root.position });
+        }
+      } else if (t.state === 'rising') {
+        t.timer += dt;
+        const k = Math.min(1, t.timer / UP_TIME);
+        const e = 1 - Math.pow(1 - k, 3);
+        t.angle = DOWN_ANGLE * (1 - e) + Math.sin(k * Math.PI) * 0.05;
+        if (k >= 1) {
+          t.state = 'up';
+          t.angle = 0;
+        }
+      } else if (t.state === 'falling') {
+        t.timer += dt;
+        const k = Math.min(1, t.timer / FALL_TIME);
+        t.angle = DOWN_ANGLE * k * k;
+        if (k >= 1) t.state = 'down';
+      }
+      if (t.move && (t.state === 'up' || t.state === 'rising')) {
+        const off = Math.sin(time * t.move.speed + t.move.phase) * t.move.range;
+        t.root.position.copy(t.spot).addScaledVector(t.move.side, off);
+      }
+      t.pivot.rotation.x = t.angle;
+    }
+  }
+
+  /** Strahl gegen alle stehenden Ziele. Liefert nächsten Treffer bis maxDist. */
+  raycast(origin, dir, maxDist) {
+    if (!this.hitMeshes.length) return null;
+    for (const t of this.list) if (t.root.visible) t.root.updateMatrixWorld(true);
+    this.raycaster.set(origin, dir);
+    this.raycaster.far = maxDist;
+    const hits = this.raycaster.intersectObjects(this.hitMeshes, false);
+    for (const h of hits) {
+      const t = h.object.userData.target;
+      if (t.state !== 'up' && t.state !== 'rising') continue;
+      const normal = h.face ? h.face.normal.clone().transformDirection(h.object.matrixWorld) : dir.clone().negate();
+      return { target: t, zone: h.object.userData.zone, point: h.point, normal, distance: h.distance };
+    }
+    return null;
+  }
+
+  /** Schaden anwenden. Gibt { killed, damage } zurück. */
+  damage(t, amount) {
+    if (t.state !== 'up' && t.state !== 'rising') return { killed: false, damage: 0 };
+    const dealt = Math.min(t.hp, amount);
+    t.hp -= amount;
+    if (t.hp <= 0) {
+      t.state = 'falling';
+      t.timer = 0;
+      this.audio.play('targetDown', { position: t.root.position });
+      return { killed: true, damage: dealt };
+    }
+    return { killed: false, damage: dealt };
+  }
+
+  /** Mittelpunkte stehender Ziele (für Granatenschaden) */
+  standing() {
+    return this.list.filter((t) => t.root.visible && (t.state === 'up' || t.state === 'rising'));
+  }
+}

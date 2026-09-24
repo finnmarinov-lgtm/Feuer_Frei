@@ -1,0 +1,209 @@
+import { Renderer } from './engine/renderer.js';
+import { Physics } from './engine/physics.js';
+import { loadAssets } from './engine/assets.js';
+import { Input } from './engine/input.js';
+import { Audio } from './engine/audio.js';
+import { Game } from './game/game.js';
+import { loadSettings, saveSettings } from './settings.js';
+import { TRAINING } from './config.js';
+
+const $ = (id) => document.getElementById(id);
+const SCREENS = ['loading', 'menu', 'pause', 'settings', 'controls', 'results', 'click-resume'];
+const fmtMoney = (v) => `${Math.round(v).toLocaleString('de-DE')} $`;
+const fmtTime = (s) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
+const nextFrame = () => new Promise((r) => setTimeout(r, 0));
+
+function show(name) {
+  for (const s of SCREENS) $(s).hidden = s !== name;
+}
+
+const settings = loadSettings();
+
+async function boot() {
+  const renderer = new Renderer($('game'));
+  const bar = $('load-bar');
+  const text = $('load-text');
+  const physics = await Physics.create();
+  const assets = await loadAssets(renderer.renderer, (f) => { bar.style.width = `${Math.round(f * 100)}%`; });
+  text.textContent = 'Baue Arena …';
+  await nextFrame();
+  const input = new Input(renderer.canvas);
+  const audio = new Audio();
+  audio.setVolume(settings.volume);
+  const game = new Game({ renderer, physics, assets, input, audio, settings });
+  text.textContent = 'Bereite Grafik vor …';
+  await nextFrame();
+  await game.warmup();
+  window.addEventListener('resize', () => game.onResize());
+
+  let last = performance.now();
+  const loop = (now) => {
+    const dt = Math.min(0.1, (now - last) / 1000);
+    last = now;
+    game.frame(dt);
+    requestAnimationFrame(loop);
+  };
+  requestAnimationFrame(loop);
+
+  setupMenus(game, input, audio);
+  show('menu');
+  if (import.meta.env.DEV) window.__game = game;
+}
+
+function setupMenus(game, input, audio) {
+  let pendingResume = false;
+  let settingsBack = 'menu';
+  let controlsBack = 'menu';
+
+  const leaveGuard = (e) => {
+    e.preventDefault();
+    e.returnValue = '';
+  };
+
+  function enterFullscreen() {
+    if (!settings.fullscreen || document.fullscreenElement || !document.documentElement.requestFullscreen) return;
+    document.documentElement.requestFullscreen({ navigationUI: 'hide' })
+      // Im Vollbild fängt Chrome damit auch Strg+W ab (Ducken + Vorwärts)
+      .then(() => navigator.keyboard?.lock?.())
+      .catch(() => {});
+  }
+
+  async function lockOrAsk() {
+    await input.lock();
+    if (document.pointerLockElement !== input.canvas) show('click-resume');
+  }
+
+  async function start() {
+    audio.init();
+    enterFullscreen();
+    show(null);
+    game.startMatch();
+    input.enabled = true;
+    window.addEventListener('beforeunload', leaveGuard);
+    await lockOrAsk();
+  }
+
+  function pause() {
+    if (game.state !== 'playing') return;
+    game.state = 'paused';
+    game.buyMenu.hide();
+    input.unlock();
+    show('pause');
+  }
+
+  function resume() {
+    pendingResume = true;
+    show(null);
+    lockOrAsk();
+  }
+
+  function toMenu() {
+    game.quitToMenu();
+    input.enabled = false;
+    input.unlock();
+    window.removeEventListener('beforeunload', leaveGuard);
+    show('menu');
+  }
+
+  input.onLockChange = (locked) => {
+    if (locked) {
+      if (pendingResume) {
+        pendingResume = false;
+        game.state = 'playing';
+      }
+      if (game.state === 'playing') show(null);
+    } else if (game.state === 'playing' && !game.buyMenu.open) {
+      pause();
+    }
+  };
+  input.onEscape = () => {
+    if (game.state === 'playing') {
+      if (game.buyMenu.open) game.closeBuyMenu();
+      else pause();
+    } else if (game.state === 'paused' && $('pause').hidden === false) {
+      resume();
+    }
+  };
+  input.canvas.addEventListener('click', () => {
+    if (game.state === 'playing' && !input.locked && !game.buyMenu.open) lockOrAsk();
+  });
+  $('click-resume').addEventListener('click', () => {
+    if (game.state === 'paused') pendingResume = true;
+    show(null);
+    lockOrAsk();
+  });
+
+  $('btn-start').addEventListener('click', start);
+  $('btn-resume').addEventListener('click', resume);
+  $('btn-quit').addEventListener('click', toMenu);
+  $('btn-again').addEventListener('click', start);
+  $('btn-menu').addEventListener('click', toMenu);
+  $('btn-settings').addEventListener('click', () => { settingsBack = 'menu'; openSettings(); });
+  $('btn-settings2').addEventListener('click', () => { settingsBack = 'pause'; openSettings(); });
+  $('btn-settings-back').addEventListener('click', () => show(settingsBack));
+  $('btn-controls').addEventListener('click', () => { controlsBack = 'menu'; show('controls'); });
+  $('btn-controls2').addEventListener('click', () => { controlsBack = 'pause'; show('controls'); });
+  $('btn-controls-back').addEventListener('click', () => show(controlsBack));
+
+  // Einstellungen
+  const bind = (id, key, fmt, parse = Number) => {
+    const el = $(id);
+    const out = $(id.replace('set-', 'out-'));
+    const isCheck = el.type === 'checkbox';
+    const sync = () => {
+      if (isCheck) el.checked = !!settings[key];
+      else el.value = settings[key];
+      if (out) out.textContent = fmt(settings[key]);
+    };
+    el.addEventListener('input', () => {
+      settings[key] = isCheck ? el.checked : parse(el.value);
+      if (out) out.textContent = fmt(settings[key]);
+      saveSettings(settings);
+      game.applySettings();
+    });
+    return sync;
+  };
+  const syncs = [
+    bind('set-sens', 'sensitivity', (v) => v.toFixed(2)),
+    bind('set-fov', 'fov', (v) => `${v}°`),
+    bind('set-vol', 'volume', (v) => `${Math.round(v * 100)} %`),
+    bind('set-quality', 'quality', (v) => v, String),
+    bind('set-cross', 'crosshairColor', (v) => v, String),
+    bind('set-fullscreen', 'fullscreen', () => ''),
+    bind('set-fps', 'showFps', () => ''),
+  ];
+  function openSettings() {
+    for (const s of syncs) s();
+    show('settings');
+  }
+
+  // Auswertung
+  game.onMatchOverCb = (r) => {
+    input.unlock();
+    input.enabled = false;
+    window.removeEventListener('beforeunload', leaveGuard);
+    const acc = Math.round(r.accuracy * 100);
+    const hs = Math.round(r.headshots * 100);
+    $('res-title').textContent = r.won === TRAINING.rounds ? 'Alle Runden gewonnen!' : `Training beendet · ${r.won} von ${TRAINING.rounds} Runden gewonnen`;
+    const tiles = [
+      [`${r.kills} / ${r.targets}`, 'Ziele umgelegt'],
+      [`${acc} %`, 'Treffergenauigkeit'],
+      [`${hs} %`, 'Kopfschüsse'],
+      [fmtTime(r.time), 'Gesamtzeit'],
+      [fmtMoney(r.earned), 'Geld verdient'],
+      [fmtMoney(r.spent), 'Geld ausgegeben'],
+      [String(r.grenades), 'Granaten'],
+      [`${r.won} / ${TRAINING.rounds}`, 'Runden gewonnen'],
+    ];
+    $('res-grid').innerHTML = tiles.map(([v, l]) => `<div><b>${v}</b><span>${l}</span></div>`).join('');
+    $('res-rounds').innerHTML = '<tr><th>Runde</th><th>Ergebnis</th><th>Ziele</th><th>Kopfschüsse</th><th>Zeit</th><th>Geld</th></tr>' +
+      r.rounds.map((x, i) => `<tr><td>${i + 1}</td><td class="${x.won ? 'win' : 'loss'}">${x.won ? 'Gewonnen' : 'Verloren'}</td>` +
+        `<td>${x.kills} / ${x.targets}</td><td>${x.heads}</td><td>${fmtTime(x.time)}</td><td>+${fmtMoney(x.bonus + x.reward)}</td></tr>`).join('');
+    show('results');
+  };
+}
+
+boot().catch((err) => {
+  console.error(err);
+  $('load-text').textContent = 'Fehler beim Laden: ' + err.message;
+});

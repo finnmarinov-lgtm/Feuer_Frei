@@ -1,0 +1,157 @@
+// Alle Spielwerte an einem Ort. Längen in Metern, Zeiten in Sekunden, Winkel in Grad (Rückstoß)
+// bzw. Milliradiant (Streuung).
+
+export const TICK = 1 / 120;
+
+export const MOVE = {
+  gravity: 20.3,
+  jumpHeight: 1.2,
+  accelerate: 5.5,
+  airAccelerate: 12,
+  airWishCap: 0.76,
+  friction: 5.2,
+  stopSpeed: 2.0,
+  walkMul: 0.52,
+  crouchMul: 0.34,
+  radius: 0.35,
+  standHeight: 1.83,
+  crouchHeight: 1.37,
+  eyeStand: 1.64,
+  eyeCrouch: 1.18,
+  duckTime: 0.16,
+  // unter diesem Anteil der Höchstgeschwindigkeit gibt es keine Bewegungsstreuung (wie in CS)
+  accurateSpeed: 0.34,
+};
+
+export const ECONOMY = {
+  startMoney: 800,
+  maxMoney: 16000,
+  roundWin: 2000,
+  lossBase: 1400,
+  lossStep: 500,
+  lossMax: 3400,
+};
+
+export const TRAINING = {
+  rounds: 5,
+  freezeTime: 10,
+  buyWindow: 20,
+  roundTime: 75,
+  roundEndTime: 5,
+  targets: [5, 6, 7, 8, 10],
+  moving: [0, 1, 2, 3, 4],
+};
+
+export const PLAYER = {
+  health: 100,
+  helmetHeadMul: 0.5,
+};
+
+export const ARMOR = {
+  vest: { name: 'Schutzweste', price: 650 },
+  helmet: { name: 'Weste + Helm', price: 1000, upgrade: 350 },
+};
+
+// Rückstoßmuster: [hoch, rechts] in Grad pro Schuss
+const WOLF_PATTERN = [
+  [0, 0], [0.6, 0.0], [0.8, 0.06], [0.9, -0.05], [0.95, 0.1], [0.9, 0.16], [0.8, 0.22], [0.55, -0.35],
+  [0.4, -0.55], [0.3, -0.6], [0.15, -0.42], [0.1, 0.5], [0.1, 0.7], [0.05, 0.6], [0.05, 0.3],
+  [0.1, -0.5], [0.05, -0.7], [0.05, -0.5], [0.0, 0.4], [0.05, 0.62], [0.05, 0.5], [0.0, -0.3],
+  [0.05, -0.62], [0.05, -0.45], [0.0, 0.3], [0.05, 0.55], [0.0, 0.4], [0.05, -0.4], [0.0, -0.55], [0.0, 0.2],
+];
+const FALKE_PATTERN = [
+  [0, 0], [0.35, 0.02], [0.4, -0.03], [0.4, 0.05], [0.35, 0.08], [0.3, -0.1], [0.25, -0.2], [0.2, 0.2],
+  [0.15, 0.26], [0.1, -0.25], [0.08, -0.3], [0.05, 0.3], [0.05, 0.28], [0.03, -0.26],
+];
+
+export const WEAPONS = {
+  natter: {
+    name: 'Natter', type: 'Pistole', slot: 'secondary', price: 200, reward: 150, model: 'natter',
+    auto: false, rpm: 400, damage: 20, headMul: 2.4, armorPen: 0.47, rangeMod: 0.87,
+    mag: 20, reserve: 120, reload: 2.2, draw: 0.45, speed: 6.0,
+    spread: { base: 6, move: 24, air: 80, fire: 16, recovery: 0.3 },
+    recoil: { up: 0.85, side: 0.15, decay: 8, viewKick: 1.4 },
+    view: { pos: [0.125, -0.15, -0.44], rot: [0.03, 0.12, -0.04] },
+    sound: 'pistol', tracer: 0, anim: 'pistol', slide: 0.024,
+  },
+  kobra: {
+    name: 'Kobra', type: 'Schwere Pistole', slot: 'secondary', price: 700, reward: 150, model: 'kobra',
+    auto: false, rpm: 267, damage: 45, headMul: 2.4, armorPen: 0.93, rangeMod: 0.81,
+    mag: 7, reserve: 35, reload: 2.2, draw: 0.55, speed: 5.8,
+    spread: { base: 3, move: 45, air: 110, fire: 45, recovery: 0.45 },
+    recoil: { up: 2.8, side: 0.4, decay: 4, viewKick: 3.2 },
+    view: { pos: [0.13, -0.16, -0.47], rot: [0.03, 0.12, -0.04] },
+    sound: 'heavy', tracer: 0, anim: 'pistol', slide: 0.03,
+  },
+  falke: {
+    name: 'Falke', type: 'Maschinenpistole', slot: 'primary', price: 1250, reward: 300, model: 'falke',
+    auto: true, rpm: 750, damage: 18, headMul: 2.4, armorPen: 0.6, rangeMod: 0.85,
+    mag: 30, reserve: 120, reload: 2.6, draw: 0.7, speed: 5.9,
+    spread: { base: 9, move: 14, air: 55, fire: 5, recovery: 0.22 },
+    recoil: { pattern: FALKE_PATTERN, up: 0.05, side: 0.3, decay: 12, viewKick: 0.5 },
+    view: { pos: [0.15, -0.18, -0.44], rot: [0.03, 0.1, -0.03] },
+    sound: 'smg', tracer: 2, anim: 'rifle',
+  },
+  wolf: {
+    name: 'Wolf', type: 'Sturmgewehr', slot: 'primary', price: 2700, reward: 150, model: 'wolf',
+    auto: true, rpm: 600, damage: 25, headMul: 2.4, armorPen: 0.775, rangeMod: 0.98,
+    mag: 30, reserve: 90, reload: 2.45, draw: 0.9, speed: 5.5,
+    spread: { base: 3.5, move: 45, air: 90, fire: 7, recovery: 0.3 },
+    recoil: { pattern: WOLF_PATTERN, up: 0.05, side: 0.5, decay: 10, viewKick: 0.7 },
+    view: { pos: [0.16, -0.19, -0.48], rot: [0.03, 0.1, -0.03] },
+    sound: 'rifle', tracer: 2, anim: 'rifle',
+  },
+  adler: {
+    name: 'Adler', type: 'Scharfschützengewehr', slot: 'primary', price: 4750, reward: 50, model: 'adler',
+    auto: false, rpm: 41, damage: 100, headMul: 2.4, armorPen: 0.975, rangeMod: 0.99,
+    mag: 5, reserve: 30, reload: 3.6, draw: 1.1, speed: 5.1, scopedSpeed: 2.6,
+    spread: { base: 70, scoped: 0.6, move: 90, air: 150, fire: 0, recovery: 0.3 },
+    recoil: { up: 2.0, side: 0.2, decay: 3, viewKick: 4.5 },
+    scope: [30.7, 8.5],
+    view: { pos: [0.17, -0.235, -0.56], rot: [0.04, 0.1, -0.04] },
+    sound: 'sniper', tracer: 1, anim: 'sniper',
+  },
+  messer: {
+    name: 'Messer', type: 'Messer', slot: 'knife', price: 0, reward: 750, model: 'messer',
+    draw: 0.4, speed: 6.2,
+    slash: { damage: 34, range: 1.7, rate: 0.42 },
+    stab: { damage: 65, range: 1.45, rate: 1.0 },
+    view: { pos: [0.15, -0.13, -0.3], rot: [0.45, 0.45, -0.2] },
+    anim: 'knife',
+  },
+  he: {
+    name: 'Splittergranate', type: 'Granate', slot: 'utility', price: 300, reward: 150, model: 'he',
+    grenade: 'he', draw: 0.5, speed: 6.0,
+    view: { pos: [0.15, -0.125, -0.33], rot: [0.15, 0.25, -0.1] }, anim: 'grenade',
+  },
+  flash: {
+    name: 'Blendgranate', type: 'Granate', slot: 'utility', price: 200, reward: 0, model: 'flash',
+    grenade: 'flash', draw: 0.5, speed: 6.0,
+    view: { pos: [0.15, -0.125, -0.33], rot: [0.15, 0.25, -0.1] }, anim: 'grenade',
+  },
+  smoke: {
+    name: 'Rauchgranate', type: 'Granate', slot: 'utility', price: 300, reward: 0, model: 'smoke',
+    grenade: 'smoke', draw: 0.5, speed: 6.0,
+    view: { pos: [0.15, -0.125, -0.33], rot: [0.15, 0.25, -0.1] }, anim: 'grenade',
+  },
+};
+
+export const GRENADES = {
+  he: { fuse: 1.6, radius: 7.5, damage: 100, armorPen: 0.5 },
+  flash: { fuse: 1.6, radius: 22, maxBlind: 4.5 },
+  smoke: { fuse: 1.8, radius: 3.6, duration: 16, stopSpeed: 0.25 },
+  throwSpeed: 15.5,
+  lobSpeed: 7.0,
+  bodyRadius: 0.04,
+};
+
+// Reihenfolge im Kaufmenü
+export const SHOP = [
+  { title: 'Pistolen', items: ['natter', 'kobra'] },
+  { title: 'Maschinenpistole', items: ['falke'] },
+  { title: 'Gewehre', items: ['wolf', 'adler'] },
+  { title: 'Ausrüstung', items: ['vest', 'helmet'] },
+  { title: 'Granaten', items: ['he', 'flash', 'smoke'] },
+];
+
+export const SLOT_KEYS = ['primary', 'secondary', 'knife', 'util1', 'util2'];

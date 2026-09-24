@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Feuer Frei</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+  <div id="game"></div>
+
+  <!-- HUD -->
+  <div id="hud" hidden>
+    <div id="scope"><div class="scope-lines"></div></div>
+    <div id="crosshair"><i class="t"></i><i class="b"></i><i class="l"></i><i class="r"></i><i class="dot"></i></div>
+    <div id="hitmarker"><i></i><i></i><i></i><i></i></div>
+    <div id="damage-layer"></div>
+
+    <div id="topbar">
+      <div class="round" id="hud-round">Runde 1/5</div>
+      <div class="timer" id="hud-timer">1:15</div>
+      <div class="phase" id="hud-phase">Kaufzeit</div>
+      <div class="targets" id="hud-targets"></div>
+    </div>
+
+    <div id="money">
+      <span id="hud-money">800 $</span>
+      <span id="money-delta"></span>
+    </div>
+    <div id="buyhint" hidden><kbd>B</kbd> Kaufmenü <span id="buyhint-time"></span></div>
+
+    <div id="vitals">
+      <div class="vital"><svg viewBox="0 0 24 24"><path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6z"/></svg><b id="hud-health">100</b></div>
+      <div class="vital" id="armor-box"><svg viewBox="0 0 24 24"><path d="M12 2l8 3v6c0 5-3.4 9.4-8 11-4.6-1.6-8-6-8-11V5z"/></svg><b id="hud-armor">0</b><span id="hud-helmet" hidden>+ Helm</span></div>
+    </div>
+
+    <div id="ammo">
+      <div class="weapon-name" id="hud-weapon">Natter</div>
+      <div class="count"><b id="hud-mag">20</b><span id="hud-reserve">/ 120</span></div>
+    </div>
+
+    <div id="slots"></div>
+    <div id="killfeed"></div>
+    <div id="center-msg"><div class="title"></div><div class="sub"></div></div>
+    <div id="round-end" hidden><div class="title"></div><div class="sub"></div><div class="bonus"></div></div>
+    <div id="stats-panel" hidden></div>
+    <div id="fps" hidden></div>
+    <div id="vignette"></div>
+    <div id="flash"></div>
+  </div>
+
+  <!-- Kaufmenü -->
+  <div id="buymenu" hidden>
+    <div class="buy-head">
+      <h2>Kaufmenü</h2>
+      <div class="buy-money" id="buy-money"></div>
+      <div class="buy-time" id="buy-time"></div>
+      <button class="close" id="buy-close" title="Schließen (B)">✕</button>
+    </div>
+    <div class="buy-grid" id="buy-grid"></div>
+    <div class="buy-foot">Linksklick kaufen · Rechtsklick zurückgeben (nur in der Kaufzeit) · <kbd>B</kbd> schließen</div>
+  </div>
+
+  <!-- Menüs -->
+  <div id="loading" class="screen">
+    <div class="logo">FEUER <span>FREI</span></div>
+    <div class="bar"><i id="load-bar"></i></div>
+    <div class="hint" id="load-text">Lade Arena …</div>
+  </div>
+
+  <div id="menu" class="screen" hidden>
+    <div class="logo">FEUER <span>FREI</span></div>
+    <div class="tagline">Training · 5 Runden gegen Klappziele</div>
+    <div class="buttons">
+      <button class="primary" id="btn-start">Training starten</button>
+      <button id="btn-settings">Einstellungen</button>
+      <button id="btn-controls">Steuerung</button>
+    </div>
+    <div class="footnote">1 gegen 1 über eine Lobby kommt als Nächstes.</div>
+  </div>
+
+  <div id="pause" class="screen dim" hidden>
+    <h1>Pause</h1>
+    <div class="buttons">
+      <button class="primary" id="btn-resume">Weiter</button>
+      <button id="btn-settings2">Einstellungen</button>
+      <button id="btn-controls2">Steuerung</button>
+      <button id="btn-quit">Training beenden</button>
+    </div>
+  </div>
+
+  <div id="settings" class="screen dim" hidden>
+    <h1>Einstellungen</h1>
+    <div class="form">
+      <label>Mausempfindlichkeit <small>(wie in CS)</small><input type="range" id="set-sens" min="0.2" max="8" step="0.05"><output id="out-sens"></output></label>
+      <label>Sichtfeld<input type="range" id="set-fov" min="60" max="95" step="1"><output id="out-fov"></output></label>
+      <label>Lautstärke<input type="range" id="set-vol" min="0" max="1" step="0.01"><output id="out-vol"></output></label>
+      <label>Grafik
+        <select id="set-quality">
+          <option value="niedrig">Niedrig</option>
+          <option value="mittel">Mittel</option>
+          <option value="hoch">Hoch</option>
+        </select>
+      </label>
+      <label>Fadenkreuzfarbe
+        <select id="set-cross">
+          <option value="#5cff7a">Grün</option>
+          <option value="#ffffff">Weiß</option>
+          <option value="#ffe14d">Gelb</option>
+          <option value="#4de1ff">Türkis</option>
+          <option value="#ff5cf1">Pink</option>
+        </select>
+      </label>
+      <label class="check"><input type="checkbox" id="set-fullscreen"> Vollbild beim Start (schützt Strg+W)</label>
+      <label class="check"><input type="checkbox" id="set-fps"> Bilder pro Sekunde anzeigen</label>
+    </div>
+    <div class="buttons"><button class="primary" id="btn-settings-back">Zurück</button></div>
+  </div>
+
+  <div id="controls" class="screen dim" hidden>
+    <h1>Steuerung</h1>
+    <table class="keys">
+      <tr><td><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></td><td>Laufen</td></tr>
+      <tr><td><kbd>Maus</kbd></td><td>Umsehen</td></tr>
+      <tr><td><kbd>Linksklick</kbd></td><td>Schießen / Messerhieb / Granate weit werfen</td></tr>
+      <tr><td><kbd>Rechtsklick</kbd></td><td>Zielfernrohr / Messerstich / Granate kurz werfen</td></tr>
+      <tr><td><kbd>Leertaste</kbd></td><td>Springen</td></tr>
+      <tr><td><kbd>Strg</kbd> oder <kbd>C</kbd></td><td>Ducken (genauer, leiser)</td></tr>
+      <tr><td><kbd>Shift</kbd></td><td>Schleichen (lautlos, genauer)</td></tr>
+      <tr><td><kbd>R</kbd></td><td>Nachladen</td></tr>
+      <tr><td><kbd>1</kbd> – <kbd>5</kbd></td><td>Hauptwaffe, Pistole, Messer, Extra 1, Extra 2</td></tr>
+      <tr><td><kbd>Q</kbd> · <kbd>Mausrad</kbd></td><td>Letzte Waffe · Waffe wechseln</td></tr>
+      <tr><td><kbd>B</kbd></td><td>Kaufmenü (im Spawn, in der Kaufzeit)</td></tr>
+      <tr><td><kbd>F</kbd></td><td>Waffe begutachten</td></tr>
+      <tr><td><kbd>Tab</kbd></td><td>Statistik</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>Pause</td></tr>
+    </table>
+    <p class="tip">Tipp wie in CS: Im Stehen treffen die Waffen am besten. Kurz vor dem Schuss stoppen, und bei langen Salven die Maus nach unten ziehen.</p>
+    <div class="buttons"><button class="primary" id="btn-controls-back">Zurück</button></div>
+  </div>
+
+  <div id="results" class="screen dim" hidden>
+    <h1 id="res-title">Training beendet</h1>
+    <div class="res-grid" id="res-grid"></div>
+    <table class="res-rounds" id="res-rounds"></table>
+    <div class="buttons">
+      <button class="primary" id="btn-again">Nochmal</button>
+      <button id="btn-menu">Hauptmenü</button>
+    </div>
+  </div>
+
+  <div id="click-resume" class="screen dim" hidden>
+    <h1>Klicken zum Weiterspielen</h1>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
