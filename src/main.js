@@ -1,7 +1,7 @@
 import { Renderer } from './engine/renderer.js';
 import { Physics } from './engine/physics.js';
 import { loadAssets } from './engine/assets.js';
-import { Input } from './engine/input.js';
+import { Input, RESERVED_KEYS, keyLabel } from './engine/input.js';
 import { Audio } from './engine/audio.js';
 import { Game } from './game/game.js';
 import { loadSettings, saveSettings } from './settings.js';
@@ -117,6 +117,7 @@ function setupMenus(game, input, audio) {
     }
   };
   input.onEscape = () => {
+    if (notesOpen) return;
     if (game.state === 'playing') {
       if (game.buyMenu.open) game.closeBuyMenu();
       else pause();
@@ -140,7 +141,11 @@ function setupMenus(game, input, audio) {
   $('btn-menu').addEventListener('click', toMenu);
   $('btn-settings').addEventListener('click', () => { settingsBack = 'menu'; openSettings(); });
   $('btn-settings2').addEventListener('click', () => { settingsBack = 'pause'; openSettings(); });
-  $('btn-settings-back').addEventListener('click', () => show(settingsBack));
+  $('btn-settings-back').addEventListener('click', () => {
+    input.capture = null;
+    syncBossKey();
+    show(settingsBack);
+  });
   $('btn-controls').addEventListener('click', () => { controlsBack = 'menu'; show('controls'); });
   $('btn-controls2').addEventListener('click', () => { controlsBack = 'pause'; show('controls'); });
   $('btn-controls-back').addEventListener('click', () => show(controlsBack));
@@ -175,8 +180,94 @@ function setupMenus(game, input, audio) {
   ];
   function openSettings() {
     for (const s of syncs) s();
+    syncBossKey();
     show('settings');
   }
+
+  // ---------- Notizblock-Taste ----------
+  let notesOpen = false;
+  let screenBeforeNotes = null;
+  const NOTES_KEY = 'feuer-frei-notizen';
+  const bossBtn = $('set-bosskey');
+
+  function syncBossKey() {
+    bossBtn.textContent = keyLabel(settings.bossKey);
+    bossBtn.classList.remove('waiting');
+    $('help-bosskey').textContent = keyLabel(settings.bossKey);
+    $('bosskey-hint').textContent = '';
+  }
+
+  bossBtn.addEventListener('click', () => {
+    bossBtn.textContent = 'Taste drücken …';
+    bossBtn.classList.add('waiting');
+    $('bosskey-hint').textContent = '';
+    input.capture = (code) => {
+      syncBossKey();
+      if (code === 'Escape') return;
+      if (RESERVED_KEYS.has(code)) {
+        $('bosskey-hint').textContent = `${keyLabel(code)} braucht das Spiel selbst, bitte eine andere Taste wählen.`;
+        return;
+      }
+      settings.bossKey = code;
+      input.bossKey = code;
+      saveSettings(settings);
+      syncBossKey();
+    };
+  });
+
+  try {
+    const saved = JSON.parse(localStorage.getItem(NOTES_KEY) || 'null');
+    if (saved) {
+      $('notes-title').value = saved.title || 'Notizen';
+      $('notes-text').value = saved.text || '';
+    }
+  } catch {
+    // ohne Speicher bleibt das Blatt leer
+  }
+  const saveNotes = () => {
+    try {
+      localStorage.setItem(NOTES_KEY, JSON.stringify({ title: $('notes-title').value, text: $('notes-text').value }));
+    } catch {
+      // Notizen gelten dann nur für diese Sitzung
+    }
+  };
+  $('notes-text').addEventListener('input', saveNotes);
+  $('notes-title').addEventListener('input', saveNotes);
+
+  // Sofort umschalten: Spiel pausieren, Maus freigeben, Vollbild verlassen, Ton aus
+  function toggleNotes() {
+    if (!notesOpen) {
+      notesOpen = true;
+      screenBeforeNotes = SCREENS.find((s) => !$(s).hidden) || null;
+      if (game.state === 'playing') {
+        game.state = 'paused';
+        screenBeforeNotes = 'pause';
+      }
+      game.buyMenu.hide();
+      game.renderPaused = true;
+      input.releaseAll();
+      input.unlock();
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+      audio.mute(true);
+      $('notes-date').textContent = new Date().toLocaleDateString('de-DE', {
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+      });
+      $('notes').hidden = false;
+      document.title = $('notes-title').value || 'Notizen';
+      $('notes-text').focus();
+    } else {
+      notesOpen = false;
+      $('notes').hidden = true;
+      document.title = 'Feuer Frei';
+      game.renderPaused = false;
+      audio.mute(false);
+      document.activeElement?.blur?.();
+      show(screenBeforeNotes || 'menu');
+    }
+  }
+  input.bossKey = settings.bossKey;
+  input.onBossKey = toggleNotes;
+  syncBossKey();
 
   // Auswertung
   game.onMatchOverCb = (r) => {

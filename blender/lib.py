@@ -180,6 +180,25 @@ def cyl_between(name, start, end, r1, r2, material, segs=20, bevel=0.002, parent
     return _finish(name, bm, material, parent, center, bevel, 2, 35, True)
 
 
+def tube(name, r_out, r_in, length, center, material, axis='Y', segs=32, bevel=0.0008, parent=None):
+    """Hohles Rohr (z. B. Gehäuse eines Rotpunktvisiers), durch das man hindurchsehen kann."""
+    bm = bmesh.new()
+    h = length / 2
+    rings = []
+    for z, r in ((-h, r_out), (h, r_out), (h, r_in), (-h, r_in)):
+        rings.append([bm.verts.new((r * math.cos(2 * math.pi * i / segs), r * math.sin(2 * math.pi * i / segs), z))
+                      for i in range(segs)])
+    for a, b in ((0, 1), (1, 2), (2, 3), (3, 0)):
+        ra, rb = rings[a], rings[b]
+        for i in range(segs):
+            j = (i + 1) % segs
+            bm.faces.new((ra[i], ra[j], rb[j], rb[i]))
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bmesh.ops.rotate(bm, verts=bm.verts, cent=(0, 0, 0), matrix=_axis_matrix(axis))
+    bmesh.ops.translate(bm, verts=bm.verts, vec=Vector(center))
+    return _finish(name, bm, material, parent, center, bevel, 2, 35, True)
+
+
 def sphere(name, r, center, material, scale=(1, 1, 1), parent=None, segs=24):
     bm = bmesh.new()
     bmesh.ops.create_uvsphere(bm, u_segments=segs, v_segments=segs // 2 + 2, radius=r)

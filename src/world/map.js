@@ -94,8 +94,6 @@ function defineLayout() {
   // niedrige Deckungsmauern
   mirror(-12, -8, 0, 1.1, 12, 12.4, 'concrete');
   mirror(-24, -20, 0, 1.1, -12.3, -11.9, 'concrete');
-  // Betonplatte im Spawn (nur Optik, damit man nicht an der Kante hängen bleibt)
-  mirror(-29.9, -22.5, 0, 0.012, -3, 3, 'concrete', { collider: 'none' });
   return list;
 }
 

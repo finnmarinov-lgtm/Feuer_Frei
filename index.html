@@ -114,6 +114,10 @@
           <option value="#ff5cf1">Pink</option>
         </select>
       </label>
+      <label class="key">Notizblock-Taste <small>(wechselt sofort zum weißen Notizblatt)</small>
+        <button type="button" id="set-bosskey">^</button>
+      </label>
+      <div class="hint" id="bosskey-hint"></div>
       <label class="check"><input type="checkbox" id="set-adstoggle"> Zielen per Klick umschalten (statt Taste halten)</label>
       <label class="check"><input type="checkbox" id="set-fullscreen"> Vollbild beim Start (schützt Strg+W)</label>
       <label class="check"><input type="checkbox" id="set-fps"> Bilder pro Sekunde anzeigen</label>
@@ -138,6 +142,7 @@
       <tr><td><kbd>F</kbd></td><td>Waffe begutachten</td></tr>
       <tr><td><kbd>Tab</kbd></td><td>Statistik</td></tr>
       <tr><td><kbd>Esc</kbd></td><td>Pause</td></tr>
+      <tr><td><kbd id="help-bosskey">^</kbd></td><td>Notizblock: sofort weißes Blatt, Spiel pausiert, Ton aus (Taste in den Einstellungen änderbar)</td></tr>
     </table>
     <p class="tip">Tipp wie in CS: Im Stehen treffen die Waffen am besten. Kurz vor dem Schuss stoppen, und bei langen Salven die Maus nach unten ziehen.</p>
     <div class="buttons"><button class="primary" id="btn-controls-back">Zurück</button></div>
@@ -155,6 +160,15 @@
 
   <div id="click-resume" class="screen dim" hidden>
     <h1>Klicken zum Weiterspielen</h1>
+  </div>
+
+  <!-- Notizblock: schlichtes weißes Blatt, auf Tastendruck sofort sichtbar -->
+  <div id="notes" hidden>
+    <div class="notes-page">
+      <input id="notes-title" value="Notizen" spellcheck="false" aria-label="Titel">
+      <div id="notes-date"></div>
+      <textarea id="notes-text" spellcheck="false" aria-label="Notizen"></textarea>
+    </div>
   </div>
 
   <script type="module" src="/src/main.js"></script>

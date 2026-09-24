@@ -6,6 +6,8 @@ const GUN = {
   smg: { crack: 3000, crackDecay: 0.045, body: 1150, bodyDecay: 0.085, thump: 160, thumpDecay: 0.055, gain: 0.62, tail: 0.28 },
   rifle: { crack: 2100, crackDecay: 0.07, body: 720, bodyDecay: 0.16, thump: 105, thumpDecay: 0.1, gain: 0.9, tail: 0.55 },
   sniper: { crack: 1500, crackDecay: 0.11, body: 430, bodyDecay: 0.32, thump: 62, thumpDecay: 0.22, gain: 1.15, tail: 1.1 },
+  rifle2: { crack: 2500, crackDecay: 0.06, body: 820, bodyDecay: 0.13, thump: 120, thumpDecay: 0.085, gain: 0.85, tail: 0.5 },
+  shotgun: { crack: 1300, crackDecay: 0.1, body: 380, bodyDecay: 0.34, thump: 58, thumpDecay: 0.24, gain: 1.25, tail: 0.95 },
 };
 
 export class Audio {
@@ -45,6 +47,13 @@ export class Audio {
   setVolume(v) {
     this.volume = v;
     if (this.master) this.master.gain.value = v;
+  }
+
+  /** Sofort stumm (z. B. für den Notizblock) und wieder an */
+  mute(on) {
+    if (!this.ctx) return;
+    if (on) this.ctx.suspend();
+    else this.ctx.resume();
   }
 
   // Innenhof-Hall: frühe Echos an den Wänden plus diffuser Nachhall
@@ -195,6 +204,21 @@ export class Audio {
         this._noise(o, t, { type: 'bandpass', freq: 2200, q: 3, gain: 0.8, decay: 0.04 });
         this._noise(o, t + 0.11, { type: 'bandpass', freq: 2800, q: 3, gain: 1, decay: 0.05 });
         this._tone(o, t + 0.11, { freq: 1900, gain: 0.08, decay: 0.12 });
+        break;
+      }
+      case 'pump': {
+        const o = this._out(pos, 0.6 * vol, 0.2);
+        this._noise(o, t, { type: 'bandpass', freq: 700, freqEnd: 1400, q: 1.5, gain: 0.7, attack: 0.02, decay: 0.1 });
+        this._noise(o, t + 0.1, { type: 'bandpass', freq: 2200, q: 3, gain: 1, decay: 0.05 });
+        this._noise(o, t + 0.2, { type: 'bandpass', freq: 1400, freqEnd: 700, q: 1.5, gain: 0.6, attack: 0.02, decay: 0.08 });
+        this._noise(o, t + 0.29, { type: 'bandpass', freq: 2600, q: 3, gain: 1, decay: 0.05 });
+        this._tone(o, t + 0.29, { freq: 1500, gain: 0.08, decay: 0.12 });
+        break;
+      }
+      case 'shellIn': {
+        const o = this._out(pos, 0.45 * vol, 0.1);
+        this._noise(o, t, { type: 'bandpass', freq: 1600, q: 2, gain: 0.8, decay: 0.04 });
+        this._noise(o, t + 0.05, { type: 'bandpass', freq: 2400, q: 3, gain: 0.7, decay: 0.03 });
         break;
       }
       case 'bolt': {

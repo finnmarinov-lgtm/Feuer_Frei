@@ -8,7 +8,7 @@ export const TEXTURE_SETS = [
   'sandy_gravel_02', 'sandstone_blocks_08', 'patterned_clay_plaster', 'concrete_floor_worn_001',
   'rusty_corrugated_iron', 'wood_planks',
 ];
-export const MODELS = ['wolf', 'falke', 'adler', 'natter', 'kobra', 'messer', 'he', 'flash', 'smoke', 'crates', 'target', 'props'];
+export const MODELS = ['wolf', 'luchs', 'falke', 'keiler', 'adler', 'natter', 'kobra', 'messer', 'he', 'flash', 'smoke', 'crates', 'target', 'props'];
 
 export async function loadAssets(renderer, onProgress) {
   const manager = new THREE.LoadingManager();

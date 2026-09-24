@@ -7,7 +7,9 @@ const INFO = {
   natter: 'Standardpistole, genau im Stand',
   kobra: 'Kopftreffer sind tödlich',
   falke: 'Genau auch im Laufen',
+  keiler: 'Nah ein Treffer, weit schwach',
   wolf: 'Stark, aber mit Rückstoß',
+  luchs: 'Rotpunktvisier, ruhiger Rückstoß',
   adler: 'Ein Körpertreffer reicht',
   vest: 'Weniger Schaden am Körper',
   helmet: 'Schützt auch den Kopf',
@@ -41,7 +43,8 @@ export class BuyMenu {
         const def = WEAPONS[id];
         const name = def ? def.name : ARMOR[id].name;
         const type = def ? def.type : 'Ausrüstung';
-        const stat = def?.damage ? `${def.damage} Schaden · ${def.rpm}/min · ${def.mag} Schuss` : INFO[id];
+        const dmg = def?.pellets ? `${def.damage}×${def.pellets}` : def?.damage;
+        const stat = def?.damage ? `${dmg} Schaden · ${def.rpm}/min · ${def.mag} Schuss` : INFO[id];
         b.innerHTML = `<span class="n">${name}</span><span class="t">${type}${def?.damage ? ' · ' + INFO[id] : ''}</span>
           <span class="p"></span><span class="stat">${stat}</span><span class="why"></span>`;
         b.addEventListener('click', () => {

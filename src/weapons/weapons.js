@@ -7,6 +7,7 @@ const MAX_RANGE = 250;
 
 const _eye = new THREE.Vector3();
 const _dir = new THREE.Vector3();
+const _pdir = new THREE.Vector3();
 const _right = new THREE.Vector3();
 const _up = new THREE.Vector3();
 const _muzzle = new THREE.Vector3();
@@ -18,7 +19,7 @@ function dirFromAngles(out, pitch, yaw) {
   return out.set(-Math.sin(yaw) * cp, Math.sin(pitch), -Math.cos(yaw) * cp);
 }
 
-// Schießen, Nachladen, Rückstoß, Streuung, Messer und Granatenwurf.
+// Schießen, Nachladen, Rückstoß, Streuung, Zielen, Messer und Granatenwurf.
 export class WeaponSystem {
   constructor(game) {
     this.g = game;
@@ -33,16 +34,15 @@ export class WeaponSystem {
     this.recoil = { pitch: 0, yaw: 0 };
     this.kick = { pitch: 0, yaw: 0 };
     this.fireInacc = 0;
-    this.zoom = 0;
-    this.rezoom = 0;
     this.grenade = null;
     this.throwTimer = 0;
     this.pendingKnife = null;
     this.shotCounter = 0;
     this.spread = 0;
-    // Zielen über Kimme und Korn: 0 = aus der Hüfte, 1 = voll im Anschlag
+    // Zielen (Kimme und Korn, Rotpunkt oder Zielfernrohr): 0 = aus der Hüfte, 1 = voll im Anschlag
     this.ads = 0;
     this.adsToggled = false;
+    this.adsBlockUntil = 0;
   }
 
   get active() {
@@ -53,11 +53,16 @@ export class WeaponSystem {
     return this.inv.active.def;
   }
 
+  /** Zielfernrohr voll angelegt: Bild durch das Fernrohr statt Waffe in der Hand */
+  get scoped() {
+    return !!this.inv.active?.def.scope && this.ads >= 0.98;
+  }
+
   resetForRound() {
     this.reloading = false;
-    this.zoom = this.rezoom = 0;
     this.ads = 0;
     this.adsToggled = false;
+    this.adsBlockUntil = 0;
     this.grenade = null;
     this.throwTimer = 0;
     this.pendingKnife = null;
@@ -73,9 +78,9 @@ export class WeaponSystem {
     if (!this.inv.slots[slot]) return;
     if (slot === this.inv.current && !force) return;
     this.reloading = false;
-    this.zoom = this.rezoom = 0;
     this.ads = 0;
     this.adsToggled = false;
+    this.adsBlockUntil = 0;
     this.grenade = null;
     this.pendingKnife = null;
     if (slot !== this.inv.current) this.inv.last = this.inv.current;
@@ -102,9 +107,11 @@ export class WeaponSystem {
     const s = def.spread;
     if (!s) return 0;
     const p = this.g.player;
-    let base = def.scope && this.zoom > 0 ? s.scoped : s.base;
+    let base = s.base;
     let move = s.move;
-    if (def.ads && this.ads > 0) {
+    if (def.scope) {
+      if (this.scoped) base = s.scoped;
+    } else if (def.ads && this.ads > 0) {
       base *= 1 + (def.ads.spread - 1) * this.ads;
       move *= 1 - 0.25 * this.ads;
     }
@@ -113,6 +120,12 @@ export class WeaponSystem {
     const speed = p.horizontalSpeed;
     const moveFrac = Math.min(1, Math.max(0, (speed - MOVE.accurateSpeed * max) / (max * (1 - MOVE.accurateSpeed))));
     return base + move * moveFrac + (p.onGround ? 0 : s.air) + this.fireInacc;
+  }
+
+  /** Öffnung des Schrotkegels in Milliradiant (im Anschlag etwas enger) */
+  pelletCone(def) {
+    const k = def.ads ? 1 + (def.ads.spread - 1) * this.ads : 1;
+    return def.pelletSpread * k;
   }
 
   tick(dt, input) {
@@ -147,9 +160,7 @@ export class WeaponSystem {
     else if (def.slot === 'knife') this._tickKnife(input);
     else this._tickGun(dt, input, w);
 
-    if (def.scope && this.zoom > 0) p.maxSpeed = def.scopedSpeed;
-    else if (def.ads) p.maxSpeed = def.speed * (1 + (def.ads.speed - 1) * this.ads);
-    else p.maxSpeed = def.speed;
+    p.maxSpeed = def.ads ? def.speed * (1 + (def.ads.speed - 1) * this.ads) : def.speed;
 
     if (def.spread) this.fireInacc *= Math.exp(-dt / def.spread.recovery);
     const interval = def.rpm ? 60 / def.rpm : 0.4;
@@ -162,7 +173,7 @@ export class WeaponSystem {
     const kk = Math.exp(-dt * 14);
     this.kick.pitch *= kk;
     this.kick.yaw *= kk;
-    this.spread = this.currentSpread(def);
+    this.spread = this.currentSpread(def) + (def.pellets ? this.pelletCone(def) : 0);
   }
 
   // ---------- Schusswaffen ----------
@@ -170,7 +181,21 @@ export class WeaponSystem {
     const def = w.def;
     if (this.reloading) {
       this.reloadTimer -= dt;
-      if (this.reloadTimer <= 0) {
+      if (def.shellReload) {
+        if (this.reloadTimer <= 0) {
+          if (w.mag < def.mag && w.reserve > 0) {
+            w.mag++;
+            w.reserve--;
+            this.g.audio.play('shellIn');
+            this.g.viewmodel.shellIn();
+            this.g.hud.onAmmo();
+          }
+          if (w.mag >= def.mag || w.reserve <= 0) this._endShellReload(true);
+          else this.reloadTimer = def.reload;
+        }
+        // Wie in CS: ein Schuss bricht das Nachladen ab
+        if (this.reloading && input.firePressed && w.mag > 0) this._endShellReload(false);
+      } else if (this.reloadTimer <= 0) {
         const take = Math.min(def.mag - w.mag, w.reserve);
         w.mag += take;
         w.reserve -= take;
@@ -178,17 +203,8 @@ export class WeaponSystem {
         this.g.hud.onAmmo();
       }
     }
-    if (this.rezoom && this.time >= this.nextFire && !this.reloading) {
-      this.zoom = this.rezoom;
-      this.rezoom = 0;
-    }
     if (input.consume('reload')) this.startReload(w);
     if (def.ads) this._tickAds(dt, input);
-    if (def.scope && input.altPressed && !this.reloading && this.drawTimer <= 0 && this.time >= this.nextFire - 0.05) {
-      this.zoom = (this.zoom + 1) % (def.scope.length + 1);
-      this.rezoom = 0;
-      this.g.audio.play('scope');
-    }
     const wants = def.auto ? input.fire : input.firePressed;
     if (wants && this.drawTimer <= 0 && !this.reloading && this.time >= this.nextFire) {
       if (w.mag > 0) {
@@ -203,9 +219,10 @@ export class WeaponSystem {
     }
   }
 
-  // Rechte Maustaste: halten (Standard) oder umschalten. Beim Nachladen und Ziehen geht es nicht.
+  // Rechte Maustaste: halten (Standard) oder umschalten. Beim Nachladen, Ziehen und
+  // Repetieren des Scharfschützengewehrs geht es nicht.
   _tickAds(dt, input) {
-    const cfg = this.def.ads;
+    const def = this.def;
     let want;
     if (this.g.settings.adsToggle) {
       if (input.altPressed) this.adsToggled = !this.adsToggled;
@@ -217,21 +234,37 @@ export class WeaponSystem {
       want = false;
       this.adsToggled = false;
     }
-    const step = dt / cfg.time;
+    if (this.time < this.adsBlockUntil) want = false;
+    const wasScoped = this.scoped;
+    const step = dt / def.ads.time;
     this.ads = want ? Math.min(1, this.ads + step) : Math.max(0, this.ads - step);
+    if (def.scope && !wasScoped && this.scoped) this.g.audio.play('scope');
   }
 
   startReload(w) {
     const def = w.def;
     if (this.reloading || !def.mag || w.mag >= def.mag || w.reserve <= 0 || this.drawTimer > 0) return;
     this.reloading = true;
-    this.reloadTimer = def.reload;
-    this.zoom = this.rezoom = 0;
-    this.g.viewmodel.reload(def, def.reload);
     const a = this.g.audio;
+    if (def.shellReload) {
+      this.reloadTimer = def.reloadStart;
+      this.g.viewmodel.shellReload(true);
+      return;
+    }
+    this.reloadTimer = def.reload;
+    this.g.viewmodel.reload(def, def.reload);
     a.play('magOut', { delay: def.reload * 0.18 });
     a.play('magIn', { delay: def.reload * 0.58 });
     a.play('rack', { delay: def.reload * 0.8 });
+  }
+
+  _endShellReload(pump) {
+    this.reloading = false;
+    this.g.viewmodel.shellReload(false);
+    if (pump) {
+      this.g.viewmodel.pump(0.1);
+      this.g.audio.play('pump', { delay: 0.12 });
+    }
   }
 
   _shoot(w) {
@@ -271,7 +304,7 @@ export class WeaponSystem {
     _dir.addScaledVector(_right, Math.cos(a) * r).addScaledVector(_up, Math.sin(a) * r).normalize();
 
     if (!rc.pattern && idx === 0) {
-      // Pistolen: Rückstoß wirkt auf den nächsten Schuss
+      // Pistolen und Schrot: Rückstoß wirkt auf den nächsten Schuss
       this.recoil.pitch += rc.up * (0.85 + Math.random() * 0.3);
       this.recoil.yaw -= (Math.random() * 2 - 1) * rc.side;
     }
@@ -284,17 +317,26 @@ export class WeaponSystem {
     this.g.audio.shot(def.sound);
     this.g.viewmodel.muzzleWorld(_muzzle, _eye);
     this.g.effects.muzzleFlash(_muzzle);
-    const end = this._trace(_eye, _dir, def);
-    if (def.tracer && this.shotCounter % def.tracer === 0) this.g.effects.tracer(_muzzle, end);
+    if (def.pellets) {
+      this._firePellets(_eye, _dir, def);
+    } else {
+      const end = this._trace(_eye, _dir, def);
+      if (def.tracer && this.shotCounter % def.tracer === 0) this.g.effects.tracer(_muzzle, end);
+    }
     this.g.match.onShot();
     this.g.hud.onAmmo();
     if (w.mag === 0) this.g.viewmodel.onMagEmpty();
 
     if (def.scope) {
-      if (this.zoom > 0) this.rezoom = this.zoom;
-      this.zoom = 0;
+      // Zoom geht raus, nach dem Repetieren wieder rein, solange die Taste gehalten wird
+      this.ads = 0;
+      this.adsBlockUntil = this.nextFire;
       this.g.viewmodel.bolt();
       this.g.audio.play('bolt', { delay: 0.3 });
+    }
+    if (def.anim === 'shotgun') {
+      this.g.viewmodel.pump(0.14);
+      this.g.audio.play('pump', { delay: 0.3 });
     }
   }
 
@@ -316,6 +358,49 @@ export class WeaponSystem {
       this.g.audio.play('impact', { position: _end, surface: world.surface, volume: 0.8 });
     }
     return _end;
+  }
+
+  // Schrot: jede Kugel einzeln verfolgen, Schaden pro Ziel zusammenzählen (ein Treffer, ein Klang)
+  _firePellets(eye, aim, def) {
+    const cone = this.pelletCone(def) / 1000;
+    _right.set(aim.z, 0, -aim.x).normalize();
+    if (_right.lengthSq() < 1e-6) _right.set(1, 0, 0);
+    _up.crossVectors(_right, aim).normalize();
+    const hits = new Map();
+    let firstImpact = null;
+    for (let i = 0; i < def.pellets; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const r = cone * Math.sqrt(Math.random());
+      _pdir.copy(aim).addScaledVector(_right, Math.cos(a) * r).addScaledVector(_up, Math.sin(a) * r).normalize();
+      const world = this.g.physics.raycast(eye, _pdir, MAX_RANGE);
+      const worldDist = world ? world.distance : MAX_RANGE;
+      const hit = this.g.targets.raycast(eye, _pdir, worldDist);
+      if (hit) {
+        const head = hit.zone === 'head';
+        this.g.effects.targetHit(hit.point, hit.normal, head);
+        if (!hit.zone) continue;
+        let h = hits.get(hit.target);
+        if (!h) {
+          h = { target: hit.target, damage: 0, head: false, point: hit.point.clone() };
+          hits.set(hit.target, h);
+        }
+        h.damage += def.damage * (head ? def.headMul : 1) * Math.pow(def.rangeMod, hit.distance / 10);
+        if (head) h.head = true;
+      } else if (world) {
+        const point = eye.clone().addScaledVector(_pdir, worldDist);
+        this.g.effects.impact(point, world.normal, world.surface);
+        if (!firstImpact) firstImpact = { point, surface: world.surface };
+      }
+    }
+    if (firstImpact) this.g.audio.play('impact', { position: firstImpact.point, surface: firstImpact.surface });
+    for (const h of hits.values()) {
+      const res = this.g.targets.damage(h.target, Math.round(h.damage));
+      this.g.audio.play(h.head ? 'dingHead' : 'ding', { position: h.point });
+      this.g.hud.hitmarker(h.head, res.killed);
+      this.g.hud.damageNumber(h.point, res.damage, h.head);
+      this.g.match.onHit(res.damage, h.head);
+      if (res.killed) this.g.match.onKill(def, h.head);
+    }
   }
 
   _damageTarget(hit, def, raw) {

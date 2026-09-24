@@ -6,6 +6,28 @@ const BINDINGS = {
   Digit1: 'slot1', Digit2: 'slot2', Digit3: 'slot3', Digit4: 'slot4', Digit5: 'slot5',
 };
 
+/** Tasten, die das Spiel selbst braucht (nicht für den Notizblock belegbar) */
+export const RESERVED_KEYS = new Set([...Object.keys(BINDINGS), 'Escape']);
+
+// Beschriftung für die deutsche Tastatur (KeyboardEvent.code folgt der US-Belegung)
+const KEY_NAMES = {
+  Backquote: '^', Minus: 'ß', Equal: '´', BracketLeft: 'Ü', BracketRight: '+', Semicolon: 'Ö',
+  Quote: 'Ä', Backslash: '#', IntlBackslash: '<', Comma: ',', Period: '.', Slash: '-',
+  Space: 'Leertaste', Enter: 'Enter', Backspace: 'Rücktaste', CapsLock: 'Feststell', Tab: 'Tab',
+  ShiftLeft: 'Shift', ShiftRight: 'Shift rechts', ControlLeft: 'Strg', ControlRight: 'Strg rechts',
+  AltLeft: 'Alt', AltRight: 'Alt Gr', Insert: 'Einfg', Delete: 'Entf', Home: 'Pos1', End: 'Ende',
+  PageUp: 'Bild auf', PageDown: 'Bild ab', ArrowUp: 'Pfeil hoch', ArrowDown: 'Pfeil runter',
+  ArrowLeft: 'Pfeil links', ArrowRight: 'Pfeil rechts', Pause: 'Pause', ScrollLock: 'Rollen',
+};
+
+export function keyLabel(code) {
+  if (!code) return '–';
+  if (code.startsWith('Key')) return code.slice(3);
+  if (code.startsWith('Digit')) return code.slice(5);
+  if (code.startsWith('Numpad')) return 'Num ' + code.slice(6);
+  return KEY_NAMES[code] || code;
+}
+
 export class Input {
   constructor(canvas) {
     this.canvas = canvas;
@@ -24,6 +46,10 @@ export class Input {
     this.onLockChange = null;
     this.onEscape = null;
     this.enabled = false;
+    // Notizblock-Taste und das Abfangen der nächsten Taste beim Umbelegen
+    this.bossKey = null;
+    this.onBossKey = null;
+    this.capture = null;
 
     document.addEventListener('keydown', (e) => this._key(e, true));
     document.addEventListener('keyup', (e) => this._key(e, false));
@@ -56,6 +82,18 @@ export class Input {
   }
 
   _key(e, isDown) {
+    if (isDown && this.capture) {
+      e.preventDefault();
+      const cb = this.capture;
+      this.capture = null;
+      cb(e.code);
+      return;
+    }
+    if (isDown && e.code === this.bossKey) {
+      e.preventDefault();
+      if (!e.repeat) this.onBossKey?.();
+      return;
+    }
     if (e.code === 'Escape' && isDown) {
       this.onEscape?.();
       return;

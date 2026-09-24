@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { WEAPONS } from '../config.js';
-import { muzzleTexture } from '../effects/textures.js';
+import { muzzleTexture, sparkTexture } from '../effects/textures.js';
 
 const ease = (t) => 1 - Math.pow(1 - Math.min(1, Math.max(0, t)), 3);
 const smooth = (t) => {
@@ -51,7 +51,10 @@ export class Viewmodel {
       });
       model.visible = false;
       const find = (n) => model.getObjectByName(n) || null;
-      const parts = { mag: find('Mag'), slide: find('Slide'), bolt: find('Bolt'), pin: find('Pin'), muzzle: find('Muzzle'), eject: find('Eject') };
+      const parts = {
+        mag: find('Mag'), slide: find('Slide'), bolt: find('Bolt'), pin: find('Pin'), pump: find('Pump'),
+        muzzle: find('Muzzle'), eject: find('Eject'),
+      };
       const rest = {};
       for (const [k, o] of Object.entries(parts)) {
         if (o) rest[k] = { p: o.position.clone(), r: o.rotation.clone() };
@@ -61,8 +64,9 @@ export class Viewmodel {
         quat: new THREE.Quaternion().setFromEuler(new THREE.Euler(...def.view.rot)),
       };
       const ads = def.ads ? adsPose(model, def.ads.eye) : null;
+      const dot = def.reddot ? this._setupRedDot(model) : null;
       this.root.add(model);
-      this.models[id] = { model, parts, rest, hip, ads };
+      this.models[id] = { model, parts, rest, hip, ads, dot };
     }
 
     // Mündungsfeuer: zwei Längsflächen und eine Frontfläche
@@ -95,6 +99,18 @@ export class Viewmodel {
       this.casings.push({ mesh: m, vel: new THREE.Vector3(), spin: new THREE.Vector3(), life: 0 });
     }
     this.casingIndex = 0;
+    // rote Schrothülsen mit Messingboden
+    const shellGeo = new THREE.CylinderGeometry(0.0105, 0.0105, 0.066, 10).rotateZ(Math.PI / 2);
+    const shellMat = new THREE.MeshStandardMaterial({ color: 0x9c1a14, metalness: 0, roughness: 0.55 });
+    this.shells = [];
+    for (let i = 0; i < 4; i++) {
+      const m = new THREE.Mesh(shellGeo, shellMat);
+      m.visible = false;
+      m.frustumCulled = false;
+      scene.add(m);
+      this.shells.push({ mesh: m, vel: new THREE.Vector3(), spin: new THREE.Vector3(), life: 0 });
+    }
+    this.shellIndex = 0;
 
     this.current = null;
     this.def = null;
@@ -122,6 +138,38 @@ export class Viewmodel {
     this.slideLocked = false;
   }
 
+  // Rotpunkt: leuchtender Punkt auf der Frontlinse, nur von hinten und nur beim Zielen sichtbar.
+  // Dazu wird die Linse durchsichtig getönt.
+  _setupRedDot(model) {
+    model.traverse((o) => {
+      if (o.isMesh && o.material.name === 'RedDotGlass') {
+        o.material = new THREE.MeshPhysicalMaterial({
+          color: 0x9cc4dc, transparent: true, opacity: 0.16, roughness: 0.04, metalness: 0,
+          depthWrite: false, name: 'RedDotGlassClear',
+        });
+      }
+    });
+    const anchor = model.getObjectByName('RedDot');
+    if (!anchor) return null;
+    const core = new THREE.MeshBasicMaterial({
+      color: new THREE.Color(9, 0.35, 0.25), transparent: true, opacity: 0, depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+    const glow = new THREE.MeshBasicMaterial({
+      map: sparkTexture(), color: new THREE.Color(3, 0.15, 0.1), transparent: true, opacity: 0,
+      depthWrite: false, blending: THREE.AdditiveBlending,
+    });
+    const dotMesh = new THREE.Mesh(new THREE.CircleGeometry(0.0006, 16), core);
+    const glowMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.004, 0.004), glow);
+    glowMesh.position.z = 0.0002;
+    for (const m of [dotMesh, glowMesh]) {
+      m.frustumCulled = false;
+      m.renderOrder = 10;
+      anchor.add(m);
+    }
+    return { core, glow };
+  }
+
   equip(def) {
     const id = Object.keys(WEAPONS).find((k) => WEAPONS[k] === def);
     for (const m of Object.values(this.models)) m.model.visible = false;
@@ -131,12 +179,33 @@ export class Viewmodel {
     this._resetParts();
     if (this.current.parts.muzzle) this.current.parts.muzzle.add(this.flash);
     this.flash.visible = false;
-    const size = def.anim === 'pistol' ? 0.1 : def.anim === 'sniper' ? 0.2 : 0.15;
+    const size = { pistol: 0.1, sniper: 0.2, shotgun: 0.24 }[def.anim] ?? 0.15;
     this.flash.scale.setScalar(size);
     this.drawT = 0;
     this.drawDur = def.draw;
     this.reloadT = this.knifeT = this.grenadeT = this.throwT = this.inspectT = this.boltT = -1;
+    this.pumpT = -1;
+    this.pumpWait = 0;
+    this.shellHold = false;
+    this.shellTilt = 0;
+    this.shellBump = 0;
     this.slideLocked = false;
+  }
+
+  /** Pumpschaft zurück und vor, nach einer kurzen Wartezeit (Sekunden) */
+  pump(wait = 0) {
+    this.pumpWait = wait;
+    this.pumpT = 0;
+  }
+
+  /** Schrotflinte zum Nachladen schräg halten (Patrone für Patrone) */
+  shellReload(active) {
+    this.shellHold = active;
+    if (active) this.inspectT = -1;
+  }
+
+  shellIn() {
+    this.shellBump = 1;
   }
 
   _resetParts() {
@@ -149,15 +218,15 @@ export class Viewmodel {
   }
 
   fire(def) {
-    const pistol = def.anim === 'pistol';
-    this.kickZ += pistol ? 0.045 : def.anim === 'sniper' ? 0.07 : 0.028;
-    this.kickRot += pistol ? 0.09 : def.anim === 'sniper' ? 0.12 : 0.035;
-    this.flashT = 0.045;
+    const kick = { pistol: [0.045, 0.09], sniper: [0.07, 0.12], shotgun: [0.08, 0.16] }[def.anim] ?? [0.028, 0.035];
+    this.kickZ += kick[0];
+    this.kickRot += kick[1];
+    this.flashT = def.anim === 'shotgun' ? 0.06 : 0.045;
     this.flash.visible = true;
     this.flash.rotation.z = Math.random() * Math.PI;
     this.inspectT = -1;
     if (def.slide) this.slideBack = 1;
-    this._eject(def);
+    if (def.anim !== 'shotgun') this._eject(def);
   }
 
   reload(def, duration) {
@@ -192,8 +261,14 @@ export class Viewmodel {
   _eject(def) {
     const eject = this.current.parts.eject;
     if (!eject || def.anim === 'sniper') return;
-    const c = this.casings[this.casingIndex];
-    this.casingIndex = (this.casingIndex + 1) % this.casings.length;
+    let c;
+    if (def.anim === 'shotgun') {
+      c = this.shells[this.shellIndex];
+      this.shellIndex = (this.shellIndex + 1) % this.shells.length;
+    } else {
+      c = this.casings[this.casingIndex];
+      this.casingIndex = (this.casingIndex + 1) % this.casings.length;
+    }
     eject.getWorldPosition(c.mesh.position);
     _q.copy(this.camera.quaternion);
     c.vel.set(1.3 + Math.random() * 0.6, 1.4 + Math.random() * 0.6, 0.3 + Math.random() * 0.3).applyQuaternion(_q);
@@ -324,6 +399,40 @@ export class Viewmodel {
       }
     }
 
+    // Pumpschaft der Schrotflinte: zurück (Hülse fliegt raus) und wieder vor
+    if (this.pumpT >= 0 && parts.pump) {
+      if (this.pumpWait > 0) {
+        this.pumpWait -= dt;
+      } else {
+        const before = this.pumpT;
+        this.pumpT += dt / 0.42;
+        const t = this.pumpT;
+        const back = seg(t, 0, 0.42) - seg(t, 0.55, 1);
+        parts.pump.position.copy(rest.pump.p);
+        parts.pump.position.z += 0.085 * back;
+        rot.z += 0.07 * back;
+        rot.x += 0.04 * back;
+        if (before < 0.42 && t >= 0.42) this._eject(def);
+        if (t >= 1) {
+          this.pumpT = -1;
+          parts.pump.position.copy(rest.pump.p);
+        }
+      }
+    }
+
+    // Schrotflinte nachladen: schräg halten, jede Patrone ein kleiner Stoß
+    this.shellTilt += ((this.shellHold ? 1 : 0) - this.shellTilt) * Math.min(1, dt * 9);
+    if (this.shellTilt > 0.001) {
+      this.shellBump = Math.max(0, this.shellBump - dt * 6);
+      const s = this.shellTilt;
+      rot.z += 0.42 * s;
+      rot.x += 0.16 * s;
+      pos.y -= 0.035 * s;
+      pos.x -= 0.02 * s;
+      pos.z += 0.012 * this.shellBump;
+      rot.z -= 0.05 * this.shellBump;
+    }
+
     // Messer
     if (this.knifeT >= 0) {
       const dur = this.knifeKind === 'stab' ? 0.55 : 0.34;
@@ -400,7 +509,20 @@ export class Viewmodel {
     } else {
       this.flashLight.intensity = 0;
     }
-    for (const c of this.casings) {
+    this._fly(this.casings, dt);
+    this._fly(this.shells, dt);
+
+    // Rotpunkt leuchtet nur im Anschlag (kurz vor Erreichen der Visierlinie)
+    const dot = this.current.dot;
+    if (dot) {
+      const k = Math.max(0, (e - 0.6) / 0.4);
+      dot.core.opacity = k;
+      dot.glow.opacity = 0.55 * k;
+    }
+  }
+
+  _fly(list, dt) {
+    for (const c of list) {
       if (c.life <= 0) continue;
       c.life -= dt;
       c.vel.y -= 9.8 * dt;

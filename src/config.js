@@ -66,6 +66,13 @@ const FALKE_PATTERN = [
   [0, 0], [0.35, 0.02], [0.4, -0.03], [0.4, 0.05], [0.35, 0.08], [0.3, -0.1], [0.25, -0.2], [0.2, 0.2],
   [0.15, 0.26], [0.1, -0.25], [0.08, -0.3], [0.05, 0.3], [0.05, 0.28], [0.03, -0.26],
 ];
+// ruhiger als der Wolf: erst hoch, dann nach rechts und links
+const LUCHS_PATTERN = [
+  [0, 0], [0.5, 0], [0.6, 0.04], [0.7, -0.03], [0.72, 0.05], [0.65, 0.1], [0.55, 0.15], [0.45, 0.22],
+  [0.3, 0.3], [0.2, 0.25], [0.15, -0.2], [0.1, -0.45], [0.08, -0.5], [0.05, -0.4], [0.05, -0.2],
+  [0.05, 0.3], [0.03, 0.45], [0.03, 0.4], [0, 0.2], [0.03, -0.3], [0.03, -0.45], [0, -0.35], [0.03, 0.25],
+  [0.03, 0.4], [0, 0.3], [0.03, -0.2], [0, -0.35], [0.03, -0.2], [0, 0.25], [0, 0.3],
+];
 
 export const WEAPONS = {
   natter: {
@@ -108,13 +115,35 @@ export const WEAPONS = {
     view: { pos: [0.16, -0.19, -0.48], rot: [0.03, 0.1, -0.03] },
     sound: 'rifle', tracer: 2, anim: 'rifle',
   },
+  keiler: {
+    name: 'Keiler', type: 'Schrotflinte', slot: 'primary', price: 1050, reward: 450, model: 'keiler',
+    auto: false, rpm: 68, damage: 26, pellets: 9, pelletSpread: 45, headMul: 2.0, armorPen: 0.5, rangeMod: 0.55,
+    mag: 8, reserve: 32, reloadStart: 0.35, reload: 0.5, shellReload: true, draw: 0.8, speed: 5.5,
+    spread: { base: 5, move: 25, air: 70, fire: 0, recovery: 0.3 },
+    recoil: { up: 4.5, side: 0.6, decay: 3, viewKick: 5.5 },
+    ads: { eye: 0.16, zoom: 1.12, time: 0.2, speed: 0.75, spread: 0.8 },
+    view: { pos: [0.16, -0.19, -0.47], rot: [0.03, 0.1, -0.03] },
+    sound: 'shotgun', tracer: 0, anim: 'shotgun',
+  },
+  luchs: {
+    name: 'Luchs', type: 'Sturmgewehr mit Rotpunkt', slot: 'primary', price: 3100, reward: 150, model: 'luchs',
+    auto: true, rpm: 666, damage: 23, headMul: 2.4, armorPen: 0.7, rangeMod: 0.97,
+    mag: 30, reserve: 90, reload: 3.0, draw: 0.9, speed: 5.6,
+    spread: { base: 3, move: 40, air: 90, fire: 6, recovery: 0.28 },
+    recoil: { pattern: LUCHS_PATTERN, up: 0.04, side: 0.4, decay: 11, viewKick: 0.6 },
+    ads: { eye: 0.1, zoom: 1.45, time: 0.22, speed: 0.6, spread: 0.35 },
+    view: { pos: [0.16, -0.2, -0.48], rot: [0.03, 0.1, -0.03] },
+    sound: 'rifle2', tracer: 2, anim: 'rifle', reddot: true,
+  },
   adler: {
     name: 'Adler', type: 'Scharfschützengewehr', slot: 'primary', price: 4750, reward: 50, model: 'adler',
     auto: false, rpm: 41, damage: 100, headMul: 2.4, armorPen: 0.975, rangeMod: 0.99,
-    mag: 5, reserve: 30, reload: 3.6, draw: 1.1, speed: 5.1, scopedSpeed: 2.6,
+    mag: 5, reserve: 30, reload: 3.6, draw: 1.1, speed: 5.1,
     spread: { base: 70, scoped: 0.6, move: 90, air: 150, fire: 0, recovery: 0.3 },
     recoil: { up: 2.0, side: 0.2, decay: 3, viewKick: 4.5 },
-    scope: [30.7, 8.5],
+    // eine Zoomstufe, nur solange die rechte Maustaste gehalten wird
+    scope: true,
+    ads: { eye: 0.05, zoom: 2.75, time: 0.15, speed: 0.51, spread: 1 },
     view: { pos: [0.17, -0.235, -0.56], rot: [0.04, 0.1, -0.04] },
     sound: 'sniper', tracer: 1, anim: 'sniper',
   },
@@ -155,8 +184,8 @@ export const GRENADES = {
 // Reihenfolge im Kaufmenü
 export const SHOP = [
   { title: 'Pistolen', items: ['natter', 'kobra'] },
-  { title: 'Maschinenpistole', items: ['falke'] },
-  { title: 'Gewehre', items: ['wolf', 'adler'] },
+  { title: 'MP & Schrot', items: ['falke', 'keiler'] },
+  { title: 'Gewehre', items: ['wolf', 'luchs', 'adler'] },
   { title: 'Ausrüstung', items: ['vest', 'helmet'] },
   { title: 'Granaten', items: ['he', 'flash', 'smoke'] },
 ];

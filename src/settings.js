@@ -16,6 +16,8 @@ const DEFAULTS = {
   showFps: false,
   fullscreen: true,
   adsToggle: false,
+  // Taste links neben der 1 (^): wechselt sofort zu einem weißen Notizblatt
+  bossKey: 'Backquote',
 };
 
 export function loadSettings() {

@@ -10,7 +10,7 @@ import sys, os, math
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import bpy
-from lib import (reset, mat, textured_mat, box, cyl, cyl_between, sphere, torus, profile, empty,
+from lib import (reset, mat, textured_mat, box, cyl, cyl_between, sphere, torus, tube, profile, empty,
                  parent_all, export, render_preview, join_meshes, triangle_count, ROOT)
 
 ARGS = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
@@ -35,18 +35,19 @@ def M():
     }
 
 
-def arm(side, hand_center, hand_size, elbow, m, hand_rot=None, wrist=None):
-    """Handschuh-Faust plus Unterarm mit Ärmel, der aus dem Bild nach hinten läuft."""
+def arm(side, hand_center, hand_size, elbow, m, hand_rot=None, wrist=None, parent=None):
+    """Handschuh-Faust plus Unterarm mit Ärmel, der aus dem Bild nach hinten läuft.
+    Mit parent bewegt sich der Arm mit einem beweglichen Teil (z. B. dem Pumpschaft)."""
     tag = 'R' if side > 0 else 'L'
     box(f'Hand{tag}', hand_size, hand_center, m['glove'], bevel=min(hand_size) * 0.38, segs=4,
-        rot=hand_rot, angle=30)
+        rot=hand_rot, angle=30, parent=parent)
     wx, wy, wz = wrist if wrist else (hand_center[0] + 0.01 * side, hand_center[1] - hand_size[1] * 0.45, hand_center[2] - 0.012)
     ex, ey, ez = elbow
     # Handgelenk (Handschuh) und Ärmel
     t = 0.14
     mid = (wx + (ex - wx) * t, wy + (ey - wy) * t, wz + (ez - wz) * t)
-    cyl_between(f'Wrist{tag}', (wx, wy, wz), mid, 0.03, 0.033, m['glove'], bevel=0.003)
-    cyl_between(f'Sleeve{tag}', mid, (ex, ey, ez), 0.041, 0.05, m['sleeve'], bevel=0.006)
+    cyl_between(f'Wrist{tag}', (wx, wy, wz), mid, 0.03, 0.033, m['glove'], bevel=0.003, parent=parent)
+    cyl_between(f'Sleeve{tag}', mid, (ex, ey, ez), 0.041, 0.05, m['sleeve'], bevel=0.006, parent=parent)
 
 
 def trigger_group(m, y0, y1, z_bottom, front_h, material=None, width=0.008):
@@ -122,7 +123,7 @@ def build_falke():
     profile('Grip', [(-0.012, -0.002), (0.03, -0.002), (0.022, -0.03), (0.008, -0.11), (-0.028, -0.112),
                      (-0.034, -0.1), (-0.02, -0.03)], 0.032, m['polymer'], bevel=0.006, segs=3)
     trigger_group(m, 0.028, 0.098, -0.04, 0.04, material=m['polymer'])
-    profile('Handguard', [(0.15, 0.05), (0.262, 0.05), (0.272, 0.04), (0.272, 0.004), (0.258, -0.012),
+    profile('ForeEnd', [(0.15, 0.05), (0.262, 0.05), (0.272, 0.04), (0.272, 0.004), (0.258, -0.012),
                           (0.16, -0.016), (0.15, 0.0)], 0.052, m['polymer'], bevel=0.009, segs=3)
     cyl('Barrel', 0.0085, 0.05, (0, 0.314, 0.045), m['gun_dark'])
     cyl('BarrelLugs', 0.0112, 0.012, (0, 0.3, 0.045), m['gun'])
@@ -196,7 +197,102 @@ def build_adler():
         wrist=(-0.032, 0.262, -0.055))
     empty('Muzzle', (0, 0.865, 0.058))
     empty('Eject', (0.022, 0.05, 0.07))
-    empty('Scope', (0, -0.14, 0.125))
+    # optische Achse des Zielfernrohrs (hintere und vordere Linse)
+    empty('SightRear', (0, -0.1405, 0.125))
+    empty('SightFront', (0, 0.2905, 0.125))
+    parent_all(root)
+    return root
+
+
+# ---------- Pump-Schrotflinte "Keiler" ----------
+def build_keiler():
+    m = M()
+    root = empty('Keiler')
+    recv = mat('ShotgunReceiver', (0.03, 0.031, 0.034), 0.8, 0.42)
+    box('Receiver', (0.04, 0.2, 0.062), (0, 0.04, 0.019), recv, bevel=0.004)
+    box('EjectPort', (0.004, 0.06, 0.022), (0.0205, 0.065, 0.03), m['bore'], bevel=0.001)
+    box('LoadingPort', (0.03, 0.07, 0.004), (0, 0.075, -0.0125), m['bore'], bevel=0.001)
+    # Lauf mit Laufschiene, Messingkorn und Röhrenmagazin darunter
+    cyl('Barrel', 0.012, 0.53, (0, 0.405, 0.035), m['gun'])
+    box('VentRib', (0.009, 0.52, 0.004), (0, 0.4, 0.049), m['gun_dark'], bevel=0.001)
+    sphere('Bead', 0.0028, (0, 0.655, 0.0535), mat('BeadBrass', (0.8, 0.62, 0.3), 1.0, 0.3))
+    cyl('MagTube', 0.0105, 0.47, (0, 0.375, 0.003), m['gun_dark'])
+    cyl('MagCap', 0.012, 0.022, (0, 0.62, 0.003), m['gun'], bevel=0.002)
+    box('BarrelClamp', (0.028, 0.018, 0.044), (0, 0.585, 0.019), m['gun'], bevel=0.003)
+    cyl('Bore', 0.008, 0.002, (0, 0.6705, 0.035), m['bore'], bevel=0)
+    # Pumpschaft: gleitet beim Repetieren zurück, die linke Hand fährt mit
+    pump = empty('Pump', (0, 0.31, 0.003))
+    box('PumpWood', (0.05, 0.17, 0.046), (0, 0.31, 0.0), m['wood'], bevel=0.012, segs=3, parent=pump)
+    for i, yy in enumerate((0.255, 0.28, 0.305, 0.33, 0.355)):
+        box(f'PumpGroove{i}', (0.0515, 0.005, 0.047), (0, yy, 0.0), m['gun_dark'], bevel=0.001, parent=pump)
+    for sx in (-1, 1):
+        box(f'ActionBar{sx}', (0.003, 0.12, 0.006), (0.0145 * sx, 0.18, 0.004), m['gun'], bevel=0, parent=pump)
+    arm(-1, (-0.018, 0.31, -0.022), (0.064, 0.095, 0.07), (-0.22, -0.02, -0.3), m,
+        wrist=(-0.035, 0.27, -0.042), parent=pump)
+    trigger_group(m, 0.03, 0.1, -0.045, 0.034, material=recv)
+    profile('Grip', [(-0.022, -0.012), (0.026, -0.012), (0.018, -0.04), (0.004, -0.115), (-0.034, -0.118),
+                     (-0.04, -0.105), (-0.028, -0.04)], 0.032, m['wood'], bevel=0.006, segs=3)
+    # Schaft mit Senkung: liegt deutlich unter der Visierlinie, damit man beim Zielen über die Schiene sieht
+    profile('Stock', [(-0.058, 0.03), (-0.33, 0.006), (-0.338, 0.0), (-0.338, -0.108), (-0.328, -0.114),
+                      (-0.2, -0.08), (-0.058, -0.012)], 0.04, m['wood'], bevel=0.008, segs=3)
+    box('ButtPad', (0.042, 0.02, 0.13), (0, -0.348, -0.054), m['rubber'], bevel=0.006, segs=2)
+    arm(1, (0, -0.004, -0.06), (0.07, 0.085, 0.1), (0.13, -0.42, -0.26), m, hand_rot=(-0.2, 0, 0))
+    empty('Muzzle', (0, 0.672, 0.035))
+    empty('Eject', (0.024, 0.065, 0.03))
+    # Visierlinie: über das Gehäuse hinweg auf die Mitte des Korns
+    empty('SightRear', (0, -0.05, 0.0535))
+    empty('SightFront', (0, 0.655, 0.0535))
+    parent_all(root)
+    return root
+
+
+# ---------- Sturmgewehr mit Rotpunktvisier "Luchs" ----------
+def build_luchs():
+    m = M()
+    root = empty('Luchs')
+    alu = mat('Anodized', (0.045, 0.047, 0.05), 0.55, 0.5)
+    box('Lower', (0.034, 0.2, 0.046), (0, 0.035, 0.003), alu, bevel=0.003)
+    box('MagWell', (0.036, 0.075, 0.03), (0, 0.1, -0.03), alu, bevel=0.003)
+    box('Upper', (0.035, 0.2, 0.04), (0, 0.035, 0.046), alu, bevel=0.003)
+    box('Rail', (0.021, 0.42, 0.007), (0, 0.13, 0.0695), m['gun_dark'], bevel=0.001)
+    teeth = [box(f'RailTooth{i}', (0.021, 0.004, 0.003), (0, -0.075 + i * 0.01, 0.0745), m['gun_dark'], bevel=0)
+             for i in range(41)]
+    join_meshes(teeth, 'RailTeeth')
+    box('EjectPort', (0.004, 0.05, 0.016), (0.018, 0.05, 0.045), m['bore'], bevel=0.001)
+    cyl('ForwardAssist', 0.005, 0.016, (0.022, -0.012, 0.054), alu, axis='X')
+    box('ChargingHandle', (0.03, 0.018, 0.009), (0, -0.075, 0.062), alu, bevel=0.002)
+    # Handschutz mit abgeschrägten Kanten, kurzer Lauf, Mündungsfeuerdämpfer
+    box('RailGuard', (0.046, 0.24, 0.05), (0, 0.255, 0.04), m['polymer'], bevel=0.011, segs=1)
+    cyl('Barrel', 0.0085, 0.17, (0, 0.46, 0.035), m['gun_dark'])
+    cyl('FlashHider', 0.011, 0.05, (0, 0.565, 0.035), m['gun_dark'], bevel=0.002)
+    cyl('Bore', 0.006, 0.002, (0, 0.5905, 0.035), m['bore'], bevel=0)
+    # Schiebeschaft auf dem Pufferrohr
+    cyl('BufferTube', 0.015, 0.22, (0, -0.17, 0.035), alu)
+    profile('Stock', [(-0.2, 0.056), (-0.31, 0.056), (-0.318, 0.05), (-0.318, -0.07), (-0.308, -0.076),
+                      (-0.26, -0.045), (-0.2, 0.012)], 0.046, m['polymer'], bevel=0.007, segs=2)
+    box('ButtPad', (0.048, 0.012, 0.13), (0, -0.323, -0.01), m['rubber'], bevel=0.004)
+    profile('Grip', [(-0.014, -0.018), (0.022, -0.018), (0.014, -0.045), (0.0, -0.12), (-0.034, -0.122),
+                     (-0.04, -0.11), (-0.026, -0.045)], 0.03, m['polymer'], bevel=0.006, segs=3)
+    trigger_group(m, 0.025, 0.09, -0.042, 0.024, material=alu)
+    mag = empty('Mag', (0, 0.1, -0.03))
+    profile('MagBody', [(0.072, -0.02), (0.072, -0.09), (0.077, -0.16), (0.085, -0.21), (0.14, -0.2),
+                        (0.133, -0.15), (0.13, -0.09), (0.13, -0.02)], 0.024, m['gun_dark'],
+            bevel=0.003, parent=mag)
+    # Rotpunktvisier: Montage, hohles Rohr, Frontlinse, Verstelltürme
+    box('OpticMount', (0.024, 0.035, 0.022), (0, 0.05, 0.084), m['gun_dark'], bevel=0.002)
+    tube('OpticTube', 0.0195, 0.0155, 0.09, (0, 0.05, 0.114), m['gun_dark'], axis='Y')
+    cyl('OpticLens', 0.0156, 0.0015, (0, 0.093, 0.114), mat('RedDotGlass', (0.35, 0.5, 0.6), 0.0, 0.05), bevel=0)
+    cyl('OpticTurretTop', 0.0075, 0.012, (0, 0.05, 0.1395), m['gun_dark'], axis='Z')
+    cyl('OpticTurretSide', 0.0075, 0.012, (0.0255, 0.05, 0.114), m['gun_dark'], axis='X')
+    empty('RedDot', (0, 0.0915, 0.114))
+    arm(1, (0, 0.004, -0.058), (0.07, 0.085, 0.1), (0.13, -0.42, -0.26), m, hand_rot=(-0.2, 0, 0))
+    arm(-1, (-0.018, 0.27, 0.008), (0.062, 0.09, 0.07), (-0.22, -0.02, -0.3), m,
+        wrist=(-0.034, 0.23, -0.018))
+    empty('Muzzle', (0, 0.592, 0.035))
+    empty('Eject', (0.02, 0.05, 0.045))
+    # optische Achse durch das Rotpunktrohr
+    empty('SightRear', (0, 0.005, 0.114))
+    empty('SightFront', (0, 0.095, 0.114))
     parent_all(root)
     return root
 
@@ -453,6 +549,8 @@ BUILDS = [
     ('wolf', build_wolf, (1.0, -0.2, 0.3)),
     ('falke', build_falke, (1.0, -0.2, 0.3)),
     ('adler', build_adler, (1.0, -0.2, 0.3)),
+    ('keiler', build_keiler, (1.0, -0.2, 0.3)),
+    ('luchs', build_luchs, (1.0, -0.2, 0.3)),
     ('natter', build_natter, (1.0, -0.3, 0.3)),
     ('kobra', build_kobra, (1.0, -0.3, 0.3)),
     ('messer', build_messer, (1.0, -0.3, 0.45)),

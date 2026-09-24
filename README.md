@@ -20,7 +20,7 @@ Danach `http://localhost:5173` öffnen und auf **Training starten** klicken.
 | `W` `A` `S` `D` | Laufen |
 | Maus | Umsehen |
 | Linksklick | Schießen, Messerhieb, Granate weit werfen |
-| Rechtsklick | Zielen über Kimme und Korn (langsamer, genauer, leichter Zoom), Zielfernrohr, Messerstich, Granate kurz werfen |
+| Rechtsklick halten | Zielen über Kimme und Korn bzw. Rotpunkt (langsamer, genauer, leichter Zoom), Zielfernrohr (eine Stufe); außerdem Messerstich, Granate kurz werfen |
 | Leertaste | Springen |
 | `Strg` oder `C` | Ducken |
 | `Shift` | Schleichen (lautlos und genauer) |
@@ -31,8 +31,24 @@ Danach `http://localhost:5173` öffnen und auf **Training starten** klicken.
 | `F` | Waffe begutachten |
 | `Tab` | Statistik |
 | `Esc` | Pause |
+| `^` (änderbar) | Notizblock: sofort ein weißes Notizblatt, Spiel pausiert, Ton aus; nochmal drücken zum Zurückschalten |
 
 Das Spiel geht beim Start in den Vollbildmodus. So fängt Chrome auch `Strg+W` ab, sonst würde Ducken plus Vorwärtslaufen den Tab schließen. Abschalten lässt sich das in den Einstellungen.
+
+## Waffen
+
+| Waffe | Art | Preis | Besonderheit |
+|---|---|---|---|
+| Natter | Pistole | 200 $ | Startwaffe |
+| Kobra | Schwere Pistole | 700 $ | Kopftreffer tödlich |
+| Falke | Maschinenpistole | 1.250 $ | Genau auch im Laufen |
+| Keiler | Pump-Schrotflinte | 1.050 $ | 9 Schrotkugeln, auf kurze Distanz ein Treffer, lädt Patrone für Patrone |
+| Wolf | Sturmgewehr | 2.700 $ | Stark, festes Rückstoßmuster |
+| Luchs | Sturmgewehr mit Rotpunkt | 3.100 $ | Rotpunktvisier, ruhigerer Rückstoß |
+| Adler | Scharfschützengewehr | 4.750 $ | Ein Körpertreffer reicht, Zielfernrohr nur beim Halten |
+| Messer | Nahkampf | frei | Hieb (links), Stich (rechts) |
+
+Dazu Schutzweste, Weste mit Helm und drei Granaten (Splitter, Blend, Rauch) für die zwei Extra-Slots.
 
 ## Spielregeln im Training
 
@@ -75,10 +91,17 @@ Alle Werte (Waffen, Rückstoßmuster, Streuung, Preise, Rundenzeiten) stehen in 
 
 - **Texturen, Himmel und Requisiten** kommen von [Poly Haven](https://polyhaven.com) (CC0, frei nutzbar). `npm run assets` lädt alles herunter. Die Requisiten landen als Quelle in `assets-src/` (nicht im Repo). `npm run models` macht daraus die optimierte `public/assets/models/props.glb`.
 
-## Veröffentlichen
+## Veröffentlichen (GitHub Pages)
+
+Repository: `Feuer_Frei` von `finnmarinov-lgtm`, spielbar unter https://finnmarinov-lgtm.github.io/Feuer_Frei/
+
+Jeder Push auf `main` baut das Spiel automatisch neu und veröffentlicht es (`.github/workflows/pages.yml`). Den Stand sieht man im Repo unter *Actions*.
+
+Lokal bauen und ansehen:
 
 ```
 npm run build
+npm run preview
 ```
 
-Der Ordner `dist/` enthält die fertige Seite. Die Pfade sind relativ, sie läuft also auch unter `https://<name>.github.io/<Repo>/`.
+Der Ordner `dist/` enthält die fertige Seite. Die Pfade sind relativ, sie läuft also auch in einem Unterordner.

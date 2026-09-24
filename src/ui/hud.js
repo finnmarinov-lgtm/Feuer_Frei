@@ -209,7 +209,7 @@ export class Hud {
 
     // Fadenkreuz spreizt sich mit der echten Streuung
     const def = ws.active?.def;
-    const scoped = ws.zoom > 0;
+    const scoped = ws.scoped;
     const showCross = !!def && !scoped && def.anim !== 'grenade' && ws.ads < 0.5;
     this._set(el.cross.style, 'display', showCross ? '' : 'none');
     if (showCross) {

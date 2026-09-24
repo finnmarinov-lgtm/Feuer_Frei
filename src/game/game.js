@@ -150,12 +150,11 @@ export class Game {
     this.shakeAmt = Math.max(this.shakeAmt, amount);
   }
 
-  /** Aktuelles Sichtfeld: Zielfernrohr, Zielen über Kimme und Korn oder normal */
+  /** Aktuelles Sichtfeld: beim Zielen (auch mit Zielfernrohr) vergrößert, sonst normal */
   _targetFov() {
     const ws = this.weapons;
     const def = ws.active?.def;
     const base = this.settings.fov;
-    if (def?.scope && ws.zoom > 0) return def.scope[ws.zoom - 1];
     if (def?.ads && ws.ads > 0) {
       const zoomed = (2 * Math.atan(Math.tan((base * DEG) / 2) / def.ads.zoom)) / DEG;
       const e = ws.ads * ws.ads * (3 - 2 * ws.ads);
@@ -184,6 +183,8 @@ export class Game {
   }
 
   frame(dt) {
+    // hinter dem Notizblock nichts zeichnen (spart Strom und bleibt unauffällig)
+    if (this.renderPaused) return;
     if (window.innerWidth !== this._w || window.innerHeight !== this._h) {
       this._w = window.innerWidth;
       this._h = window.innerHeight;
@@ -217,7 +218,7 @@ export class Game {
     this.grenades.update(dt);
     this.effects.update(dt);
 
-    const scoped = this.weapons.zoom > 0 && this.state === 'playing';
+    const scoped = this.weapons.scoped && this.state === 'playing';
     const showVm = this.state === 'playing' && this.player.alive && !scoped;
     if (showVm) {
       this._viewLighting(dt);
