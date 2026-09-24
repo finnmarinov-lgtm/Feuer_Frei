@@ -20,17 +20,35 @@ Danach `http://localhost:5173` öffnen und auf **1 gegen 1** oder **Training** k
 
 1. **1 gegen 1 → Lobby erstellen.** Es erscheinen ein Code (z. B. `K7P2QX`) und ein Link. Den Link mit **Link kopieren** oder **Teilen** an den Freund schicken.
 2. Der Freund öffnet den Link und ist sofort in der Lobby. Alternativ: **1 gegen 1 → Beitreten** und den Code eintippen.
-3. Wer die Lobby erstellt hat (Host), stellt ein: **1 oder 3 Leben pro Runde** und **Sieg bei 2, 3 oder 5 Rundensiegen**.
+3. Wer die Lobby erstellt hat (Host), stellt ein: **Modus** (Kampf oder Bombe), **1 oder 3 Leben pro Runde** und **Sieg bei 2, 3 oder 5 Rundensiegen**.
 4. Sind beide da, startet nach 5 Sekunden das Spiel. Einmal ins Bild klicken, damit die Maus gefangen wird.
 
 Regeln:
 
-- Host startet im Westen, Gast im Osten. Jeder hat seine eigene Kaufzone am Startpunkt.
+- Host startet im Westen, Gast im Osten. Jeder hat seine eigene Kaufzone am Startpunkt. Vor beiden Startpunkten stehen Kisten als Deckung, damit niemand direkt durch die Lücke in der Mitte beschossen werden kann.
 - Pro Runde hat jeder so viele Leben wie eingestellt. Wer stirbt und noch Leben hat, ist nach 3 Sekunden am eigenen Startpunkt zurück (mit voller Gesundheit und eigener Ausrüstung).
 - **Spawn-Schutz:** 2 Sekunden nach dem Rundenstart und nach jedem Wiedereinstieg zählen keine Treffer (auch keine Granaten). Der Schutz endet sofort, wenn man selbst schießt, sticht oder wirft. Den eigenen Schutz zeigt ein Hinweis unten in der Mitte, ein geschützter Gegner schimmert bläulich und Treffer auf ihn werden blau markiert.
 - Die Runde gewinnt, wer dem anderen alle Leben nimmt. Läuft die Zeit ab, gewinnt, wer mehr Leben übrig hat, danach wer mehr Lebenspunkte hat.
 - Geld wie im Training: 800 $ zum Start, Prämie pro Abschuss, Siegprämie, Niederlagenbonus. Wer am Rundenende tot ist, verliert seine Ausrüstung.
-- In der Pause läuft das Duell weiter (man steht still). Wer das Duell verlässt oder den Tab schließt, verliert. Bricht die Verbindung länger als 30 Sekunden ab, gewinnt der andere.
+- In der Pause (`Esc`) läuft das Duell weiter, man steht dann still. Wer das Duell über das Menü verlässt, verliert sofort.
+- **Zurück ins laufende Duell:** Lädt jemand die Seite neu oder reißt die Verbindung ab, hält das Duell für beide an: Die Zeit steht, niemand kann getroffen werden, eine Anzeige zählt die Sekunden herunter. Nach dem Neuladen ist man automatisch wieder drin, mit Runde, Leben, Siegen, Geld, Waffen und Lebenspunkten, am eigenen Startpunkt und mit 2 Sekunden Spawn-Schutz. Kommt der andere nicht innerhalb von 60 Sekunden zurück (etwa weil er den Tab geschlossen hat), gewinnt man kampflos.
+- **Schnellnachrichten:** `T` öffnet die Liste, `1` – `6` schickt „gg“, „Nice!“, „Sorry!“, „Glück gehabt!“, „Hahaha“ oder „Warte kurz“. Die Nachrichten erscheinen bei beiden unten links und verschwinden nach ein paar Sekunden.
+
+### Bombenmodus
+
+- Die Rollen wechseln jede Runde: In ungeraden Runden greift der Host an, in geraden der Gast.
+- Jede Seite hat einen **Bombenplatz** in der Gasse neben dem eigenen Startpunkt (rot aufgemalt). Wer angreift, legt die Bombe auf dem Platz des anderen: im Kreis stehen und **E halten** (3,2 s, man steht dabei still). Eine Wegmarke zeigt, wo der Platz ist.
+- Die gelegte Bombe tickt 35 Sekunden und piept immer schneller. Wer verteidigt, entschärft sie direkt an der Bombe mit **E halten** (5 s).
+- Die Runde gewinnt, wer angreift, wenn die Bombe explodiert oder der Verteidiger keine Leben mehr hat. Wer verteidigt, gewinnt beim Entschärfen, wenn die Zeit ohne gelegte Bombe abläuft oder der Angreifer vor dem Legen keine Leben mehr hat. Liegt die Bombe schon, tickt sie auch weiter, wenn der Angreifer ausgeschaltet ist.
+- Die Explosion ist bis etwa 10 m tödlich (auch für den, der sie gelegt hat). Wer dabei stirbt, verliert wie sonst am Rundenende seine Ausrüstung.
+- Legen und Entschärfen bringen je 300 $.
+
+### Spezialleiste und Luftschlag
+
+- Die Leiste rechts über der Munition füllt sich mit Schaden am Gegner oder an Klappzielen, dazu 50 Punkte pro Abschuss (350 Punkte = voll). Sie bleibt über die Runden erhalten.
+- Ist sie voll, **X** drücken und das Ziel anschauen: ein Kreis zeigt, wo die Bomben fallen. **Linksklick** bestätigt, **Rechtsklick** oder **X** bricht ab. Beim Zielen steht man still.
+- Am Ziel steigt roter Rauch auf, alle hören eine Warnung. Nach 3,2 Sekunden fliegt ein Jet über den Hof, sechs Bomben schlagen nacheinander im Kreis ein. Wer rechtzeitig aus dem Kreis läuft, überlebt. Auch der eigene Luftschlag trifft einen selbst.
+- Ein Abschuss mit dem Luftschlag bringt 300 $, lädt die Leiste aber nicht wieder auf. Der Luftschlag geht im Training und im 1 gegen 1.
 
 Technik:
 
@@ -38,6 +56,8 @@ Technik:
 - **Treffer:** Der Schütze prüft den Treffer und meldet ihn, der Getroffene zieht sich die Lebenspunkte selbst ab (Weste und Helm zählen dabei). Granaten rechnet jeder für sich aus.
 - **Host:** bestimmt Rundenstart und Rundenende, Leben und Rundensiege.
 - **Bewegung des Gegners:** direkt 30, über den Server 12 Zustände pro Sekunde. Dazwischen wird mit etwa 0,1 s Verzögerung weich übergeblendet.
+- **Wiedereinstieg:** Jeder Tab merkt sich Lobby, Rolle und den eigenen Stand im `sessionStorage` (übersteht das Neuladen, nicht das Schließen des Tabs). Auch beim Host steht der Lobby-Code in der Adresse. Beim Verlassen der Seite meldet sich der Tab ab, zusätzlich per `fetch` mit `keepalive` über die REST-Schnittstelle von Supabase, damit die Abmeldung auch bei schnellem Neuladen ankommt. Wer zurückkommt, bekommt vom anderen den Stand der Partie (Runde, Phase, Zeit, Leben, Siege).
+- Beide Browser brauchen dieselbe Protokollversion (`PROTOCOL` in `src/net/net.js`). Nach einem Update also beide die Seite neu laden.
 - Zum Testen lässt sich ein Weg erzwingen: `?netz=server` oder `?netz=direkt` an die Adresse hängen.
 
 ## Steuerung
@@ -50,15 +70,32 @@ Technik:
 | Rechtsklick halten | Zielen über Kimme und Korn bzw. Rotpunkt (langsamer, genauer, leichter Zoom), Zielfernrohr (eine Stufe); außerdem Messerstich, Granate kurz werfen |
 | Leertaste | Springen |
 | `Strg` oder `C` | Ducken |
-| `Shift` | Schleichen (lautlos und genauer) |
+| `Shift` halten | Sprinten (nur vorwärts, siehe unten) |
+| `Alt` (links) halten | Schleichen (lautlos und genauer) |
 | `R` | Nachladen |
 | `1` – `5` | Hauptwaffe, Pistole, Messer, Extra 1, Extra 2 |
 | `Q`, Mausrad | Letzte Waffe, Waffe wechseln |
 | `B` | Kaufmenü (im Spawn, in der Kaufzeit) |
 | `F` | Waffe begutachten |
 | `Tab` | Statistik |
+| `T`, dann `1` – `6` | Schnellnachricht (im 1 gegen 1) |
+| `E` halten | Bombe legen bzw. entschärfen (Bombenmodus) |
+| `X` | Luftschlag, wenn die Spezialleiste voll ist |
 | `Esc` | Pause |
 | `^` (änderbar) | Notizblock: sofort ein weißes Notizblatt, Spiel pausiert, Ton aus; nochmal drücken zum Zurückschalten |
+
+**Sprinten** geht nur vorwärts und nicht beim Ducken, Schleichen, Schießen, Zielen, Nachladen oder Ausholen zum Granatenwurf. Wie schnell man ist, hängt von der Waffe in der Hand ab (Meter pro Sekunde, Laufen / Sprinten):
+
+| Waffe in der Hand | Laufen | Sprinten |
+|---|---|---|
+| Messer | 6,2 | 8,8 |
+| Natter, Granaten | 6,0 | 8,0 |
+| Kobra | 5,8 | 7,8 |
+| Falke | 5,8 | 7,6 |
+| Keiler, Wolf, Luchs | 5,5 | 7,1 |
+| Adler | 5,0 | 6,3 |
+
+Nach dem Sprinten braucht die Waffe einen Moment, bis sie schießt (Natter 0,12 s, Adler 0,3 s, Messer sofort). Wer beim Sprinten klickt, hört auf zu sprinten und schießt, sobald die Waffe bereit ist. Zum Weitersprinten `Shift` neu drücken.
 
 Das Spiel geht beim Start in den Vollbildmodus. So fängt Chrome auch `Strg+W` ab, sonst würde Ducken plus Vorwärtslaufen den Tab schließen. Abschalten lässt sich das in den Einstellungen.
 
@@ -75,7 +112,9 @@ Das Spiel geht beim Start in den Vollbildmodus. So fängt Chrome auch `Strg+W` a
 | Adler | Scharfschützengewehr | 4.750 $ | Ein Körpertreffer reicht, Zielfernrohr nur beim Halten |
 | Messer | Nahkampf | frei | Hieb (links, 60) und Stich (rechts, 90): zwei Treffer reichen immer, auch gegen eine Weste |
 
-Dazu Schutzweste, Weste mit Helm und drei Granaten (Splitter, Blend, Rauch) für die zwei Extra-Slots.
+Dazu Schutzweste, Weste mit Helm und drei Granaten (Splitter, Blend, Rauch) für die zwei Extra-Slots. Mit einer Granate in der Hand zeigt die Bildmitte statt des Fadenkreuzes nur einen Punkt, der die Wurfrichtung markiert.
+
+Beim Nachladen einer Waffe mit Magazin kippt die Waffe zur Seite, das leere Magazin fällt heraus und die linke Hand steckt ein neues ein. Die Keiler lädt weiter Patrone für Patrone.
 
 Trefferzonen: Kopf (Faktor je Waffe, meist 2,4), Körper und Arme (1), Beine (0,75, dort schützt die Weste nicht). Die Trefferzonen sind etwas größer als die sichtbaren Figuren und Klappziele, damit man leichter trifft.
 
@@ -95,11 +134,11 @@ Alle Werte (Waffen, Rückstoßmuster, Streuung, Preise, Rundenzeiten) stehen in 
 | Ordner / Datei | Zweck |
 |---|---|
 | `src/config.js` | Alle Spielwerte an einem Ort |
-| `src/game/` | Spielkern, Runden und Geld, Klappziele, 1 gegen 1 (`duel.js`) und der Gegner im eigenen Spiel (`remote.js`) |
-| `src/net/` | Verbindung zwischen zwei Browsern (Trystero und Supabase Realtime) |
+| `src/game/` | Spielkern, Runden und Geld, Klappziele, 1 gegen 1 mit Bombenmodus (`duel.js`), der Gegner im eigenen Spiel (`remote.js`) und der Luftschlag (`airstrike.js`) |
+| `src/net/` | Verbindung zwischen zwei Browsern (Trystero und Supabase Realtime), Tab-Speicher für den Wiedereinstieg |
 | `src/player/` | Bewegung wie in der Source-Engine (Beschleunigung, Reibung, Luftsteuerung, Ducken) |
 | `src/weapons/` | Inventar mit 5 Slots, Schießen, Rückstoß, Waffe in der Hand, Granaten |
-| `src/world/` | Arena, Himmel und Licht |
+| `src/world/` | Arena, Himmel und Licht, Bombenplätze und Bombe (`bombsites.js`) |
 | `src/effects/` | Einschusslöcher, Funken, Staub, Leuchtspuren, Explosionen |
 | `src/engine/` | Grafik, Physik, Steuerung, Ton (alle Geräusche werden per WebAudio erzeugt) |
 | `src/ui/` | HUD, Kaufmenü und Lobby |

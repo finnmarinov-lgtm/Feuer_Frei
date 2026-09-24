@@ -21,6 +21,12 @@ export const SPAWNS = {
   east: { pos: new THREE.Vector3(26.5, 0, 0), yaw: -FACE_EAST },
 };
 export const SPAWN = SPAWNS.west;
+// Bombenplätze: je einer in der Gasse neben dem eigenen Startpunkt (am Kistenstapel), gespiegelt.
+// Wer angreift, legt die Bombe auf dem Platz des anderen.
+export const BOMB_SITES = {
+  west: new THREE.Vector3(-17.5, 0, -15),
+  east: new THREE.Vector3(17.5, 0, 15),
+};
 export const BUY_ZONES = {
   west: { x0: -30, x1: -21.5, z0: -8, z1: 8 },
   east: { x0: 21.5, x1: 30, z0: -8, z1: 8 },
@@ -118,6 +124,9 @@ const PROPS = [
   ['metal_jerrycan', -28.6, 18.8, 0.6, 2.4], ['Crate_S', -6.5, 11.2, 0.15, 0], ['Crate_L', -24.5, 13, 0, 0],
   ['Crate_L', -15, -14.5, 0, 0], ['Crate_S', -13.7, -14.2, 0.2, 0], ['Crate_S', -15, -14.5, -0.2, 1.3],
   ['concrete_road_barrier', -9, -17, 0.2, 0], ['Barrel_01', -7, -9.2, 0.9, 0], ['barrel_03', -6.3, -9.7, 0.1, 0],
+  // Kistenstapel vor dem Startpunkt: versperrt die Sicht durch den Tunnel zum anderen Startpunkt
+  ['Crate_L', -22.9, -0.72, 0.04, 0], ['Crate_L', -22.95, 0.62, -0.06, 0],
+  ['Crate_S', -22.85, -0.55, 0.12, 1.3], ['Crate_S', -22.95, 0.5, -0.2, 1.3],
 ];
 
 const PROP_SURFACE = {

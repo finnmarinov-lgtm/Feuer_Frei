@@ -11,7 +11,8 @@ export const TEAMS = {
 };
 
 // Bits im Zustand, den jeder Spieler 30-mal pro Sekunde schickt
-export const FLAG = { ALIVE: 1, GROUND: 2, RELOAD: 4, ADS: 8, WALK: 16, PROTECT: 32 };
+// BUSY: legt oder entschärft gerade die Bombe
+export const FLAG = { ALIVE: 1, GROUND: 2, RELOAD: 4, ADS: 8, WALK: 16, PROTECT: 32, SPRINT: 64, BUSY: 128 };
 
 const DOWN = { x: 0, y: -1, z: 0 };
 const THIGH = 0.43;
@@ -153,7 +154,20 @@ export class RemotePlayer {
     this.flashT = 0;
     this.lastFlags = 0;
     this.glow = 0;
+    this.sprint = 0;
+    this.busy = 0;
+    this.busyT = 0;
+    this.hidden = false;
     for (const m of this.bodyMaterials ?? []) m.emissive.setRGB(0, 0, 0);
+  }
+
+  /** Gegner ist mit neuer Seite zurück: seine Uhr fängt neu an, alte Zustände passen nicht mehr */
+  resetStream() {
+    this.snaps.length = 0;
+    this.clockOff = null;
+    this.dead = false;
+    this.shown = false;
+    this.root.visible = false;
   }
 
   /** team: Seite des Gegners ('host' oder 'guest') */
@@ -303,6 +317,12 @@ export class RemotePlayer {
 
   update(dt) {
     if (!this.active) return;
+    // Verbindung weg: Figur ausblenden, bis der Gegner zurück ist
+    if (this.hidden) {
+      this.root.visible = false;
+      if (this.collider.isEnabled()) this.collider.setEnabled(false);
+      return;
+    }
     const net = this.g.match.net;
     if (!this._sample(net?.mode === 'server' ? 170 : 90)) return;
     const s = this.state;
@@ -345,13 +365,16 @@ export class RemotePlayer {
     this.kick = Math.max(0, this.kick - dt * 8);
     const reloading = (s.f & FLAG.RELOAD) !== 0;
     this.reload += ((reloading ? 1 : 0) - this.reload) * Math.min(1, dt * 8);
+    this.sprint += ((s.f & FLAG.SPRINT ? 1 : 0) - this.sprint) * Math.min(1, dt * 8);
+    this.busy += ((s.f & FLAG.BUSY && !this.dead ? 1 : 0) - this.busy) * Math.min(1, dt * 6);
     let jab = 0;
     if (this.jab >= 0) {
       this.jab += dt / 0.3;
       jab = Math.sin(Math.min(1, this.jab) * Math.PI);
       if (this.jab >= 1) this.jab = -1;
     }
-    n.anchor.rotation.x = this.kick * 0.12 - this.reload * 0.55;
+    // beim Legen oder Entschärfen hängt die Waffe nach unten
+    n.anchor.rotation.x = this.kick * 0.12 - this.reload * 0.55 - this.sprint * 0.7 - this.busy * 1.1;
     n.anchor.position.z = this.anchorRestZ - jab * 0.18;
     this.flashT -= dt;
     this.flash.visible = this.flashT > 0;
@@ -384,7 +407,7 @@ export class RemotePlayer {
     n.shinL.rotation.x = -(a + b) - Math.max(0, Math.cos(this.phase)) * 0.9 * amp - tuck * 0.9;
     n.shinR.rotation.x = -(a + b) - Math.max(0, -Math.cos(this.phase)) * 0.9 * amp - tuck * 0.6;
     // Oberkörper folgt dem Blick nach oben und unten, beim Ducken leicht vorgebeugt
-    n.spine.rotation.x = s.pitch * 0.55 - 0.18 * s.duck;
+    n.spine.rotation.x = s.pitch * 0.55 - 0.18 * s.duck - 0.2 * this.sprint - 0.55 * this.busy;
     n.spine.rotation.y = Math.sin(this.phase) * 0.06 * amp;
     n.head.rotation.x = s.pitch * 0.45 + 0.18 * s.duck;
     this.fall.rotation.set(0, 0, 0);
@@ -419,7 +442,7 @@ export class RemotePlayer {
       if (this.stepDist > 2.0) {
         this.stepDist = 0;
         const hit = g.physics.raycast({ x: feet.x, y: feet.y + 0.2, z: feet.z }, DOWN, 0.6);
-        g.audio.play('step', { position: feet, surface: hit?.surface || 'sand' });
+        g.audio.play('step', { position: feet, surface: hit?.surface || 'sand', volume: s.f & FLAG.SPRINT ? 1.3 : 1 });
       }
     }
     if (!ground) this.airT += dt;
@@ -430,6 +453,17 @@ export class RemotePlayer {
     if ((s.f & FLAG.RELOAD) && !(this.lastFlags & FLAG.RELOAD)) {
       g.audio.play('magOut', { position: feet, delay: 0.3 });
       g.audio.play('magIn', { position: feet, delay: 1.2 });
+    }
+    // Bombe legen (Tastentöne) oder entschärfen (Klicken) hört man in der Nähe
+    if (s.f & FLAG.BUSY) {
+      this.busyT -= dt;
+      if (this.busyT <= 0) {
+        const planting = g.match.attacker === g.match.them;
+        this.busyT = planting ? 0.32 : 0.45;
+        g.audio.play(planting ? 'plantKey' : 'defuseTick', { position: feet });
+      }
+    } else {
+      this.busyT = 0;
     }
   }
 

@@ -1,4 +1,4 @@
-import { ECONOMY, TRAINING, WEAPONS, ARMOR } from '../config.js';
+import { ECONOMY, TRAINING, WEAPONS, ARMOR, SPECIAL } from '../config.js';
 import { SPAWN } from '../world/map.js';
 
 function shuffle(a) {
@@ -27,6 +27,11 @@ export class Match {
     return false;
   }
 
+  // Bombe legen oder entschärfen gibt es nur im Duell (siehe duel.js)
+  get busy() {
+    return false;
+  }
+
   get roundLabel() {
     return `Runde ${this.round}/${TRAINING.rounds}`;
   }
@@ -38,11 +43,44 @@ export class Match {
     this.phase = 'idle';
     this.timer = 0;
     this.buyTimer = 0;
-    this.stats = { shots: 0, hits: 0, heads: 0, kills: 0, damage: 0, grenades: 0, spent: 0, earned: 0 };
+    this.stats = { shots: 0, hits: 0, heads: 0, kills: 0, damage: 0, grenades: 0, spent: 0, earned: 0, airstrikes: 0 };
     this.rounds = [];
     this.roundStats = null;
     this.purchases = [];
     this.lastBeep = 0;
+    // Spezialleiste (Punkte bis SPECIAL.charge), bleibt über die Runden erhalten
+    this.special = 0;
+  }
+
+  // ---------- Spezialleiste und Luftschlag ----------
+  get specialReady() {
+    return this.special >= SPECIAL.charge;
+  }
+
+  get canUseSpecial() {
+    const p = this.g.player;
+    return this.phase === 'live' && p.alive && !this.fireBlocked && !this.busy;
+  }
+
+  addCharge(points) {
+    if (this.specialReady || !(points > 0)) return;
+    this.special = Math.min(SPECIAL.charge, this.special + points);
+    if (this.specialReady) {
+      this.g.audio.play('specialReady');
+      this.g.hud.specialReady();
+    }
+  }
+
+  /** Luftschlag auf point anfordern: Flugrichtung ist die eigene Blickrichtung */
+  callAirstrike(point) {
+    const g = this.g;
+    const yaw = g.player.yaw;
+    const seed = Math.floor(Math.random() * 2147483647);
+    this.special = 0;
+    this.stats.airstrikes++;
+    this.onAttack?.();
+    g.airstrikes.start(point, seed, yaw, true);
+    this.airFx?.(point, seed, yaw);
   }
 
   start() {
@@ -62,6 +100,7 @@ export class Match {
     this.purchases = [];
     this.roundStats = { kills: 0, heads: 0, shots: 0, hits: 0, reward: 0 };
     g.grenades.clear();
+    g.airstrikes.clear();
     g.targets.clear();
     g.player.spawn(SPAWN.pos, SPAWN.yaw);
     g.player.health = 100;
@@ -183,12 +222,14 @@ export class Match {
     if (this.roundStats) this.roundStats.shots++;
   }
 
-  onHit(damage, head, bullet = true) {
+  /** charge = false: Schaden lädt die Spezialleiste nicht (z. B. vom Luftschlag selbst) */
+  onHit(damage, head, bullet = true, charge = true) {
     if (bullet) {
       this.stats.hits++;
       if (this.roundStats) this.roundStats.hits++;
     }
     this.stats.damage += damage;
+    if (charge) this.addCharge(damage);
   }
 
   onKill(def, head) {
@@ -201,6 +242,7 @@ export class Match {
     }
     this.addMoney(def.reward);
     this.g.hud.killfeed(def.name, head, def.reward);
+    if (def.id !== 'luftschlag') this.addCharge(SPECIAL.killBonus);
   }
 
   onGrenade() {

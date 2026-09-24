@@ -47,7 +47,15 @@ export class Player {
     this.stepDist = 0;
     this.landImpact = 0;
     this.maxSpeed = 5.5;
+    // Sprinten: Tempo kommt von der Waffe, gesperrt beim Schießen, Zielen und Nachladen
+    this.sprintSpeed = 7;
+    this.sprintBlocked = false;
+    // nach Schuss oder Zielen im Sprint: erst Shift loslassen, dann geht es wieder
+    this.sprintSuppressed = false;
+    this.sprinting = false;
     this.frozen = false;
+    // beim Legen und Entschärfen der Bombe und beim Zielen für den Luftschlag: stillstehen, Waffe unten
+    this.busy = false;
     this.health = PLAYER.health;
     this.armor = 0;
     this.helmet = false;
@@ -65,6 +73,8 @@ export class Player {
     this.collider.setHalfHeight(this.halfStand);
     this.onGround = true;
     this.alive = true;
+    this.sprinting = false;
+    this.busy = false;
     this.landImpact = 0;
     this._syncCollider();
   }
@@ -155,10 +165,12 @@ export class Player {
     if (!this.alive) return;
 
     const walk = input.isDown('walk');
+    const still = this.frozen || this.busy;
     let f = 0, s = 0;
-    if (!this.frozen) {
-      f = (input.isDown('forward') ? 1 : 0) - (input.isDown('back') ? 1 : 0);
-      s = (input.isDown('right') ? 1 : 0) - (input.isDown('left') ? 1 : 0);
+    if (!still) {
+      // Tastatur und Stick (Touch) zusammen; der Stick liefert Zwischenwerte
+      f = (input.isDown('forward') ? 1 : 0) - (input.isDown('back') ? 1 : 0) + input.moveY;
+      s = (input.isDown('right') ? 1 : 0) - (input.isDown('left') ? 1 : 0) + input.moveX;
       if (input.consume('jump')) this.jumpBuffer = 0.12;
     }
     this.jumpBuffer = Math.max(0, this.jumpBuffer - dt);
@@ -170,16 +182,24 @@ export class Player {
     const rate = dt / MOVE.duckTime;
     this.duckAmount += Math.max(-rate, Math.min(rate, duckTarget - this.duckAmount));
 
+    // Sprinten nur vorwärts und im Stehen; in der Luft läuft ein Sprint weiter, beginnt aber nicht
+    if (!input.isDown('sprint')) this.sprintSuppressed = false;
+    const wantSprint = !still && input.isDown('sprint') && f > 0 && !this.ducked && !walk
+      && !this.sprintBlocked && !this.sprintSuppressed;
+    this.sprinting = wantSprint && (this.onGround || this.sprinting);
+
     let maxSpeed = this.maxSpeed;
-    if (this.ducked) maxSpeed *= MOVE.crouchMul;
+    if (this.sprinting) maxSpeed = this.sprintSpeed;
+    else if (this.ducked) maxSpeed *= MOVE.crouchMul;
     else if (walk) maxSpeed *= MOVE.walkMul;
 
     _fwd.set(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
     _right.set(Math.cos(this.yaw), 0, -Math.sin(this.yaw));
     _wish.set(0, 0, 0).addScaledVector(_fwd, f).addScaledVector(_right, s);
-    const hasWish = _wish.lengthSq() > 0;
-    if (hasWish) _wish.normalize();
-    const wishspeed = hasWish ? maxSpeed : 0;
+    // Tasten geben volles Tempo, ein halb gedrückter Stick nur halbes (und damit leise Schritte)
+    const amount = Math.min(1, _wish.length());
+    if (amount > 0) _wish.normalize();
+    const wishspeed = maxSpeed * amount;
 
     if (this.onGround && this.jumpBuffer > 0) {
       this.vel.y = JUMP_VEL;
@@ -194,7 +214,7 @@ export class Player {
       this._accelerate(_wish, wishspeed, MOVE.airAccelerate, dt, MOVE.airWishCap);
       this.vel.y -= MOVE.gravity * dt;
     }
-    if (this.frozen && this.onGround) this.vel.x = this.vel.z = 0;
+    if (still && this.onGround) this.vel.x = this.vel.z = 0;
 
     // Zwei Durchgänge: erst waagerecht, dann senkrecht. In einem gemeinsamen Durchgang
     // wertet Rapier den Bodenkontakt sonst sporadisch als Hindernis und bremst den Spieler.
@@ -224,7 +244,7 @@ export class Player {
       if (this.stepDist > 2.0) {
         this.stepDist = 0;
         const hit = this.physics.raycast({ x: this.feet.x, y: this.feet.y + 0.2, z: this.feet.z }, DOWN, 0.6);
-        this.audio.play('step', { position: this.feet, surface: hit?.surface || 'sand' });
+        this.audio.play('step', { position: this.feet, surface: hit?.surface || 'sand', volume: this.sprinting ? 1.3 : 1 });
       }
     }
     this.landImpact = Math.max(0, this.landImpact - dt * 3);

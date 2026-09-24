@@ -7,7 +7,10 @@ import { RealtimeClient } from '@supabase/realtime-js';
 // empfangen über beide.
 
 const APP_ID = 'feuer-frei-duell-v1';
+// Version des Netzprotokolls: beide Spieler brauchen denselben Stand des Spiels
+export const PROTOCOL = 2;
 const SUPABASE_WS = 'wss://yzzipjtounvktdhhvrnt.supabase.co/realtime/v1';
+const SUPABASE_REST = 'https://yzzipjtounvktdhhvrnt.supabase.co/realtime/v1/api/broadcast';
 // "publishable" Schlüssel: darf öffentlich im Code stehen
 const SUPABASE_KEY = 'sb_publishable_OCNFFT4wa4CMaHyhcLAY4A_u2flZF1s';
 const LOST_AFTER = 4000;
@@ -31,6 +34,7 @@ export class Net {
   /** only: 'direkt' oder 'server' schaltet den anderen Weg ab (zum Testen) */
   constructor(code, { only = null } = {}) {
     this.code = code;
+    this.only = only;
     this.id = selfId;
     this.partner = null;
     this.onMessage = null;
@@ -43,13 +47,33 @@ export class Net {
     this.lastRecv = 0;
     this.ping = 0;
     this.closed = false;
-    const room = 'ff-' + code;
+    const room = (this.roomId = 'ff-' + code);
     if (only !== 'server') this._startDirect(room);
     if (only !== 'direkt') this._startServer(room);
     this._hb = setInterval(() => this._heartbeat(), 1000);
-    // Tab wird geschlossen: dem anderen sofort Bescheid geben statt ihn warten zu lassen
-    this._onHide = () => this.send({ t: 'bye' });
+    // Tab wird geschlossen oder neu geladen: dem anderen sofort Bescheid geben. Das ist kein
+    // Aufgeben, nach dem Neuladen kann man zurück ins Duell (Aufgeben ist 'bye' über das Menü).
+    // Über WebRTC und den offenen Socket kommt das beim Entladen oft nicht mehr raus, deshalb
+    // zusätzlich als Anfrage mit keepalive, die der Browser auch dann noch abschickt.
+    this._onHide = () => {
+      this.send({ t: 'away' });
+      this._beacon({ t: 'away' });
+    };
     window.addEventListener('pagehide', this._onHide);
+  }
+
+  _beacon(data) {
+    if (!this.partner || this.only === 'direkt') return;
+    try {
+      fetch(SUPABASE_REST, {
+        method: 'POST',
+        keepalive: true,
+        headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY },
+        body: JSON.stringify({ messages: [{ topic: this.roomId, event: 'm', payload: { f: this.id, to: this.partner, d: data } }] }),
+      }).catch(() => {});
+    } catch {
+      // dann merkt es der andere eben nach ein paar Sekunden ohne Nachricht
+    }
   }
 
   /** 'suche' (noch kein Partner), 'direkt', 'server' oder 'getrennt' */
@@ -133,8 +157,14 @@ export class Net {
       this._sendServer(data, null);
       return;
     }
-    if (this.directPeers.has(to)) this.action.send(data, { target: to }).catch(() => {});
-    else if (this.serverPeers.has(to)) this._sendServer(data, to);
+    if (this.directPeers.has(to)) {
+      // klappt der direkte Weg gerade nicht (z. B. kurz beim Neuaushandeln), über den Server nachschicken
+      this.action.send(data, { target: to }).catch(() => {
+        if (this.serverPeers.has(to)) this._sendServer(data, to);
+      });
+    } else if (this.serverPeers.has(to)) {
+      this._sendServer(data, to);
+    }
   }
 
   _sendServer(data, to) {

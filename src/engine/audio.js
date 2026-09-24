@@ -194,6 +194,15 @@ export class Audio {
         this._noise(o, t + 0.03, { type: 'bandpass', freq: 1500, q: 2, gain: 0.6, decay: 0.12 });
         break;
       }
+      // leeres Magazin fällt auf den Boden: zwei metallische Aufschläge
+      case 'magDrop': {
+        const o = this._out(pos, 0.35 * vol, 0.25);
+        this._noise(o, t, { type: 'bandpass', freq: 2300, q: 4, gain: 0.9, decay: 0.05 });
+        this._tone(o, t, { freq: 1650 + Math.random() * 300, gain: 0.12, decay: 0.12 });
+        this._noise(o, t + 0.09, { type: 'bandpass', freq: 3100, q: 5, gain: 0.5, decay: 0.04 });
+        this._noise(o, t, { type: 'lowpass', freq: 500, q: 1, gain: 0.4, decay: 0.05 });
+        break;
+      }
       case 'magIn': {
         const o = this._out(pos, 0.55 * vol, 0.15);
         this._noise(o, t, { type: 'bandpass', freq: 1800, q: 2, gain: 1, decay: 0.05 });
@@ -415,6 +424,12 @@ export class Audio {
         this._noise(o, t, { type: 'lowpass', freq: 800, q: 1, gain: 0.7, decay: 0.06 });
         break;
       }
+      case 'chat': {
+        const o = this._out(null, 0.2 * vol, 0.05);
+        this._tone(o, t, { type: 'sine', freq: 1047, gain: 0.7, decay: 0.09 });
+        this._tone(o, t + 0.07, { type: 'sine', freq: 1397, gain: 0.6, decay: 0.12 });
+        break;
+      }
       // Treffer auf einen Gegner mit Spawn-Schutz: heller, abprallender Klang
       case 'shield': {
         const o = this._out(null, 0.3 * vol, 0.1);
@@ -426,6 +441,81 @@ export class Audio {
         const o = this._out(null, 0.3 * vol, 0.1);
         this._tone(o, t, { type: 'triangle', freq: 880, gain: 0.7, decay: 0.12 });
         this._tone(o, t + 0.09, { type: 'triangle', freq: 1320, gain: 0.7, decay: 0.2 });
+        break;
+      }
+      // ---------- Bombe ----------
+      // Tastendruck beim Legen (auch beim Gegner zu hören)
+      case 'plantKey': {
+        const o = this._out(pos, 0.35 * vol, 0.1, 3);
+        this._noise(o, t, { type: 'bandpass', freq: 2600, q: 5, gain: 0.7, decay: 0.02 });
+        this._tone(o, t + 0.01, { type: 'square', freq: 1800 + Math.random() * 400, gain: 0.12, decay: 0.07 });
+        break;
+      }
+      case 'bombBeep': {
+        const o = this._out(pos, 0.5 * vol, 0.25, 6);
+        this._tone(o, t, { type: 'sine', freq: opt.freq || 2800, gain: 0.8, decay: 0.08 });
+        this._tone(o, t, { type: 'square', freq: (opt.freq || 2800) / 2, gain: 0.05, decay: 0.06 });
+        break;
+      }
+      case 'bombPlanted': {
+        const o = this._out(null, 0.3 * vol, 0.2);
+        [988, 988, 1318].forEach((f, i) => this._tone(o, t + i * 0.12, { type: 'square', freq: f, gain: 0.35, decay: 0.09 }));
+        this._tone(o, t + 0.36, { type: 'triangle', freq: 660, gain: 0.7, decay: 0.45 });
+        break;
+      }
+      case 'defuseTick': {
+        const o = this._out(pos, 0.4 * vol, 0.1, 3);
+        this._noise(o, t, { type: 'bandpass', freq: 3200, q: 6, gain: 0.8, decay: 0.025 });
+        this._noise(o, t + 0.04, { type: 'bandpass', freq: 1900, q: 4, gain: 0.4, decay: 0.03 });
+        break;
+      }
+      case 'bombDefused': {
+        const o = this._out(pos, 0.5 * vol, 0.3, 8);
+        this._tone(o, t, { type: 'sine', freq: 1500, freqEnd: 260, gain: 0.6, attack: 0.01, decay: 0.7 });
+        this._noise(o, t, { type: 'bandpass', freq: 2400, q: 3, gain: 0.8, decay: 0.05 });
+        break;
+      }
+      case 'bombExplode': {
+        const o = this._out(pos, 2.4 * vol, 1.6, 30);
+        this._noise(o, t, { type: 'lowpass', freq: 1100, freqEnd: 50, q: 0.7, gain: 1.6, attack: 0.005, decay: 3.2 });
+        this._noise(o, t, { type: 'bandpass', freq: 1400, q: 0.5, gain: 1.2, decay: 0.2 });
+        this._tone(o, t, { freq: 55, freqEnd: 18, gain: 1.8, attack: 0.01, decay: 2.2 });
+        this._noise(o, t + 0.3, { type: 'highpass', freq: 2200, q: 0.5, gain: 0.2, attack: 0.2, decay: 2.4 });
+        break;
+      }
+      // ---------- Luftschlag ----------
+      case 'specialReady': {
+        const o = this._out(null, 0.22 * vol, 0.2);
+        [660, 880, 1320].forEach((f, i) => this._tone(o, t + i * 0.09, { type: 'triangle', freq: f, gain: 0.8, decay: 0.3 }));
+        break;
+      }
+      // Funkspruch: kurzes Rauschen, dann Bestätigungston
+      case 'radio': {
+        const o = this._out(null, 0.3 * vol, 0.05);
+        this._noise(o, t, { type: 'bandpass', freq: 1800, q: 0.8, gain: 0.6, attack: 0.01, decay: 0.25 });
+        this._tone(o, t + 0.28, { type: 'square', freq: 1046, gain: 0.25, decay: 0.12 });
+        this._tone(o, t + 0.42, { type: 'square', freq: 1568, gain: 0.25, decay: 0.16 });
+        break;
+      }
+      // Warnung im Zielgebiet: schnelles Piepen
+      case 'airWarn': {
+        const o = this._out(null, 0.2 * vol, 0);
+        for (let i = 0; i < 6; i++) this._tone(o, t + i * 0.16, { type: 'square', freq: i % 2 ? 740 : 988, gain: 0.5, decay: 0.1 });
+        break;
+      }
+      // Überflug: anschwellendes Dröhnen, das am höchsten Punkt vorbeizieht
+      case 'jet': {
+        const dur = opt.duration || 2.6;
+        const o = this._out(null, 0.9 * vol, 0.6);
+        this._noise(o, t, { type: 'bandpass', freq: 260, freqEnd: 900, q: 0.6, gain: 1, attack: dur * 0.55, decay: dur * 0.45 });
+        this._noise(o, t, { type: 'lowpass', freq: 500, freqEnd: 120, q: 0.7, gain: 0.8, attack: dur * 0.6, decay: dur * 0.6 });
+        this._tone(o, t, { type: 'sawtooth', freq: 150, freqEnd: 95, gain: 0.05, attack: dur * 0.55, decay: dur * 0.4 });
+        break;
+      }
+      // fallende Bombe pfeift kurz vor dem Einschlag
+      case 'whistle': {
+        const o = this._out(pos, 0.35 * vol, 0.2, 10);
+        this._tone(o, t, { type: 'sine', freq: 1700, freqEnd: 520, gain: 0.5, attack: 0.05, decay: 0.55 });
         break;
       }
       default:

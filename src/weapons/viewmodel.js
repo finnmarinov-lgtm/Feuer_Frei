@@ -17,7 +17,18 @@ const _q = new THREE.Quaternion();
 const _q2 = new THREE.Quaternion();
 const _off = new THREE.Vector3();
 const _offRot = new THREE.Euler();
+const _hand = new THREE.Vector3();
+const _low = new THREE.Vector3();
+const _m = new THREE.Matrix4();
 const FORWARD = new THREE.Vector3(0, 0, -1);
+const ZERO = new THREE.Vector3();
+// Hand weg nach unten (aus dem Bild), um ein neues Magazin zu holen
+const HAND_AWAY = new THREE.Vector3(0, -0.26, 0.1);
+// so weit unter dem Schacht setzt die Hand das neue Magazin an
+const MAG_INSERT = 0.07;
+// Haltung beim Nachladen (Drehung in Radiant, Verschiebung in Metern)
+const RELOAD_TILT = { rz: -0.55, rx: 0.4, ry: 0.12, px: -0.06, py: 0.075, pz: 0.02 };
+const RELOAD_TILT_PLAIN = { rz: 0.5, rx: 0.2, ry: 0, px: -0.02, py: -0.035, pz: 0 };
 
 // Anschlagshaltung aus den Visierpunkten im Modell: die Linie Kimme -> Korn liegt genau
 // auf der Blickachse, die Kimme sitzt "eye" Meter vor dem Auge.
@@ -56,7 +67,7 @@ export class Viewmodel {
       const find = (n) => model.getObjectByName(n) || null;
       const parts = {
         mag: find('Mag'), slide: find('Slide'), bolt: find('Bolt'), pin: find('Pin'), pump: find('Pump'),
-        muzzle: find('Muzzle'), eject: find('Eject'),
+        muzzle: find('Muzzle'), eject: find('Eject'), armL: find('ArmL'),
       };
       const rest = {};
       for (const [k, o] of Object.entries(parts)) {
@@ -68,9 +79,12 @@ export class Viewmodel {
       };
       const ads = def.ads ? adsPose(model, def.ads.eye) : null;
       const dot = def.reddot ? this._setupRedDot(model) : null;
+      const reload = parts.mag && parts.armL ? this._reloadSetup(parts) : null;
       this.root.add(model);
-      this.models[id] = { model, parts, rest, hip, ads, dot };
+      this.models[id] = { model, parts, rest, hip, ads, dot, reload };
     }
+    this.onMagDrop = null;
+    this.reloadTilt = { ...RELOAD_TILT };
 
     // Mündungsfeuer: zwei Längsflächen und eine Frontfläche
     const mat = new THREE.MeshBasicMaterial({
@@ -135,10 +149,38 @@ export class Viewmodel {
     this.flashT = 0;
     this.bobPhase = 0;
     this.bobAmp = 0;
+    this.sprintT = 0;
+    this.lowerT = 0;
     this.sway = new THREE.Vector2();
     this.swayVel = new THREE.Vector2();
     this.airOffset = 0;
     this.slideLocked = false;
+  }
+
+  // Magazinwechsel vorbereiten: wo die linke Hand das neue Magazin hält (unteres Viertel des
+  // Magazins, relativ zu ihrer Ruhelage) und eine Kopie des Magazins, die beim Auswerfen wegfällt
+  _reloadSetup(parts) {
+    const { mag, armL } = parts;
+    armL.updateWorldMatrix(true, false);
+    mag.updateWorldMatrix(true, true);
+    const toArmSpace = new THREE.Matrix4().copy(armL.parent.matrixWorld).invert();
+    const box = new THREE.Box3();
+    mag.traverse((o) => {
+      if (!o.isMesh) return;
+      o.geometry.computeBoundingBox();
+      box.union(o.geometry.boundingBox.clone().applyMatrix4(o.matrixWorld));
+    });
+    box.applyMatrix4(toArmSpace);
+    const center = box.getCenter(new THREE.Vector3());
+    const grip = new THREE.Vector3(center.x, box.min.y + 0.25 * (box.max.y - box.min.y), center.z);
+    const drop = mag.clone();
+    drop.visible = false;
+    drop.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
+    this.camera.add(drop);
+    return {
+      hold: grip.sub(armL.position), drop,
+      vel: new THREE.Vector3(), spin: new THREE.Vector3(), life: 0, dropped: false,
+    };
   }
 
   // Rotpunkt: leuchtender Punkt auf der Frontlinse, nur von hinten und nur beim Zielen sichtbar.
@@ -236,6 +278,7 @@ export class Viewmodel {
     this.reloadT = 0;
     this.reloadDur = duration;
     this.inspectT = -1;
+    if (this.current.reload) this.current.reload.dropped = false;
   }
 
   bolt() {
@@ -328,6 +371,28 @@ export class Viewmodel {
     pos.x += Math.sin(this.bobPhase) * 0.009 * bob;
     pos.y -= Math.abs(Math.cos(this.bobPhase)) * 0.011 * bob;
     rot.z += Math.sin(this.bobPhase) * 0.012 * bob;
+    // Sprinten: Waffe gesenkt und zur Seite gedreht, kräftigeres Wippen
+    this.sprintT += ((player.sprinting ? 1 : 0) - this.sprintT) * Math.min(1, dt * 10);
+    const sp = smooth(this.sprintT);
+    if (sp > 0.001) {
+      rot.x -= 0.32 * sp;
+      rot.y += 0.5 * sp;
+      rot.z += 0.22 * sp;
+      pos.x -= 0.02 * sp;
+      pos.y -= 0.05 * sp;
+      pos.z += 0.02 * sp;
+      pos.y -= Math.abs(Math.sin(this.bobPhase)) * 0.012 * sp;
+      rot.z += Math.sin(this.bobPhase) * 0.03 * sp;
+    }
+    // Bombe legen, entschärfen, Luftschlag anfordern: Waffe nach unten aus dem Bild
+    this.lowerT += ((player.busy ? 1 : 0) - this.lowerT) * Math.min(1, dt * 9);
+    if (this.lowerT > 0.001) {
+      const lw = smooth(this.lowerT);
+      pos.y -= 0.24 * lw;
+      pos.z += 0.06 * lw;
+      rot.x -= 0.7 * lw;
+      rot.z += 0.25 * lw;
+    }
     const airTarget = player.onGround ? 0 : Math.max(-0.02, Math.min(0.02, player.vel.y * 0.003));
     this.airOffset += (airTarget - this.airOffset) * Math.min(1, dt * 10);
     pos.y += (this.airOffset - player.landImpact * 0.035) * calm;
@@ -360,12 +425,18 @@ export class Viewmodel {
     if (this.reloadT >= 0) {
       this.reloadT += dt / this.reloadDur;
       const r = this.reloadT;
-      const b = bell(r, 0.15, 0.18);
-      rot.z += 0.5 * b;
-      rot.x += 0.2 * b;
-      pos.y -= 0.035 * b;
-      pos.x -= 0.02 * b;
-      if (parts.mag) {
+      const b = bell(r, 0.12, 0.2);
+      // mit Magazinwechsel: Schacht zur Bildmitte drehen, damit man den Wechsel sieht
+      const t = this.current.reload ? this.reloadTilt : RELOAD_TILT_PLAIN;
+      rot.z += t.rz * b;
+      rot.x += t.rx * b;
+      rot.y += t.ry * b;
+      pos.x += t.px * b;
+      pos.y += t.py * b;
+      pos.z += t.pz * b;
+      if (this.current.reload) {
+        this._magChange(r, parts, rest, this.current.reload, pos, rot);
+      } else if (parts.mag) {
         const out = seg(r, 0.15, 0.35) - seg(r, 0.5, 0.7);
         parts.mag.position.copy(rest.mag.p);
         parts.mag.position.y -= 0.28 * out;
@@ -514,6 +585,7 @@ export class Viewmodel {
     }
     this._fly(this.casings, dt);
     this._fly(this.shells, dt);
+    this._flyDrops(dt);
 
     // Rotpunkt leuchtet nur im Anschlag (kurz vor Erreichen der Visierlinie)
     const dot = this.current.dot;
@@ -521,6 +593,77 @@ export class Viewmodel {
       const k = Math.max(0, (e - 0.6) / 0.4);
       dot.core.opacity = k;
       dot.glow.opacity = 0.55 * k;
+    }
+  }
+
+  /**
+   * Magazinwechsel über den Ablauf r (0 bis 1): altes Magazin rutscht raus (0,1–0,2) und fällt
+   * weg, die linke Hand holt ein neues (0,2–0,6), schiebt es ein (0,6–0,68, kurzer Ruck) und
+   * greift wieder den Handschutz (0,68–0,84).
+   */
+  _magChange(r, parts, rest, rl, pos, rot) {
+    const { mag, armL } = parts;
+    if (r < 0.2) {
+      const s = seg(r, 0.1, 0.2);
+      mag.position.copy(rest.mag.p);
+      mag.position.y -= 0.05 * s;
+      mag.rotation.copy(rest.mag.r);
+      mag.rotation.x -= 0.1 * s;
+    } else if (!rl.dropped) {
+      rl.dropped = true;
+      this._dropMag(rl, mag);
+    }
+    _low.copy(rl.hold);
+    _low.y -= MAG_INSERT;
+    if (r < 0.18) _hand.set(0, 0, 0);
+    else if (r < 0.4) _hand.lerpVectors(ZERO, HAND_AWAY, smooth((r - 0.18) / 0.22));
+    else if (r < 0.6) _hand.lerpVectors(HAND_AWAY, _low, smooth((r - 0.4) / 0.2));
+    else if (r < 0.68) _hand.lerpVectors(_low, rl.hold, smooth((r - 0.6) / 0.08));
+    else if (r < 0.84) _hand.lerpVectors(rl.hold, ZERO, smooth((r - 0.68) / 0.16));
+    else _hand.set(0, 0, 0);
+    armL.position.copy(rest.armL.p).add(_hand);
+    if (r >= 0.2 && r < 0.4) {
+      mag.visible = false;
+    } else if (r >= 0.4 && r < 0.68) {
+      // neues Magazin in der Hand
+      mag.visible = true;
+      mag.rotation.copy(rest.mag.r);
+      mag.position.copy(rest.mag.p).add(_hand).sub(rl.hold);
+    } else if (r >= 0.68) {
+      mag.visible = true;
+      mag.position.copy(rest.mag.p);
+      mag.rotation.copy(rest.mag.r);
+    }
+    // Einrasten: kurzer Ruck der ganzen Waffe
+    const clack = Math.max(0, 1 - Math.abs(r - 0.685) * 30);
+    pos.y += 0.008 * clack;
+    rot.x -= 0.05 * clack;
+  }
+
+  // Altes Magazin fällt aus dem Bild: Kopie an seiner Stelle, dann Schwerkraft im Kameraraum
+  _dropMag(rl, mag) {
+    this.root.updateMatrixWorld(true);
+    _m.copy(this.camera.matrixWorld).invert().multiply(mag.matrixWorld);
+    _m.decompose(rl.drop.position, rl.drop.quaternion, rl.drop.scale);
+    rl.drop.visible = true;
+    // taumelt nach links unten aus dem Bild, anfangs langsam, damit man es kurz sieht
+    rl.vel.set(-0.5 - Math.random() * 0.15, -0.08, 0.06);
+    rl.spin.set(3 + Math.random() * 2, 0, 4 + Math.random() * 2);
+    rl.life = 0.9;
+    mag.visible = false;
+    this.onMagDrop?.();
+  }
+
+  _flyDrops(dt) {
+    for (const m of Object.values(this.models)) {
+      const rl = m.reload;
+      if (!rl || rl.life <= 0) continue;
+      rl.life -= dt;
+      rl.vel.y -= 7 * dt;
+      rl.drop.position.addScaledVector(rl.vel, dt);
+      rl.drop.rotateX(rl.spin.x * dt);
+      rl.drop.rotateZ(rl.spin.z * dt);
+      if (rl.life <= 0) rl.drop.visible = false;
     }
   }
 

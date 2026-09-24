@@ -1,10 +1,13 @@
-import { Net, randomCode, parseCode } from '../net/net.js';
+import { Net, PROTOCOL, randomCode, parseCode } from '../net/net.js';
+import { session, setUrlLobby } from '../net/session.js';
 import { netText } from './hud.js';
 
-// Version des Netzprotokolls: beide Spieler brauchen denselben Stand des Spiels
-export const PROTOCOL = 1;
 const NAME_KEY = 'feuer-frei-name';
 const COUNTDOWN = 5;
+const MODE_INFO = {
+  kampf: 'Wer dem anderen alle Leben nimmt, gewinnt die Runde.',
+  bombe: 'Die Rollen wechseln jede Runde: Einer legt die Bombe auf dem Platz des anderen (E halten), der andere verteidigt und entschärft sie.',
+};
 const $ = (id) => document.getElementById(id);
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
@@ -13,7 +16,8 @@ function cleanName(s) {
 }
 
 // Lobby: erstellen (Host) oder mit Code/Link beitreten (Gast). Sobald beide da sind,
-// läuft ein Countdown und das Spiel startet von selbst.
+// läuft ein Countdown und das Spiel startet von selbst. Wer die Seite neu lädt, kommt mit
+// derselben Rolle zurück, bei einem laufenden Duell auch zurück ins Spiel (rejoin).
 export class Lobby {
   constructor({ show, onStart, netMode = null }) {
     this.show = show;
@@ -21,9 +25,10 @@ export class Lobby {
     this.netMode = netMode;
     this.net = null;
     this.role = null;
+    this.rejoin = null;
     this.code = null;
     this.partnerName = '';
-    this.opts = { lives: 3, wins: 2 };
+    this.opts = { mode: 'kampf', lives: 3, wins: 2 };
     this.countdown = 0;
     this.cdTimer = null;
     this.hiTimer = null;
@@ -58,8 +63,9 @@ export class Lobby {
     if (!navigator.share) $('btn-share').hidden = true;
     for (const seg of document.querySelectorAll('#lobby-opts .seg')) {
       seg.addEventListener('click', (e) => {
-        const v = Number(e.target.dataset?.v);
-        if (!v || this.role !== 'host') return;
+        const raw = e.target.dataset?.v;
+        if (!raw || this.role !== 'host') return;
+        const v = seg.dataset.opt === 'mode' ? raw : Number(raw);
         this.opts = { ...this.opts, [seg.dataset.opt]: v };
         if (this.net?.partner) {
           this.net.send({ t: 'cfg', cfg: this.opts });
@@ -87,6 +93,7 @@ export class Lobby {
 
   create() {
     this.role = 'host';
+    this.rejoin = null;
     this._enterRoom(randomCode());
   }
 
@@ -99,7 +106,11 @@ export class Lobby {
       $('lobby-code-input').value = '';
       return;
     }
-    this.role = 'guest';
+    // nach dem Neuladen: gleiche Rolle wie vorher, bei laufendem Duell mit dem eigenen Stand
+    const saved = session.lobby();
+    this.role = saved?.code === code ? saved.role : 'guest';
+    const duel = session.duel();
+    this.rejoin = duel?.code === code && duel.role === this.role ? duel : null;
     this._enterRoom(code);
   }
 
@@ -117,14 +128,22 @@ export class Lobby {
     }
     this.net = null;
     this.role = null;
+    this.rejoin = null;
     this.partnerName = '';
     this.problem = '';
-    if (location.search) history.replaceState(null, '', location.pathname);
+    session.clear();
+    setUrlLobby(null);
   }
 
   _enterRoom(code) {
+    const { role, rejoin } = this;
     if (this.net) this.leave();
+    this.role = role;
+    this.rejoin = rejoin;
     this.code = code;
+    // Code in die Adresse und Rolle in den Tab-Speicher: Neuladen führt zurück in die Lobby
+    session.setLobby(code, role);
+    setUrlLobby(code);
     this.problem = '';
     this.partnerName = '';
     this.countdown = 0;
@@ -144,7 +163,7 @@ export class Lobby {
   }
 
   _sayHi(id, ack = false) {
-    this.net?.send({ t: 'hi', v: PROTOCOL, name: this.name, role: this.role, cfg: this.opts, ack }, id);
+    this.net?.send({ t: 'hi', v: PROTOCOL, name: this.name, role: this.role, cfg: this.opts, ack, rejoin: !!this.rejoin }, id);
   }
 
   _adopt(id, name) {
@@ -174,9 +193,32 @@ export class Lobby {
         return;
       }
       const isNew = this._adopt(from, msg.name);
+      // Das Duell läuft beim anderen noch: mit dem geschickten Stand wieder einsteigen
+      if (msg.resume) {
+        this._launch(msg.cfg || this.opts, msg.resume);
+        return;
+      }
+      // Beide haben neu geladen: der Host hat den Stand der Partie in seinem Speicher
+      if (this.role === 'host' && this.rejoin?.phase && msg.rejoin) {
+        const saved = this.rejoin;
+        net.send({ t: 'hi', v: PROTOCOL, ack: true, role: 'host', name: this.name, cfg: saved.cfg, resume: saved.phase }, from);
+        this._launch(saved.cfg, saved.phase);
+        return;
+      }
+      // Der andere fängt neu an: alten Stand vergessen, ganz normal starten
+      if (this.rejoin && !msg.rejoin) this.rejoin = null;
       if (!msg.ack) this._sayHi(from, true);
       if (this.role === 'guest' && msg.cfg) this.opts = msg.cfg;
-      if (isNew && this.role === 'host') this._startCountdown();
+      if (isNew && this.role === 'host' && !this.rejoin) this._startCountdown();
+      this._render();
+      return;
+    }
+    if (msg.t === 'away' && from === net.partner) {
+      // Partner lädt neu: Platz für seine neue Kennung freimachen
+      net.partner = null;
+      this.partnerName = '';
+      this.countdown = 0;
+      this._stopCountdown();
       this._render();
       return;
     }
@@ -193,8 +235,13 @@ export class Lobby {
     } else if (msg.t === 'cd' && this.role === 'guest') {
       this.countdown = msg.n;
       if (msg.cfg) this.opts = msg.cfg;
+    } else if (msg.t === 'ph' && this.rejoin) {
+      // Host spielt schon: seine Rundenmeldung ist der Stand für den Wiedereinstieg
+      this._launch(this.rejoin.cfg || this.opts, msg);
+      return;
     } else if ((msg.t === 'start' || msg.t === 'ph') && this.role === 'guest') {
       // "ph" heißt: der Host spielt schon (Startmeldung verloren gegangen)
+      this.rejoin = null;
       this._launch(msg.cfg || this.opts);
       if (msg.t === 'ph') net.onMessage?.(msg, from);
       return;
@@ -248,18 +295,22 @@ export class Lobby {
     this.hiTimer = null;
   }
 
-  _launch(cfg) {
+  /** resume: Stand einer laufenden Partie (Wiedereinstieg), sonst beginnt eine neue */
+  _launch(cfg, resume = null) {
     const net = this.net;
+    const saved = resume ? this.rejoin : null;
     this._stopTimers();
     this.net = null;
+    this.rejoin = null;
     net.onPeer = null;
     net.onChange = null;
     net.onMessage = null;
     $('lobby-choice').hidden = false;
     $('lobby-room').hidden = true;
     this.onStart(net, {
-      role: this.role, lives: cfg.lives, wins: cfg.wins,
+      role: this.role, lives: cfg.lives, wins: cfg.wins, mode: cfg.mode,
       myName: this.name, theirName: this.partnerName || 'Mitspieler',
+      resume, saved,
     });
   }
 
@@ -293,8 +344,9 @@ export class Lobby {
     for (const seg of document.querySelectorAll('#lobby-opts .seg')) {
       const key = seg.dataset.opt;
       seg.classList.toggle('locked', !host);
-      for (const b of seg.children) b.classList.toggle('on', Number(b.dataset.v) === this.opts[key]);
+      for (const b of seg.children) b.classList.toggle('on', b.dataset.v === String(this.opts[key] ?? 'kampf'));
     }
+    $('lobby-mode-info').textContent = MODE_INFO[this.opts.mode] || MODE_INFO.kampf;
     const me = `${escapeHtml(this.name)}<small>${host ? 'Host · Westen' : 'Gast · Osten'}</small>`;
     const partner = net.partner
       ? `${escapeHtml(this.partnerName)}<small>${host ? 'Gast · Osten' : 'Host · Westen'}</small>`
@@ -306,6 +358,7 @@ export class Lobby {
     let status;
     const waited = (performance.now() - this.enteredAt) / 1000;
     if (this.problem) status = this.problem;
+    else if (this.rejoin) status = 'Zurück ins laufende Duell …';
     else if (net.partner && this.countdown > 0) status = `Spiel startet in ${this.countdown} …`;
     else if (net.partner) status = 'Gleich geht’s los …';
     else if (host) status = 'Warte auf deinen Freund …';

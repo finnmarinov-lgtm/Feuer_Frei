@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { SLOT_KEYS } from '../config.js';
+import { BOMB, QUICK_CHAT, SLOT_KEYS, SPECIAL } from '../config.js';
 
 const $ = (id) => document.getElementById(id);
 const fmtMoney = (v) => `${Math.round(v).toLocaleString('de-DE')} $`;
@@ -34,8 +34,16 @@ export class Hud {
       stats: $('stats-panel'), fps: $('fps'), scope: $('scope'), vignette: $('vignette'), flash: $('flash'),
       duelbar: $('duelbar'), duelMe: $('duel-me'), duelThem: $('duel-them'), duelScore: $('duel-score'),
       livesMe: $('lives-me'), livesThem: $('lives-them'), net: $('net-status'), dmgdir: $('dmgdir'),
-      protect: $('protect'),
+      protect: $('protect'), chatMenu: $('chat-menu'), chatLog: $('chat-log'),
+      usebar: $('usebar'), usebarLabel: $('usebar-label'), usebarFill: $('usebar-fill'), useprompt: $('useprompt'),
+      waypoint: $('waypoint'), waypointText: $('waypoint-text'), bombBadge: $('bomb-badge'),
+      special: $('special'), specialFill: $('special-fill'), specialHint: $('special-hint'),
     };
+    this.el.chatMenu.innerHTML = '<div class="head">Schnellnachricht</div>' +
+      QUICK_CHAT.map((t, i) => `<div><kbd>${i + 1}</kbd>${escapeHtml(t)}</div>`).join('');
+    this.chatOpen = false;
+    this.chatT = 0;
+    this.chats = [];
     this.mode = 'training';
     this.dirT = 0;
     this.dirFrom = new THREE.Vector3();
@@ -67,6 +75,23 @@ export class Hud {
     this.el.protect.hidden = true;
   }
 
+  /** Liste der Schnellnachrichten zeigen oder verstecken (schließt sich nach 5 s von selbst) */
+  toggleChat(open) {
+    this.chatOpen = open;
+    this.chatT = 5;
+    this.el.chatMenu.hidden = !open;
+  }
+
+  /** Nachricht im Verlauf links unten, verschwindet nach ein paar Sekunden */
+  chatLine(name, text, mine) {
+    const el = document.createElement('div');
+    el.className = 'chat' + (mine ? ' mine' : '');
+    el.innerHTML = `<b>${escapeHtml(name)}:</b> ${escapeHtml(text)}`;
+    this.el.chatLog.appendChild(el);
+    this.chats.push({ el, t: 6 });
+    if (this.chats.length > 4) this.chats.shift().el.remove();
+  }
+
   /** Roter Bogen am Bildschirmrand in Richtung der Schadensquelle */
   hitFrom(pos) {
     this.dirFrom.copy(pos);
@@ -95,12 +120,16 @@ export class Hud {
 
   reset() {
     this.el.roundEnd.hidden = true;
+    for (const k of ['usebar', 'useprompt', 'waypoint', 'bombBadge', 'specialHint']) this.el[k].hidden = true;
     this.el.flash.style.opacity = 0;
     this.flashT = this.hurtT = this.dirT = 0;
     for (const n of this.numbers) n.el.remove();
     this.numbers = [];
     this.el.killfeed.innerHTML = '';
     this.kills = [];
+    this.el.chatLog.innerHTML = '';
+    this.chats = [];
+    this.toggleChat(false);
   }
 
   setCrosshairColor(c) {
@@ -169,6 +198,13 @@ export class Hud {
     this.el.killfeed.prepend(el);
     this.kills.push({ el, t: 5 });
     if (this.kills.length > 5) this.kills.shift().el.remove();
+  }
+
+  /** Spezialleiste ist voll */
+  specialReady() {
+    this.message('Luftschlag bereit!', this.g.input.touch
+      ? 'Tippe auf den Luftschlag-Knopf und wähle das Ziel'
+      : 'X drücken, Ziel anschauen, Linksklick', 2.6);
   }
 
   message(title, sub, duration = 2.5) {
@@ -248,6 +284,80 @@ export class Hud {
     if (guarded) this._text(el.protect, `Spawn-Schutz · ${m.protectT.toFixed(1).replace('.', ',')} s`);
   }
 
+  _show(el, on) {
+    if (el.hidden !== !on) el.hidden = !on;
+  }
+
+  // Bombenmodus: Fortschritt beim Legen/Entschärfen, Hinweis "E halten", Wegmarke, Bomben-Symbol
+  _bomb(m, camera) {
+    const el = this.el;
+    const g = this.g;
+    const on = !!m.bombMode;
+    const busy = on && m.busy;
+    this._show(el.usebar, busy);
+    if (busy) {
+      const planting = m.plantT > 0;
+      this._text(el.usebarLabel, planting ? 'Bombe wird gelegt …' : 'Bombe wird entschärft …');
+      const k = planting ? m.plantT / BOMB.plantTime : m.defuseT / BOMB.defuseTime;
+      this._set(el.usebarFill.style, 'width', `${Math.min(100, k * 100).toFixed(1)}%`);
+      el.usebar.classList.toggle('defuse', !planting);
+    }
+    const action = on && !busy ? m.useAction : null;
+    this._show(el.useprompt, !!action);
+    if (action) {
+      const what = action === 'plant' ? 'Bombe legen' : 'Bombe entschärfen';
+      const html = g.input.touch ? `Knopf halten: ${what}` : `<kbd>E</kbd> halten: ${what}`;
+      if (el.useprompt._html !== html) {
+        el.useprompt._html = html;
+        el.useprompt.innerHTML = html;
+      }
+    }
+    const p = g.player;
+    this._show(el.bombBadge, on && m.attacking && !m.bomb && p.alive && (m.phase === 'freeze' || m.phase === 'live'));
+
+    // Wegmarke: zur gelegten Bombe, sonst zum Bombenplatz dieser Runde
+    let target = null;
+    let label = '';
+    if (on && (m.phase === 'freeze' || m.phase === 'live')) {
+      if (m.bomb && !m.bomb.done) {
+        target = m.bomb.pos;
+        label = 'Bombe';
+      } else if (!m.bomb) {
+        target = m.site;
+        label = m.attacking ? 'Bombenplatz' : 'Dein Platz';
+      }
+    }
+    let visible = false;
+    if (target) {
+      const d = Math.hypot(target.x - p.feet.x, target.z - p.feet.z);
+      _p.copy(target).y += 1.3;
+      _p.project(camera);
+      if (d > 3.5 && _p.z < 1 && Math.abs(_p.x) < 1.1 && Math.abs(_p.y) < 1.1) {
+        visible = true;
+        const w = window.innerWidth, h = window.innerHeight;
+        const x = Math.min(w - 40, Math.max(40, (_p.x * 0.5 + 0.5) * w));
+        const y = Math.min(h - 60, Math.max(60, (-_p.y * 0.5 + 0.5) * h));
+        this._set(el.waypoint.style, 'transform', `translate(${Math.round(x)}px, ${Math.round(y)}px)`);
+        this._text(el.waypointText, `${label} · ${Math.round(d)} m`);
+        el.waypoint.classList.toggle('armed', !!m.bomb);
+      }
+    }
+    this._show(el.waypoint, visible);
+  }
+
+  // Spezialleiste (Luftschlag) und Hinweis beim Zielen
+  _special(m) {
+    const el = this.el;
+    const k = Math.min(1, m.special / SPECIAL.charge);
+    this._set(el.specialFill.style, 'width', `${(k * 100).toFixed(1)}%`);
+    const ready = k >= 1;
+    if (el.special._ready !== ready) {
+      el.special._ready = ready;
+      el.special.classList.toggle('ready', ready);
+    }
+    this._show(el.specialHint, this.g.airstrikes.targeting);
+  }
+
   update(dt, camera, fps) {
     const g = this.g;
     const m = g.match;
@@ -257,13 +367,20 @@ export class Hud {
 
     this._text(el.round, m.roundLabel);
     if (m.duel) this._duel(m);
+    this._bomb(m, camera);
+    this._special(m);
     let phase = '', time = m.timer;
+    // liegt die Bombe, zeigt die Uhr ihre Restzeit
+    const ticking = m.phase === 'live' && m.bomb && !m.bomb.done;
     if (m.phase === 'freeze') phase = 'Kaufzeit';
-    else if (m.phase === 'live') phase = 'Runde läuft';
+    else if (ticking) {
+      phase = 'Bombe tickt';
+      time = m.bomb.t;
+    } else if (m.phase === 'live') phase = m.bombMode ? (m.attacking ? 'Angriff' : 'Verteidigung') : 'Runde läuft';
     else if (m.phase === 'end') phase = 'Rundenende';
     this._text(el.phase, phase);
     this._text(el.timer, fmtTime(time));
-    el.timer.classList.toggle('low', m.phase === 'live' && time <= 10);
+    el.timer.classList.toggle('low', ticking || (m.phase === 'live' && time <= 10));
     this._text(el.targets, m.phase === 'live' || m.phase === 'end'
       ? `Ziele: ${g.targets.total - g.targets.remaining} / ${g.targets.total}` : '');
     this._text(el.health, String(Math.ceil(p.health)));
@@ -280,9 +397,17 @@ export class Hud {
     // Fadenkreuz spreizt sich mit der echten Streuung
     const def = ws.active?.def;
     const scoped = ws.scoped;
-    const showCross = !!def && !scoped && def.anim !== 'grenade' && ws.ads < 0.5;
+    // Granate: nur ein Punkt in der Mitte, damit man sieht, wohin man wirft
+    const grenade = def?.anim === 'grenade';
+    if (el.cross._dotOnly !== grenade) {
+      el.cross._dotOnly = grenade;
+      el.cross.classList.toggle('dot-only', grenade);
+    }
+    const showCross = !!def && !scoped && (grenade || ws.ads < 0.5);
     this._set(el.cross.style, 'display', showCross ? '' : 'none');
-    if (showCross) {
+    if (showCross && grenade) {
+      this._set(el.cross.style, 'opacity', '1');
+    } else if (showCross) {
       const px = Math.tan(ws.spread / 1000) * (window.innerHeight / 2) / Math.tan((camera.fov * Math.PI) / 360);
       this._setVar(el.cross, '--gap', `${Math.round(4 + Math.min(px, 90))}px`);
       this._set(el.cross.style, 'opacity', String(1 - ws.ads * 2));
@@ -315,6 +440,19 @@ export class Hud {
         k.el.remove();
         this.kills.splice(i, 1);
       }
+    }
+    for (let i = this.chats.length - 1; i >= 0; i--) {
+      const c = this.chats[i];
+      c.t -= dt;
+      c.el.style.opacity = String(Math.min(1, c.t));
+      if (c.t <= 0) {
+        c.el.remove();
+        this.chats.splice(i, 1);
+      }
+    }
+    if (this.chatOpen) {
+      this.chatT -= dt;
+      if (this.chatT <= 0) this.toggleChat(false);
     }
 
     this.centerT -= dt;

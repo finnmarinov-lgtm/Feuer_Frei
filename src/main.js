@@ -6,6 +6,7 @@ import { Audio } from './engine/audio.js';
 import { Game } from './game/game.js';
 import { Lobby } from './ui/lobby.js';
 import { parseCode } from './net/net.js';
+import { session, setUrlLobby } from './net/session.js';
 import { loadSettings, saveSettings } from './settings.js';
 import { TRAINING } from './config.js';
 
@@ -111,13 +112,20 @@ function setupMenus(game, input, audio) {
     duelOpts = opts;
     audio.init();
     game.startDuel(net, opts);
+    // Wiedereinstieg in eine schon beendete Partie: die Auswertung ist bereits zu sehen
+    if (game.state !== 'playing') return;
     input.enabled = true;
     window.addEventListener('beforeunload', leaveGuard);
-    $('click-title').textContent = 'Klicken zum Spielen';
-    $('click-hint').textContent = `1 gegen 1 gegen ${opts.theirName} · Kaufzeit läuft, mit B öffnest du das Kaufmenü`;
+    const m = game.match;
+    const tap = input.touch ? 'Tippen' : 'Klicken';
+    $('click-title').textContent = opts.resume ? `Zurück im Duell – ${tap} zum Weiterspielen` : `${tap} zum Spielen`;
+    let hint = `1 gegen 1 gegen ${opts.theirName} · Kaufzeit läuft, mit B öffnest du das Kaufmenü`;
+    if (m.bombMode) hint = `Bombenmodus gegen ${opts.theirName} · Runde 1: ${m.attacking ? 'Du greifst an und legst die Bombe' : 'Du verteidigst deinen Bombenplatz'}`;
+    if (opts.resume) hint = `Runde ${m.round} gegen ${opts.theirName}`;
+    $('click-hint').textContent = hint;
     show('click-resume');
   }
-  game.onRematch = (cfg) => startDuel(duelNet, { ...duelOpts, lives: cfg.lives, wins: cfg.wins });
+  game.onRematch = (cfg) => startDuel(duelNet, { ...duelOpts, lives: cfg.lives, wins: cfg.wins, mode: cfg.mode, resume: null, saved: null });
 
   const lobby = new Lobby({
     show,
@@ -148,7 +156,8 @@ function setupMenus(game, input, audio) {
     window.removeEventListener('beforeunload', leaveGuard);
     if (wasDuel) {
       duelNet = null;
-      if (location.search) history.replaceState(null, '', location.pathname);
+      session.clear();
+      setUrlLobby(null);
     }
     show('menu');
   }
@@ -361,11 +370,14 @@ function setupMenus(game, input, audio) {
       [`${hs} %`, 'Kopfschüsse'],
       [String(r.damage), 'Schaden'],
       [fmtMoney(r.earned), 'Geld verdient'],
-      [fmtMoney(r.spent), 'Geld ausgegeben'],
-      [String(r.grenades), 'Granaten'],
+      r.bomb ? [String(r.planted), 'Bomben gelegt'] : [fmtMoney(r.spent), 'Geld ausgegeben'],
+      r.bomb ? [String(r.defused), 'Entschärft'] : [String(r.grenades), 'Granaten'],
     ];
     $('res-grid').innerHTML = tiles.map(([v, l]) => `<div><b>${v}</b><span>${l}</span></div>`).join('');
-    const why = { elim: 'Keine Leben mehr', 'time-lives': 'Zeit · mehr Leben', 'time-hp': 'Zeit · mehr Lebenspunkte', 'time-draw': 'Zeit · Gleichstand' };
+    const why = {
+      elim: 'Keine Leben mehr', 'time-lives': 'Zeit · mehr Leben', 'time-hp': 'Zeit · mehr Lebenspunkte', 'time-draw': 'Zeit · Gleichstand',
+      bomb: 'Bombe explodiert', defuse: 'Bombe entschärft', 'time-bomb': 'Zeit · keine Bombe',
+    };
     $('res-rounds').innerHTML = '<tr><th>Runde</th><th>Ergebnis</th><th>Wie</th><th>Ausgeschaltet</th><th>Tode</th></tr>' +
       r.rounds.map((x, i) => `<tr><td>${i + 1}</td><td class="${x.won ? 'win' : x.draw ? '' : 'loss'}">${x.won ? 'Gewonnen' : x.draw ? 'Unentschieden' : 'Verloren'}</td>` +
         `<td>${why[x.why] || ''}</td><td>${x.kills}</td><td>${x.deaths}</td></tr>`).join('');

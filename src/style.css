@@ -30,6 +30,8 @@ kbd { display: inline-block; min-width: 1.6em; padding: 0 0.35em; border: 1px so
 #crosshair .l { right: var(--gap); }
 #crosshair .r { left: var(--gap); }
 #crosshair .dot { width: 2px; height: 2px; left: -1px; top: -1px; }
+#crosshair.dot-only i:not(.dot) { display: none; }
+#crosshair.dot-only .dot { width: 6px; height: 6px; left: -3px; top: -3px; border-radius: 50%; }
 
 #hitmarker { position: absolute; left: 50%; top: 50%; width: 0; height: 0; opacity: 0; }
 #hitmarker i { position: absolute; width: 2px; height: 9px; background: #fff; left: -1px; top: -4.5px; box-shadow: 0 0 2px rgba(0,0,0,0.8); }
@@ -39,7 +41,38 @@ kbd { display: inline-block; min-width: 1.6em; padding: 0 0.35em; border: 1px so
 #hitmarker i:nth-child(4) { transform: rotate(315deg) translateY(-12px); }
 #hitmarker.head i { background: #ff6b4a; }
 #hitmarker.shield i { background: #7fb4ff; }
+#chat-log { position: absolute; left: 22px; bottom: 82px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.chat { background: var(--panel-strong); padding: 3px 10px; border-radius: 5px; font-size: 17px; font-weight: 600; }
+.chat b { color: #ff8a6b; }
+.chat.mine b { color: var(--money); }
+#chat-menu { position: absolute; left: 22px; bottom: 214px; background: var(--panel-strong); padding: 8px 12px 10px; border-radius: 7px; font-size: 17px; font-weight: 600; display: flex; flex-direction: column; gap: 4px; min-width: 190px; box-shadow: inset 0 0 0 1px rgba(242, 179, 61, 0.4); }
+#chat-menu .head { color: var(--accent); font-size: 15px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; }
+#chat-menu kbd { margin-right: 8px; }
 #protect { position: absolute; left: 50%; bottom: 96px; transform: translateX(-50%); font-size: 18px; font-weight: 700; color: #a9ceff; background: var(--panel); padding: 4px 14px; border-radius: 6px; box-shadow: inset 0 0 0 1px rgba(127, 180, 255, 0.45); }
+
+/* Bombenmodus: Wegmarke, Hinweis "E halten", Fortschritt, Bomben-Symbol */
+#waypoint { position: absolute; left: 0; top: 0; width: 150px; margin: -10px 0 0 -75px; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 14px; font-weight: 700; color: #ffc6ae; }
+#waypoint i { width: 13px; height: 13px; transform: rotate(45deg); background: rgba(232, 86, 40, 0.92); box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.45); }
+#waypoint span { background: var(--panel); padding: 1px 8px; border-radius: 4px; white-space: nowrap; }
+#waypoint.armed i { background: #ff2a1a; animation: blink 0.5s infinite alternate; }
+@keyframes blink { from { opacity: 1; } to { opacity: 0.3; } }
+#useprompt, #special-hint { position: absolute; left: 50%; bottom: 150px; transform: translateX(-50%); font-size: 20px; font-weight: 700; background: var(--panel-strong); padding: 6px 16px; border-radius: 7px; white-space: nowrap; box-shadow: inset 0 0 0 1px rgba(242, 179, 61, 0.5); }
+#special-hint { font-size: 18px; color: var(--accent); }
+#usebar { position: absolute; left: 50%; bottom: 150px; transform: translateX(-50%); width: 330px; text-align: center; background: var(--panel-strong); padding: 8px 14px 10px; border-radius: 8px; font-size: 18px; font-weight: 700; }
+#usebar .track { margin-top: 6px; height: 10px; border-radius: 5px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
+#usebar .track i { display: block; height: 100%; width: 0; background: #ff6a3d; }
+#usebar.defuse .track i { background: #5cc8ff; }
+.vital.bomb { font-size: 18px; color: #ff9a7a; padding: 6px 12px; }
+.vital.bomb svg { width: 22px; height: 22px; fill: #ff9a7a; stroke: #ff9a7a; }
+
+/* Spezialleiste (Luftschlag) über der Munitionsanzeige */
+#special { position: absolute; right: 22px; bottom: 112px; display: flex; align-items: center; gap: 8px; background: var(--panel); padding: 5px 10px; border-radius: 6px; font-size: 15px; font-weight: 700; color: var(--muted); }
+#special .track { width: 110px; height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
+#special .track i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #d0602a, #ffb23d); }
+#special kbd { opacity: 0.35; margin: 0; }
+#special.ready { color: var(--accent); animation: glow 0.9s infinite alternate; }
+#special.ready kbd { opacity: 1; }
+@keyframes glow { from { box-shadow: inset 0 0 0 1px rgba(242, 179, 61, 0.6); } to { box-shadow: inset 0 0 0 1px rgba(242, 179, 61, 1), 0 0 14px rgba(242, 179, 61, 0.55); } }
 
 #damage-layer { position: absolute; inset: 0; overflow: hidden; }
 .dmg { position: absolute; font-weight: 700; font-size: 20px; color: #fff; transform: translate(-50%, -50%); white-space: nowrap; }
@@ -212,6 +245,7 @@ kbd { display: inline-block; min-width: 1.6em; padding: 0 0.35em; border: 1px so
 .link-row input { flex: 1; min-width: 0; font-size: 16px !important; color: var(--muted) !important; }
 .opts { display: flex; flex-direction: column; gap: 8px; font-size: 18px; font-weight: 600; background: rgba(255,255,255,0.04); padding: 10px 16px; border-radius: 8px; }
 .opt { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.opt small { flex-basis: 100%; color: var(--muted); font-size: 15px; font-weight: 600; margin-top: -2px; }
 .seg { display: inline-flex; gap: 4px; }
 .seg button { padding: 4px 14px; font-size: 17px; }
 .seg button.on { background: var(--accent); color: #1a1407; border-color: var(--accent); }

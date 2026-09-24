@@ -44,6 +44,13 @@ export class WeaponSystem {
     this.ads = 0;
     this.adsToggled = false;
     this.adsBlockUntil = 0;
+    this.sprintLock = 0;
+    this.sprintBlock = false;
+    this.shotBuffer = 0;
+    // nach dem Bestätigen des Luftschlags: erst loslassen, dann wird wieder geschossen
+    this.holdFire = false;
+    // ausgeworfenes Magazin schlägt kurz darauf am Boden auf
+    game.viewmodel.onMagDrop = () => game.audio.play('magDrop', { delay: 0.35 });
   }
 
   get active() {
@@ -157,14 +164,33 @@ export class WeaponSystem {
 
     if (input.consume('inspect') && this.drawTimer <= 0 && !this.reloading) this.g.viewmodel.inspect();
 
-    // im Duell ist in der Kaufzeit Feuerpause
-    const blocked = this.g.match.fireBlocked;
-    if (def.grenade) {
-      if (!blocked) this._tickGrenade(dt, input, w);
-    } else if (def.slot === 'knife') {
-      if (!blocked) this._tickKnife(input);
+    // Sprinten: Waffe gesenkt, danach kurz Pause bis schussbereit. Schießen, Zielen, Nachladen
+    // und eine gezogene Granate halten den Sprint an; ein Klick währenddessen wird vorgemerkt.
+    p.sprintSpeed = def.sprint ?? def.speed;
+    p.sprintBlocked = input.fire || input.alt || this.reloading || !!this.grenade;
+    if (p.sprinting && (input.fire || input.alt)) p.sprintSuppressed = true;
+    if (p.sprinting) {
+      this.sprintLock = def.sprintOut ?? 0.15;
+      this.ads = 0;
+      this.adsToggled = false;
     } else {
-      this._tickGun(dt, input, w, blocked);
+      this.sprintLock = Math.max(0, this.sprintLock - dt);
+    }
+    this.sprintBlock = p.sprinting || this.sprintLock > 0;
+    if (this.sprintBlock && input.firePressed) this.shotBuffer = 0.35;
+    else this.shotBuffer = Math.max(0, this.shotBuffer - dt);
+
+    // im Duell ist in der Kaufzeit Feuerpause; beim Legen, Entschärfen und Zielen für den
+    // Luftschlag ist die Waffe unten
+    if (this.holdFire && !input.fire) this.holdFire = false;
+    const blocked = this.g.match.fireBlocked || p.busy || this.holdFire;
+    if (p.busy) this.shotBuffer = 0;
+    if (def.grenade) {
+      if (!blocked && !this.sprintBlock) this._tickGrenade(dt, input, w);
+    } else if (def.slot === 'knife') {
+      if (!blocked && !this.sprintBlock) this._tickKnife(input);
+    } else {
+      this._tickGun(dt, input, w, blocked || this.sprintBlock);
     }
 
     p.maxSpeed = def.ads ? def.speed * (1 + (def.ads.speed - 1) * this.ads) : def.speed;
@@ -212,7 +238,7 @@ export class WeaponSystem {
     }
     if (input.consume('reload')) this.startReload(w);
     if (def.ads) this._tickAds(dt, input);
-    const wants = !blocked && (def.auto ? input.fire : input.firePressed);
+    const wants = !blocked && (def.auto ? input.fire : input.firePressed || this.shotBuffer > 0);
     if (wants && this.drawTimer <= 0 && !this.reloading && this.time >= this.nextFire) {
       if (w.mag > 0) {
         this._shoot(w);
@@ -231,7 +257,8 @@ export class WeaponSystem {
   _tickAds(dt, input) {
     const def = this.def;
     let want;
-    if (this.g.settings.adsToggle) {
+    // auf dem Touchscreen immer umschalten (Knopf antippen statt halten)
+    if (this.g.settings.adsToggle || input.touch) {
       if (input.altPressed) this.adsToggled = !this.adsToggled;
       want = this.adsToggled;
     } else {
@@ -241,7 +268,8 @@ export class WeaponSystem {
       want = false;
       this.adsToggled = false;
     }
-    if (this.time < this.adsBlockUntil) want = false;
+    if (this.g.player.busy) this.adsToggled = false;
+    if (this.time < this.adsBlockUntil || this.sprintBlock || this.g.player.busy) want = false;
     const wasScoped = this.scoped;
     const step = dt / def.ads.time;
     this.ads = want ? Math.min(1, this.ads + step) : Math.max(0, this.ads - step);
@@ -260,9 +288,9 @@ export class WeaponSystem {
     }
     this.reloadTimer = def.reload;
     this.g.viewmodel.reload(def, def.reload);
-    a.play('magOut', { delay: def.reload * 0.18 });
-    a.play('magIn', { delay: def.reload * 0.58 });
-    a.play('rack', { delay: def.reload * 0.8 });
+    a.play('magOut', { delay: def.reload * 0.12 });
+    a.play('magIn', { delay: def.reload * 0.67 });
+    a.play('rack', { delay: def.reload * 0.84 });
   }
 
   _endShellReload(pump) {
@@ -278,6 +306,7 @@ export class WeaponSystem {
     const def = w.def;
     const p = this.g.player;
     this.g.match.onAttack?.();
+    this.shotBuffer = 0;
     w.mag--;
     const interval = 60 / def.rpm;
     this.nextFire = (this.time - this.nextFire < 0.03 ? this.nextFire : this.time) + interval;
@@ -494,8 +523,9 @@ export class WeaponSystem {
     if (this.drawTimer > 0 || this.time < this.nextFire) return;
     let attack = null, kind = null;
     if (input.alt) { attack = def.stab; kind = 'stab'; }
-    else if (input.fire) { attack = def.slash; kind = 'slash'; }
+    else if (input.fire || this.shotBuffer > 0) { attack = def.slash; kind = 'slash'; }
     if (!attack) return;
+    this.shotBuffer = 0;
     this.nextFire = this.time + attack.rate;
     this.pendingKnife = { at: this.time + (kind === 'stab' ? 0.16 : 0.08), attack };
     this.g.viewmodel.knife(kind);
@@ -536,7 +566,8 @@ export class WeaponSystem {
   _tickGrenade(dt, input, w) {
     if (this.throwTimer > 0 || this.drawTimer > 0) return;
     if (!this.grenade) {
-      if (input.firePressed || input.altPressed) {
+      if (input.firePressed || input.altPressed || (this.shotBuffer > 0 && (input.fire || input.alt))) {
+        this.shotBuffer = 0;
         this.grenade = { t: 0, lob: !input.fire, both: input.fire && input.alt };
         this.g.viewmodel.grenadePull();
         this.g.audio.play('pin');

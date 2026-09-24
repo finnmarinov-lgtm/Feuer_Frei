@@ -1,9 +1,11 @@
-// Tastatur, Maus und Pointer Lock. Aktionen statt Tastencodes, damit man später umbelegen kann.
+// Tastatur, Maus und Pointer Lock, auf dem Handy dazu die Touch-Steuerung (touch.js).
+// Aktionen statt Tastencodes, damit man später umbelegen kann.
 const BINDINGS = {
   KeyW: 'forward', KeyS: 'back', KeyA: 'left', KeyD: 'right',
-  Space: 'jump', ControlLeft: 'crouch', KeyC: 'crouch', ShiftLeft: 'walk',
-  KeyR: 'reload', KeyQ: 'lastWeapon', KeyB: 'buy', KeyF: 'inspect', Tab: 'scores',
-  Digit1: 'slot1', Digit2: 'slot2', Digit3: 'slot3', Digit4: 'slot4', Digit5: 'slot5',
+  Space: 'jump', ControlLeft: 'crouch', KeyC: 'crouch', ShiftLeft: 'sprint', AltLeft: 'walk',
+  KeyR: 'reload', KeyQ: 'lastWeapon', KeyB: 'buy', KeyF: 'inspect', Tab: 'scores', KeyT: 'chat',
+  KeyE: 'use', KeyX: 'special',
+  Digit1: 'slot1', Digit2: 'slot2', Digit3: 'slot3', Digit4: 'slot4', Digit5: 'slot5', Digit6: 'slot6',
 };
 
 /** Tasten, die das Spiel selbst braucht (nicht für den Notizblock belegbar) */
@@ -46,6 +48,12 @@ export class Input {
     this.onLockChange = null;
     this.onEscape = null;
     this.enabled = false;
+    // Touch-Steuerung: kein Pointer Lock, Stick als Achsen (-1 bis 1), Blick in Grad
+    this.touch = false;
+    this.moveX = 0;
+    this.moveY = 0;
+    this.lookX = 0;
+    this.lookY = 0;
     // Notizblock-Taste und das Abfangen der nächsten Taste beim Umbelegen
     this.bossKey = null;
     this.onBossKey = null;
@@ -114,6 +122,39 @@ export class Input {
     this.pressed.clear();
     this.fire = this.alt = false;
     this.firePressed = this.altPressed = this.fireReleased = this.altReleased = false;
+    this.moveX = this.moveY = 0;
+    this.lookX = this.lookY = 0;
+    this.onRelease?.();
+  }
+
+  /** Aktion von außen setzen (Touch-Knöpfe): halten bzw. loslassen wie eine Taste */
+  setAction(action, on) {
+    if (on) {
+      if (!this.down.has(action)) this.pressed.add(action);
+      this.down.add(action);
+    } else {
+      this.down.delete(action);
+    }
+  }
+
+  /** Schießen bzw. rechte Maustaste von außen (Touch-Knöpfe) */
+  setFire(on) {
+    if (on && !this.fire) this.firePressed = true;
+    if (!on && this.fire) this.fireReleased = true;
+    this.fire = on;
+  }
+
+  setAlt(on) {
+    if (on && !this.alt) this.altPressed = true;
+    if (!on && this.alt) this.altReleased = true;
+    this.alt = on;
+  }
+
+  /** Blickänderung vom Touchscreen in Grad seit dem letzten Bild */
+  takeLook() {
+    const d = { x: this.lookX, y: this.lookY };
+    this.lookX = this.lookY = 0;
+    return d;
   }
 
   isDown(action) {
@@ -148,7 +189,8 @@ export class Input {
   }
 
   async lock() {
-    if (this.locked) return;
+    // auf dem Touchscreen gibt es keinen Mauszeiger zum Fangen
+    if (this.locked || this.touch) return;
     try {
       await this.canvas.requestPointerLock({ unadjustedMovement: true });
     } catch {

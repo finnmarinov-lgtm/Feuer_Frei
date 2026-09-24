@@ -32,7 +32,13 @@
     </div>
     <div id="net-status" hidden></div>
     <div id="protect" hidden></div>
+    <div id="chat-log"></div>
+    <div id="chat-menu" hidden></div>
     <div id="dmgdir"></div>
+    <div id="waypoint" hidden><i></i><span id="waypoint-text"></span></div>
+    <div id="useprompt" hidden></div>
+    <div id="usebar" hidden><div id="usebar-label"></div><div class="track"><i id="usebar-fill"></i></div></div>
+    <div id="special-hint" hidden>Luftschlag: Ziel anschauen · <kbd>Linksklick</kbd> bestätigen · <kbd>Rechtsklick</kbd> oder <kbd>X</kbd> abbrechen</div>
 
     <div id="money">
       <span id="hud-money">800 $</span>
@@ -43,7 +49,10 @@
     <div id="vitals">
       <div class="vital"><svg viewBox="0 0 24 24"><path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6z"/></svg><b id="hud-health">100</b></div>
       <div class="vital" id="armor-box"><svg viewBox="0 0 24 24"><path d="M12 2l8 3v6c0 5-3.4 9.4-8 11-4.6-1.6-8-6-8-11V5z"/></svg><b id="hud-armor">0</b><span id="hud-helmet" hidden>+ Helm</span></div>
+      <div class="vital bomb" id="bomb-badge" hidden title="Du trägst die Bombe"><svg viewBox="0 0 24 24"><circle cx="10" cy="14" r="7"/><path d="M14 7.5l2-2 2.2 2.2-2 2z"/><path d="M17.5 4.5c.6-1.6 2.2-2.2 3.5-1.5" fill="none" stroke-width="1.6"/></svg><span>Bombe</span></div>
     </div>
+
+    <div id="special" title="Spezialleiste: füllt sich mit Treffern"><span class="name">Luftschlag</span><div class="track"><i id="special-fill"></i></div><kbd>X</kbd></div>
 
     <div id="ammo">
       <div class="weapon-name" id="hud-weapon">Natter</div>
@@ -114,6 +123,8 @@
         <button id="btn-share">Teilen</button>
       </div>
       <div class="opts" id="lobby-opts">
+        <div class="opt">Modus <div class="seg" data-opt="mode"><button data-v="kampf">Kampf</button><button data-v="bombe">Bombe</button></div>
+          <small id="lobby-mode-info"></small></div>
         <div class="opt">Leben pro Runde <div class="seg" data-opt="lives"><button data-v="1">1</button><button data-v="3">3</button></div></div>
         <div class="opt">Gewonnen hat, wer zuerst <div class="seg" data-opt="wins"><button data-v="2">2</button><button data-v="3">3</button><button data-v="5">5</button></div> Runden gewinnt</div>
       </div>
@@ -189,13 +200,17 @@
       <tr><td><kbd>Rechtsklick</kbd></td><td>Zielen über Kimme und Korn (langsamer, genauer) / Zielfernrohr / Messerstich / Granate kurz werfen</td></tr>
       <tr><td><kbd>Leertaste</kbd></td><td>Springen</td></tr>
       <tr><td><kbd>Strg</kbd> oder <kbd>C</kbd></td><td>Ducken (genauer, leiser)</td></tr>
-      <tr><td><kbd>Shift</kbd></td><td>Schleichen (lautlos, genauer)</td></tr>
+      <tr><td><kbd>Shift</kbd></td><td>Sprinten (nur vorwärts, ohne Schießen; mit dem Messer am schnellsten, mit dem Scharfschützengewehr am langsamsten)</td></tr>
+      <tr><td><kbd>Alt</kbd></td><td>Schleichen (lautlos, genauer)</td></tr>
       <tr><td><kbd>R</kbd></td><td>Nachladen</td></tr>
       <tr><td><kbd>1</kbd> – <kbd>5</kbd></td><td>Hauptwaffe, Pistole, Messer, Extra 1, Extra 2</td></tr>
       <tr><td><kbd>Q</kbd> · <kbd>Mausrad</kbd></td><td>Letzte Waffe · Waffe wechseln</td></tr>
       <tr><td><kbd>B</kbd></td><td>Kaufmenü (im Spawn, in der Kaufzeit)</td></tr>
       <tr><td><kbd>F</kbd></td><td>Waffe begutachten</td></tr>
       <tr><td><kbd>Tab</kbd></td><td>Statistik</td></tr>
+      <tr><td><kbd>T</kbd>, dann <kbd>1</kbd> – <kbd>6</kbd></td><td>Schnellnachricht an den Gegner (im 1 gegen 1)</td></tr>
+      <tr><td><kbd>E</kbd> halten</td><td>Bombe legen bzw. entschärfen (Bombenmodus)</td></tr>
+      <tr><td><kbd>X</kbd></td><td>Luftschlag, wenn die Spezialleiste voll ist: Ziel anschauen, Linksklick</td></tr>
       <tr><td><kbd>Esc</kbd></td><td>Pause</td></tr>
       <tr><td><kbd id="help-bosskey">^</kbd></td><td>Notizblock: sofort weißes Blatt, Spiel pausiert, Ton aus (Taste in den Einstellungen änderbar)</td></tr>
     </table>

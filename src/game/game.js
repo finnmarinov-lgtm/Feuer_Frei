@@ -1,12 +1,14 @@
 import * as THREE from 'three';
-import { TICK } from '../config.js';
+import { MOVE, SPECIAL, TICK } from '../config.js';
 import { setupEnvironment } from '../world/environment.js';
 import { Arena, SPAWN } from '../world/map.js';
+import { BombSites } from '../world/bombsites.js';
 import { Effects } from '../effects/effects.js';
 import { Targets } from './targets.js';
 import { Match } from './match.js';
 import { Duel } from './duel.js';
 import { RemotePlayer } from './remote.js';
+import { Airstrikes } from './airstrike.js';
 import { Player } from '../player/player.js';
 import { Viewmodel } from '../weapons/viewmodel.js';
 import { WeaponSystem } from '../weapons/weapons.js';
@@ -58,6 +60,8 @@ export class Game {
     this.viewmodel.worldCamera = this.camera;
     this.weapons = new WeaponSystem(this);
     this.grenades = new Grenades(this);
+    this.bombSites = new BombSites(this.scene);
+    this.airstrikes = new Airstrikes(this);
     // Training oder 1 gegen 1: match ist die gerade laufende Partie
     this.mode = 'training';
     this.training = new Match(this);
@@ -65,6 +69,7 @@ export class Game {
     this.remote = new RemotePlayer(this);
     this.onRematch = null;
     this.deathT = 0;
+    this.sprintFov = 0;
     this.hud = new Hud(this);
     this.buyMenu = new BuyMenu(this);
     this.hud.setCrosshairColor(settings.crosshairColor);
@@ -122,6 +127,8 @@ export class Game {
     for (const t of this.targets.list) if (t.root.visible) hide.push(t.root);
     if (this.remote.root.visible) hide.push(this.remote.root);
     for (const gr of this.grenades.list) if (gr.mesh.visible) hide.push(gr.mesh);
+    if (this.bombSites.bomb.visible) hide.push(this.bombSites.bomb);
+    for (const s of this.airstrikes.list) hide.push(s.plane, ...s.bombs);
     for (const o of hide) o.visible = false;
     this.renderer.bakeShadows();
     for (const o of hide) o.visible = true;
@@ -136,6 +143,7 @@ export class Game {
     this._setMode('training');
     this.match = this.training;
     this.grenades.clear();
+    this.airstrikes.clear();
     this.hud.reset();
     this.match.start();
     this.hud.onMoney(0);
@@ -144,24 +152,33 @@ export class Game {
     this.acc = 0;
   }
 
-  /** 1 gegen 1 starten. opts: role ('host'/'guest'), lives, wins, myName, theirName */
+  /**
+   * 1 gegen 1 starten. opts: role ('host'/'guest'), lives, wins, myName, theirName;
+   * mit resume (Stand der Partie) und saved (eigener Stand) geht es in einer laufenden Partie weiter.
+   */
   startDuel(net, opts) {
     this._setMode('duel');
     this.remote.setActive(true, opts.role === 'host' ? 'guest' : 'host');
     this.match = new Duel(this, net, opts);
     this.grenades.clear();
+    this.airstrikes.clear();
     this.targets.clear();
     this.hud.reset();
-    this.match.start();
-    this.hud.onMoney(0);
     this.hud.show(true);
     this.state = 'playing';
     this.acc = 0;
+    // ein Wiedereinstieg in eine schon beendete Partie geht direkt zur Auswertung
+    if (opts.resume) this.match.resume(opts.resume, opts.saved);
+    else this.match.start();
+    this.hud.onMoney(0);
   }
 
   _setMode(mode) {
     this.mode = mode;
     if (mode !== 'duel') this.remote.setActive(false);
+    // Bombenplätze zeigt nur der Bombenmodus (in jeder Runde neu)
+    this.bombSites.show(null);
+    this.bombSites.remove();
     this.hud.setMode(mode);
   }
 
@@ -171,6 +188,9 @@ export class Game {
     this.buyMenu.hide();
     this.hud.show(false);
     this.grenades.clear();
+    this.airstrikes.clear();
+    this.bombSites.show(null);
+    this.bombSites.remove();
     this.targets.clear();
     this.match.phase = 'idle';
     this.match = this.training;
@@ -214,7 +234,7 @@ export class Game {
         const m = this.match;
         m.onLocalDeath({ by: byOpponent ? m.them : m.me, w: weapon, head: false });
       } else {
-        this.hud.message('Ausgeschaltet', 'Deine eigene Granate war zu nah', 3);
+        this.hud.message('Ausgeschaltet', weapon === 'luftschlag' ? 'Dein eigener Luftschlag war zu nah' : 'Deine eigene Granate war zu nah', 3);
         this.viewmodel.root.visible = false;
       }
     }
@@ -225,8 +245,11 @@ export class Game {
     this.shakeAmt = Math.max(this.shakeAmt, amount);
   }
 
-  /** Aktuelles Sichtfeld: beim Zielen (auch mit Zielfernrohr) vergrößert, sonst normal */
-  _targetFov() {
+  /**
+   * Aktuelles Sichtfeld: beim Zielen (auch mit Zielfernrohr) vergrößert, beim Sprinten etwas
+   * weiter. withSprint = false für die Mausempfindlichkeit (die ändert sich beim Sprinten nicht).
+   */
+  _targetFov(withSprint = true) {
     const ws = this.weapons;
     const def = ws.active?.def;
     const base = this.settings.fov;
@@ -235,26 +258,67 @@ export class Game {
       const e = ws.ads * ws.ads * (3 - 2 * ws.ads);
       return base + (zoomed - base) * e;
     }
-    return base;
+    return withSprint ? base + MOVE.sprintFov * this.sprintFov : base;
   }
 
-  _look(mouse) {
+  /** mouse: Mausbewegung in Zählern, touch: Wischen auf dem Touchscreen in Grad */
+  _look(mouse, touch) {
     const p = this.player;
     // Empfindlichkeit wie in CS; beim Zoomen im Verhältnis des Sichtfelds langsamer
-    const k = this.settings.sensitivity * 0.022 * DEG
-      * (Math.tan((this._targetFov() * DEG) / 2) / Math.tan((this.settings.fov * DEG) / 2));
-    p.yaw -= mouse.x * k;
-    p.pitch = Math.max(-89 * DEG, Math.min(89 * DEG, p.pitch - mouse.y * k));
+    const zoom = Math.tan((this._targetFov(false) * DEG) / 2) / Math.tan((this.settings.fov * DEG) / 2);
+    const k = this.settings.sensitivity * 0.022 * DEG * zoom;
+    p.yaw -= mouse.x * k + touch.x * DEG * zoom;
+    p.pitch = Math.max(-89 * DEG, Math.min(89 * DEG, p.pitch - mouse.y * k - touch.y * DEG * zoom));
   }
 
   tick(dt) {
     this.time += dt;
     this.match.tick(dt);
+    // beim Legen, Entschärfen und Zielen für den Luftschlag steht man still
+    this.player.busy = this.match.busy || this.airstrikes.targeting;
     this.player.tick(dt, this.input);
     this.weapons.tick(dt, this.input);
     this.grenades.tick(dt);
+    this.airstrikes.tick(dt);
     this.targets.tick(dt, this.time);
     this.physics.step();
+  }
+
+  // Spezialleiste: X öffnet das Zielen für den Luftschlag, Linksklick bestätigt,
+  // Rechtsklick oder nochmal X bricht ab
+  _special(input) {
+    const as = this.airstrikes;
+    const m = this.match;
+    if (input.consume('special')) {
+      if (as.targeting) as.cancel();
+      else if (!m.specialReady) {
+        const pct = Math.floor((m.special / SPECIAL.charge) * 100);
+        this.hud.message('Luftschlag noch nicht bereit', `Spezialleiste ${pct} % · lädt mit Treffern`, 1.6);
+      } else if (!m.canUseSpecial) {
+        this.hud.message('Luftschlag gerade nicht möglich', m.phase === 'live' ? '' : 'Erst wenn die Runde läuft', 1.4);
+      } else {
+        as.beginTargeting();
+      }
+    }
+    if (!as.targeting) return;
+    if (!m.canUseSpecial) {
+      as.cancel();
+      return;
+    }
+    if (input.firePressed) {
+      input.firePressed = false;
+      const point = as.confirm();
+      if (point) {
+        m.callAirstrike(point);
+        // gehaltene Maustaste nach dem Bestätigen nicht als Schuss werten
+        this.weapons.holdFire = true;
+      } else {
+        this.hud.message('Kein Ziel', 'Schau auf den Boden, wo die Bomben fallen sollen', 1.4);
+      }
+    } else if (input.altPressed) {
+      input.altPressed = false;
+      as.cancel();
+    }
   }
 
   frame(dt) {
@@ -277,11 +341,15 @@ export class Game {
         if (this.buyMenu.open) this.closeBuyMenu();
         else this.openBuyMenu();
       }
+      this._quickChat(input);
+      this._special(input);
       this.hud.showStats(input.isDown('scores'));
       mouse = input.takeMouse();
-      this._look(mouse);
+      this._look(mouse, input.takeLook());
     } else {
       input.takeMouse();
+      input.takeLook();
+      if (this.airstrikes.targeting) this.airstrikes.cancel();
       if (simulate) input.releaseAll();
     }
     if (simulate) {
@@ -302,8 +370,11 @@ export class Game {
     }
     if (this.renderPaused) return;
     const alpha = simulate ? this.acc / TICK : 1;
+    const sprinting = simulate && this.player.sprinting;
+    this.sprintFov += ((sprinting ? 1 : 0) - this.sprintFov) * Math.min(1, dt * 6);
     this._updateCamera(dt, alpha);
     this.grenades.update(dt);
+    this.airstrikes.update(dt);
     this.effects.update(dt);
 
     const scoped = this.weapons.scoped && simulate;
@@ -356,6 +427,23 @@ export class Game {
     cam.updateMatrixWorld();
     this.viewCamera.quaternion.copy(cam.quaternion);
     this.viewCamera.updateMatrixWorld();
+  }
+
+  // Schnellnachrichten: T öffnet die Liste, solange sie offen ist, wählen 1 bis 6 eine Nachricht
+  // (die Zahlentasten wechseln dann nicht die Waffe)
+  _quickChat(input) {
+    const hud = this.hud;
+    if (input.consume('chat')) {
+      if (this.mode !== 'duel') hud.message('Schnellnachrichten', 'Gibt es im 1 gegen 1', 1.5);
+      else hud.toggleChat(!hud.chatOpen);
+    }
+    if (!hud.chatOpen) return;
+    for (let i = 1; i <= 6; i++) {
+      if (!input.consume('slot' + i)) continue;
+      this.match.sendChat?.(i - 1);
+      hud.toggleChat(false);
+      break;
+    }
   }
 
   // Nach dem eigenen Tod: Blick sinkt zu Boden und dreht sich zum Gegner (wie in CS)

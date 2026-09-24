@@ -50,6 +50,14 @@ def arm(side, hand_center, hand_size, elbow, m, hand_rot=None, wrist=None, paren
     cyl_between(f'Sleeve{tag}', mid, (ex, ey, ez), 0.041, 0.05, m['sleeve'], bevel=0.006, parent=parent)
 
 
+def left_arm(hand_center, hand_size, elbow, m, wrist=None):
+    """Linker Arm an einem eigenen Gelenk (ArmL): so kann die Hand beim Nachladen
+    ein neues Magazin holen und einschieben."""
+    node = empty('ArmL', hand_center)
+    arm(-1, hand_center, hand_size, elbow, m, wrist=wrist, parent=node)
+    return node
+
+
 def trigger_group(m, y0, y1, z_bottom, front_h, material=None, width=0.008):
     mt = material or m['gun']
     box('GuardBottom', (width, y1 - y0, 0.005), (0, (y0 + y1) / 2, z_bottom), mt, bevel=0.0015)
@@ -95,8 +103,8 @@ def build_wolf():
                         (0.178, -0.2), (0.16, -0.155), (0.148, -0.1), (0.14, -0.05), (0.138, 0.0)],
             0.026, m['gun_dark'], bevel=0.004, segs=2, parent=mag)
     arm(1, (0, 0.004, -0.058), (0.07, 0.085, 0.1), (0.13, -0.42, -0.26), m, hand_rot=(-0.2, 0, 0))
-    arm(-1, (-0.02, 0.3, -0.012), (0.062, 0.09, 0.07), (-0.22, -0.02, -0.3), m,
-        wrist=(-0.035, 0.26, -0.035))
+    left_arm((-0.02, 0.3, -0.012), (0.062, 0.09, 0.07), (-0.22, -0.02, -0.3), m,
+             wrist=(-0.035, 0.26, -0.035))
     empty('Muzzle', (0, 0.63, 0.035))
     empty('Eject', (0.025, 0.06, 0.05))
     # Visierlinie: Oberkante Kimme -> Kornspitze
@@ -139,8 +147,8 @@ def build_falke():
                         (0.142, -0.12), (0.14, -0.06), (0.142, 0.0)], 0.024, m['gun_dark'],
             bevel=0.003, parent=mag)
     arm(1, (0, 0.002, -0.056), (0.07, 0.085, 0.098), (0.13, -0.42, -0.26), m, hand_rot=(-0.18, 0, 0))
-    arm(-1, (-0.016, 0.215, 0.004), (0.062, 0.085, 0.07), (-0.22, -0.1, -0.3), m,
-        wrist=(-0.032, 0.18, -0.02))
+    left_arm((-0.016, 0.215, 0.004), (0.062, 0.085, 0.07), (-0.22, -0.1, -0.3), m,
+             wrist=(-0.032, 0.18, -0.02))
     empty('Muzzle', (0, 0.342, 0.045))
     empty('Eject', (0.026, 0.07, 0.05))
     empty('SightRear', (0, -0.07, 0.095))
@@ -193,8 +201,8 @@ def build_adler():
     box('MagPlate', (0.034, 0.085, 0.006), (0, 0.04, -0.056), m['gun'], bevel=0.002, parent=mag)
     trigger_group(m, 0.032, 0.1, -0.04, 0.04)
     arm(1, (0, 0.006, -0.056), (0.07, 0.085, 0.1), (0.13, -0.42, -0.26), m, hand_rot=(-0.2, 0, 0))
-    arm(-1, (-0.012, 0.3, -0.036), (0.068, 0.09, 0.062), (-0.22, -0.02, -0.3), m,
-        wrist=(-0.032, 0.262, -0.055))
+    left_arm((-0.012, 0.3, -0.036), (0.068, 0.09, 0.062), (-0.22, -0.02, -0.3), m,
+             wrist=(-0.032, 0.262, -0.055))
     empty('Muzzle', (0, 0.865, 0.058))
     empty('Eject', (0.022, 0.05, 0.07))
     # optische Achse des Zielfernrohrs (hintere und vordere Linse)
@@ -286,8 +294,8 @@ def build_luchs():
     cyl('OpticTurretSide', 0.0075, 0.012, (0.0255, 0.05, 0.114), m['gun_dark'], axis='X')
     empty('RedDot', (0, 0.0915, 0.114))
     arm(1, (0, 0.004, -0.058), (0.07, 0.085, 0.1), (0.13, -0.42, -0.26), m, hand_rot=(-0.2, 0, 0))
-    arm(-1, (-0.018, 0.27, 0.008), (0.062, 0.09, 0.07), (-0.22, -0.02, -0.3), m,
-        wrist=(-0.034, 0.23, -0.018))
+    left_arm((-0.018, 0.27, 0.008), (0.062, 0.09, 0.07), (-0.22, -0.02, -0.3), m,
+             wrist=(-0.034, 0.23, -0.018))
     empty('Muzzle', (0, 0.592, 0.035))
     empty('Eject', (0.02, 0.05, 0.045))
     # optische Achse durch das Rotpunktrohr
@@ -321,8 +329,8 @@ def build_natter():
     box('MagBody', (0.021, 0.034, 0.08), (0, -0.01, -0.068), m['gun_dark'], bevel=0.002, parent=mag)
     box('MagPlate', (0.03, 0.046, 0.01), (0, -0.013, -0.111), m['polymer'], bevel=0.003, parent=mag)
     arm(1, (-0.002, -0.005, -0.056), (0.066, 0.08, 0.095), (0.14, -0.4, -0.3), m, hand_rot=(-0.15, 0, 0))
-    arm(-1, (-0.036, 0.004, -0.064), (0.046, 0.075, 0.086), (-0.2, -0.38, -0.3), m,
-        wrist=(-0.045, -0.03, -0.085))
+    left_arm((-0.036, 0.004, -0.064), (0.046, 0.075, 0.086), (-0.2, -0.38, -0.3), m,
+             wrist=(-0.045, -0.03, -0.085))
     empty('Muzzle', (0, 0.16, 0.045))
     empty('Eject', (0.013, 0.07, 0.055))
     empty('SightRear', (0, -0.028, 0.064))
@@ -356,8 +364,8 @@ def build_kobra():
     box('MagBody', (0.024, 0.04, 0.08), (0, -0.008, -0.075), m['gun_dark'], bevel=0.002, parent=mag)
     box('MagPlate', (0.034, 0.05, 0.01), (0, -0.012, -0.12), m['gun_dark'], bevel=0.003, parent=mag)
     arm(1, (-0.004, -0.008, -0.06), (0.07, 0.085, 0.1), (0.14, -0.4, -0.3), m, hand_rot=(-0.15, 0, 0))
-    arm(-1, (-0.04, 0.0, -0.068), (0.048, 0.08, 0.09), (-0.2, -0.38, -0.3), m,
-        wrist=(-0.05, -0.035, -0.09))
+    left_arm((-0.04, 0.0, -0.068), (0.048, 0.08, 0.09), (-0.2, -0.38, -0.3), m,
+             wrist=(-0.05, -0.035, -0.09))
     empty('Muzzle', (0, 0.225, 0.06))
     empty('Eject', (0.016, 0.08, 0.07))
     empty('SightRear', (0, -0.032, 0.093))

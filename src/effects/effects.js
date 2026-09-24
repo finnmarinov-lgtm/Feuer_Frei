@@ -332,30 +332,33 @@ export class Effects {
     this.sparks.spawn(pos, _v, { color: [6, 6, 6], life: 0.12, size0: 2.5, size1: 4 });
   }
 
-  explosion(pos, ground) {
-    this.boomLight.position.copy(pos).add(_v.set(0, 0.6, 0));
+  /** scale: Größe der Explosion (1 = Splittergranate, Bombe und Luftschlag größer) */
+  explosion(pos, ground, scale = 1) {
+    this.boomLight.position.copy(pos).add(_v.set(0, 0.6 * scale, 0));
     this.boomLight.color.set(0xff9a4a);
-    this.boomTime = this.boomDur = 0.45;
-    this.boomPeak = 900;
-    for (let i = 0; i < 26; i++) {
-      _v.set(Math.random() - 0.5, Math.random() * 0.8, Math.random() - 0.5).normalize().multiplyScalar(2 + Math.random() * 4);
-      this.sparks.spawn(pos, _v, { color: [4, 1.8, 0.6], life: 0.25 + Math.random() * 0.25, size0: 0.5 + Math.random() * 0.5, size1: 1.4, gravity: -1, drag: 5, alpha: 0.8 });
+    this.boomTime = this.boomDur = 0.45 * Math.sqrt(scale);
+    // größere Explosionen leuchten länger, aber kaum heller (sonst glühen die Wände orange)
+    this.boomPeak = 900 * Math.sqrt(Math.sqrt(scale));
+    const more = Math.min(2, scale);
+    for (let i = 0; i < 26 * more; i++) {
+      _v.set(Math.random() - 0.5, Math.random() * 0.8, Math.random() - 0.5).normalize().multiplyScalar((2 + Math.random() * 4) * scale);
+      this.sparks.spawn(pos, _v, { color: [4, 1.8, 0.6], life: 0.25 + Math.random() * 0.25 * scale, size0: (0.5 + Math.random() * 0.5) * scale, size1: 1.4 * scale, gravity: -1, drag: 5, alpha: 0.8 });
     }
-    for (let i = 0; i < 40; i++) {
-      _v.set(Math.random() - 0.5, Math.random() * 0.9 + 0.1, Math.random() - 0.5).normalize().multiplyScalar(6 + Math.random() * 12);
+    for (let i = 0; i < 40 * more; i++) {
+      _v.set(Math.random() - 0.5, Math.random() * 0.9 + 0.1, Math.random() - 0.5).normalize().multiplyScalar((6 + Math.random() * 12) * Math.sqrt(scale));
       this.sparks.spawn(pos, _v, { color: [4, 2.5, 1.2], life: 0.4 + Math.random() * 0.5, size0: 0.05, size1: 0.02, gravity: 9.8, drag: 0.8 });
     }
-    for (let i = 0; i < 30; i++) {
-      _v.set(Math.random() - 0.5, Math.random() * 0.6, Math.random() - 0.5).normalize().multiplyScalar(1.5 + Math.random() * 4);
+    for (let i = 0; i < 30 * more; i++) {
+      _v.set(Math.random() - 0.5, Math.random() * 0.6, Math.random() - 0.5).normalize().multiplyScalar((1.5 + Math.random() * 4) * scale);
       const g = 0.25 + Math.random() * 0.15;
-      this.dust.spawn(pos, _v, { color: [g, g * 0.95, g * 0.9], life: 1.8 + Math.random() * 1.5, size0: 0.8, size1: 3.2 + Math.random() * 1.5, alpha: 0.7, gravity: -0.4, drag: 2.2 });
+      this.dust.spawn(pos, _v, { color: [g, g * 0.95, g * 0.9], life: (1.8 + Math.random() * 1.5) * Math.sqrt(scale), size0: 0.8 * scale, size1: (3.2 + Math.random() * 1.5) * scale, alpha: 0.7, gravity: -0.4, drag: 2.2 });
     }
-    if (ground) {
+    if (ground !== null && ground !== undefined) {
       const m = this.scorches[this.scorchIndex];
       this.scorchIndex = (this.scorchIndex + 1) % this.scorches.length;
       m.position.set(pos.x, ground + 0.01, pos.z);
       m.rotation.set(-Math.PI / 2, 0, Math.random() * Math.PI * 2);
-      m.scale.setScalar(3.2);
+      m.scale.setScalar(3.2 * scale);
       m.visible = true;
     }
   }
