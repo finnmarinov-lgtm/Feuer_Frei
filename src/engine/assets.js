@@ -4,11 +4,12 @@ import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
 
 const BASE = import.meta.env.BASE_URL + 'assets/';
 
+// Nur was die Arena wirklich nutzt (die Kisten bringen ihre Holztextur im Modell mit)
 export const TEXTURE_SETS = [
   'sandy_gravel_02', 'sandstone_blocks_08', 'patterned_clay_plaster', 'concrete_floor_worn_001',
-  'rusty_corrugated_iron', 'wood_planks',
+  'rusty_corrugated_iron',
 ];
-export const MODELS = ['wolf', 'luchs', 'falke', 'keiler', 'adler', 'natter', 'kobra', 'messer', 'he', 'flash', 'smoke', 'crates', 'target', 'props'];
+export const MODELS = ['wolf', 'luchs', 'falke', 'keiler', 'adler', 'natter', 'kobra', 'messer', 'he', 'flash', 'smoke', 'crates', 'target', 'props', 'soldier'];
 
 export async function loadAssets(renderer, onProgress) {
   const manager = new THREE.LoadingManager();

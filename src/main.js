@@ -4,11 +4,14 @@ import { loadAssets } from './engine/assets.js';
 import { Input, RESERVED_KEYS, keyLabel } from './engine/input.js';
 import { Audio } from './engine/audio.js';
 import { Game } from './game/game.js';
+import { Lobby } from './ui/lobby.js';
+import { parseCode } from './net/net.js';
 import { loadSettings, saveSettings } from './settings.js';
 import { TRAINING } from './config.js';
 
 const $ = (id) => document.getElementById(id);
-const SCREENS = ['loading', 'menu', 'pause', 'settings', 'controls', 'results', 'click-resume'];
+const SCREENS = ['loading', 'menu', 'lobby', 'pause', 'settings', 'controls', 'results', 'click-resume'];
+const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const fmtMoney = (v) => `${Math.round(v).toLocaleString('de-DE')} $`;
 const fmtTime = (s) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
 const nextFrame = () => new Promise((r) => setTimeout(r, 0));
@@ -45,15 +48,24 @@ async function boot() {
   };
   requestAnimationFrame(loop);
 
-  setupMenus(game, input, audio);
+  const lobby = setupMenus(game, input, audio);
   show('menu');
-  if (import.meta.env.DEV) window.__game = game;
+  // Einladungslink (…?lobby=CODE): gleich der Lobby beitreten
+  const params = new URLSearchParams(location.search);
+  const code = parseCode(params.get('lobby'));
+  if (code) lobby.open(code);
+  if (import.meta.env.DEV) {
+    window.__game = game;
+    window.__lobby = lobby;
+  }
 }
 
 function setupMenus(game, input, audio) {
   let pendingResume = false;
   let settingsBack = 'menu';
   let controlsBack = 'menu';
+  let duelOpts = null;
+  let duelNet = null;
 
   const leaveGuard = (e) => {
     e.preventDefault();
@@ -70,7 +82,17 @@ function setupMenus(game, input, audio) {
 
   async function lockOrAsk() {
     await input.lock();
-    if (document.pointerLockElement !== input.canvas) show('click-resume');
+    if (document.pointerLockElement !== input.canvas) {
+      $('click-title').textContent = 'Klicken zum Weiterspielen';
+      $('click-hint').textContent = '';
+      show('click-resume');
+    }
+  }
+
+  function syncPauseTexts() {
+    const duel = game.mode === 'duel';
+    $('pause-note').hidden = !duel;
+    $('btn-quit').textContent = duel ? 'Duell verlassen' : 'Training beenden';
   }
 
   async function start() {
@@ -83,11 +105,32 @@ function setupMenus(game, input, audio) {
     await lockOrAsk();
   }
 
+  // Duell startet von selbst (Countdown), die Maus lässt sich aber erst nach einem Klick fangen
+  function startDuel(net, opts) {
+    duelNet = net;
+    duelOpts = opts;
+    audio.init();
+    game.startDuel(net, opts);
+    input.enabled = true;
+    window.addEventListener('beforeunload', leaveGuard);
+    $('click-title').textContent = 'Klicken zum Spielen';
+    $('click-hint').textContent = `1 gegen 1 gegen ${opts.theirName} · Kaufzeit läuft, mit B öffnest du das Kaufmenü`;
+    show('click-resume');
+  }
+  game.onRematch = (cfg) => startDuel(duelNet, { ...duelOpts, lives: cfg.lives, wins: cfg.wins });
+
+  const lobby = new Lobby({
+    show,
+    onStart: startDuel,
+    netMode: new URLSearchParams(location.search).get('netz'),
+  });
+
   function pause() {
     if (game.state !== 'playing') return;
     game.state = 'paused';
     game.buyMenu.hide();
     input.unlock();
+    syncPauseTexts();
     show('pause');
   }
 
@@ -98,10 +141,15 @@ function setupMenus(game, input, audio) {
   }
 
   function toMenu() {
+    const wasDuel = game.mode === 'duel';
     game.quitToMenu();
     input.enabled = false;
     input.unlock();
     window.removeEventListener('beforeunload', leaveGuard);
+    if (wasDuel) {
+      duelNet = null;
+      if (location.search) history.replaceState(null, '', location.pathname);
+    }
     show('menu');
   }
 
@@ -130,14 +178,24 @@ function setupMenus(game, input, audio) {
   });
   $('click-resume').addEventListener('click', () => {
     if (game.state === 'paused') pendingResume = true;
+    audio.init();
+    enterFullscreen();
     show(null);
     lockOrAsk();
   });
 
   $('btn-start').addEventListener('click', start);
+  $('btn-duel').addEventListener('click', () => lobby.open());
   $('btn-resume').addEventListener('click', resume);
   $('btn-quit').addEventListener('click', toMenu);
-  $('btn-again').addEventListener('click', start);
+  $('btn-again').addEventListener('click', () => {
+    if (game.mode !== 'duel') {
+      start();
+      return;
+    }
+    game.match.requestAgain();
+    updateRematch();
+  });
   $('btn-menu').addEventListener('click', toMenu);
   $('btn-settings').addEventListener('click', () => { settingsBack = 'menu'; openSettings(); });
   $('btn-settings2').addEventListener('click', () => { settingsBack = 'pause'; openSettings(); });
@@ -173,6 +231,7 @@ function setupMenus(game, input, audio) {
     bind('set-fov', 'fov', (v) => `${v}°`),
     bind('set-vol', 'volume', (v) => `${Math.round(v * 100)} %`),
     bind('set-quality', 'quality', (v) => v, String),
+    bind('set-scale', 'renderScale', (v) => `${Math.round(v * 100)} %`),
     bind('set-cross', 'crosshairColor', (v) => v, String),
     bind('set-adstoggle', 'adsToggle', () => ''),
     bind('set-fullscreen', 'fullscreen', () => ''),
@@ -242,6 +301,7 @@ function setupMenus(game, input, audio) {
       if (game.state === 'playing') {
         game.state = 'paused';
         screenBeforeNotes = 'pause';
+        syncPauseTexts();
       }
       game.buyMenu.hide();
       game.renderPaused = true;
@@ -269,11 +329,63 @@ function setupMenus(game, input, audio) {
   input.onBossKey = toggleNotes;
   syncBossKey();
 
+  // Nochmal im Duell: beide müssen zustimmen, dann startet der Host die neue Partie
+  function updateRematch() {
+    const m = game.match;
+    if (!m.duel) return;
+    const them = m.names[m.them];
+    let text = '';
+    if (m.left) text = `${them} hat das Spiel verlassen.`;
+    else if (m.again[m.me] && m.again[m.them]) text = 'Neue Partie startet …';
+    else if (m.again[m.me]) text = `Warte auf ${them} …`;
+    else if (m.again[m.them]) text = `${them} möchte nochmal spielen!`;
+    $('res-status').textContent = text;
+    $('btn-again').disabled = m.left || m.again[m.me];
+  }
+
+  function duelResults(r) {
+    const m = game.match;
+    m.onAgainChange = updateRematch;
+    const acc = Math.round(r.accuracy * 100);
+    const hs = Math.round(r.headshots * 100);
+    const them = escapeHtml(r.opponent);
+    $('res-title').innerHTML = r.forfeit
+      ? `${them} ist nicht mehr da – du gewinnst`
+      : r.won ? `Sieg gegen ${them}!` : `Niederlage gegen ${them}`;
+    $('res-score').hidden = false;
+    $('res-score').textContent = `${r.score[0]} : ${r.score[1]}`;
+    const tiles = [
+      [String(r.kills), 'Ausgeschaltet'],
+      [String(r.deaths), 'Tode'],
+      [`${acc} %`, 'Treffergenauigkeit'],
+      [`${hs} %`, 'Kopfschüsse'],
+      [String(r.damage), 'Schaden'],
+      [fmtMoney(r.earned), 'Geld verdient'],
+      [fmtMoney(r.spent), 'Geld ausgegeben'],
+      [String(r.grenades), 'Granaten'],
+    ];
+    $('res-grid').innerHTML = tiles.map(([v, l]) => `<div><b>${v}</b><span>${l}</span></div>`).join('');
+    const why = { elim: 'Keine Leben mehr', 'time-lives': 'Zeit · mehr Leben', 'time-hp': 'Zeit · mehr Lebenspunkte', 'time-draw': 'Zeit · Gleichstand' };
+    $('res-rounds').innerHTML = '<tr><th>Runde</th><th>Ergebnis</th><th>Wie</th><th>Ausgeschaltet</th><th>Tode</th></tr>' +
+      r.rounds.map((x, i) => `<tr><td>${i + 1}</td><td class="${x.won ? 'win' : x.draw ? '' : 'loss'}">${x.won ? 'Gewonnen' : x.draw ? 'Unentschieden' : 'Verloren'}</td>` +
+        `<td>${why[x.why] || ''}</td><td>${x.kills}</td><td>${x.deaths}</td></tr>`).join('');
+    $('btn-again').textContent = 'Nochmal';
+    updateRematch();
+    show('results');
+  }
+
   // Auswertung
   game.onMatchOverCb = (r) => {
     input.unlock();
     input.enabled = false;
     window.removeEventListener('beforeunload', leaveGuard);
+    $('btn-again').disabled = false;
+    $('res-status').textContent = '';
+    if (r.duel) {
+      duelResults(r);
+      return;
+    }
+    $('res-score').hidden = true;
     const acc = Math.round(r.accuracy * 100);
     const hs = Math.round(r.headshots * 100);
     $('res-title').textContent = r.won === TRAINING.rounds ? 'Alle Runden gewonnen!' : `Training beendet · ${r.won} von ${TRAINING.rounds} Runden gewonnen`;
@@ -293,6 +405,7 @@ function setupMenus(game, input, audio) {
         `<td>${x.kills} / ${x.targets}</td><td>${x.heads}</td><td>${fmtTime(x.time)}</td><td>+${fmtMoney(x.bonus + x.reward)}</td></tr>`).join('');
     show('results');
   };
+  return lobby;
 }
 
 boot().catch((err) => {

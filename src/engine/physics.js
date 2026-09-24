@@ -3,7 +3,8 @@ import { TICK } from '../config.js';
 
 // STAIR: sichtbare Treppenstufen, nur für Kugeln und Granaten
 // CLIP: unsichtbare Rampen über den Treppen, nur für den Spieler
-export const GROUP = { WORLD: 0x0001, PLAYER: 0x0002, GRENADE: 0x0004, STAIR: 0x0008, CLIP: 0x0010 };
+// OTHER: Körper des Gegners im 1 gegen 1 (Kugeln treffen ihn über eigene Trefferzonen)
+export const GROUP = { WORLD: 0x0001, PLAYER: 0x0002, GRENADE: 0x0004, STAIR: 0x0008, CLIP: 0x0010, OTHER: 0x0020 };
 export const groups = (member, filter) => ((member & 0xffff) << 16) | (filter & 0xffff);
 
 const WORLD_ONLY = groups(0xffff, GROUP.WORLD | GROUP.STAIR);

@@ -10,7 +10,7 @@ import sys, os, math
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import bpy
-from lib import (reset, mat, textured_mat, box, cyl, cyl_between, sphere, torus, tube, profile, empty,
+from lib import (reset, mat, textured_mat, box, cyl, cyl_between, sphere, dome, torus, tube, profile, empty,
                  parent_all, export, render_preview, join_meshes, triangle_count, ROOT)
 
 ARGS = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
@@ -452,47 +452,112 @@ def build_smoke():
     return root
 
 
+# ---------- Gegner-Soldat für das 1 gegen 1 ----------
+# Starre Körperteile an Gelenkpunkten (leere Objekte), bewegt wird im Spiel per Code.
+# Blickrichtung +Y, Füße bei z = 0. Uniform und Helm bekommen im Spiel die Teamfarbe.
+def build_soldier():
+    uniform = mat('Uniform', (0.3, 0.27, 0.2), 0.0, 0.88)
+    vest = mat('Vest', (0.15, 0.16, 0.12), 0.0, 0.82)
+    glove = mat('Glove', (0.035, 0.035, 0.038), 0.0, 0.78)
+    boot = mat('Boot', (0.11, 0.085, 0.06), 0.0, 0.72)
+    helmet = mat('Helmet', (0.34, 0.33, 0.27), 0.0, 0.62)
+    mask = mat('Mask', (0.05, 0.05, 0.055), 0.0, 0.92)
+    goggle = mat('Goggles', (0.02, 0.03, 0.04), 0.7, 0.1)
+    root = empty('Soldier')
+    hips = empty('Hips', (0, 0, 0.95), parent=root)
+    box('Pelvis', (0.34, 0.2, 0.2), (0, 0, 0.95), uniform, bevel=0.05, segs=3, parent=hips)
+    box('Belt', (0.36, 0.22, 0.05), (0, 0, 1.03), vest, bevel=0.015, parent=hips)
+    spine = empty('Spine', (0, 0, 1.03), parent=hips)
+    box('Torso', (0.38, 0.22, 0.44), (0, 0, 1.25), uniform, bevel=0.07, segs=3, parent=spine)
+    box('PlateCarrier', (0.4, 0.27, 0.34), (0, 0.01, 1.28), vest, bevel=0.04, segs=2, parent=spine)
+    for i, x in enumerate((-0.11, 0.0, 0.11)):
+        box(f'Pouch{i}', (0.085, 0.05, 0.1), (x, 0.15, 1.19), vest, bevel=0.012, parent=spine)
+    for sx in (-1, 1):
+        sphere(f'Shoulder{sx}', 0.068, (0.2 * sx, 0, 1.42), uniform, parent=spine)
+    cyl_between('Neck', (0, 0, 1.46), (0, 0.005, 1.54), 0.055, 0.052, mask, parent=spine)
+    head = empty('Head', (0, 0, 1.53), parent=spine)
+    sphere('Skull', 0.1, (0, 0.012, 1.63), mask, scale=(0.92, 1.0, 1.08), parent=head)
+    box('GoggleBand', (0.165, 0.05, 0.046), (0, 0.083, 1.642), goggle, bevel=0.016, segs=3, parent=head)
+    dome('HelmetShell', 0.128, (0, -0.004, 1.652), helmet, scale=(1.0, 1.08, 0.86), parent=head)
+    # Arme in Anschlagshaltung, die rechte Hand hält die Waffe am Griff
+    cyl_between('UpperArmR', (0.2, 0, 1.42), (0.25, 0.14, 1.22), 0.056, 0.05, uniform, parent=spine)
+    cyl_between('ForearmR', (0.25, 0.14, 1.22), (0.12, 0.28, 1.3), 0.047, 0.04, uniform, parent=spine)
+    box('FistR', (0.08, 0.1, 0.085), (0.1, 0.3, 1.31), glove, bevel=0.026, segs=3, parent=spine)
+    # linker Arm in zwei Varianten: am Handschutz (Gewehre) oder an der Schusshand (Pistole, Messer, Granate)
+    long_arm = empty('ArmLLong', (-0.2, 0, 1.42), parent=spine)
+    cyl_between('UpperArmL', (-0.2, 0, 1.42), (-0.15, 0.25, 1.22), 0.056, 0.05, uniform, parent=long_arm)
+    cyl_between('ForearmL', (-0.15, 0.25, 1.22), (0.05, 0.53, 1.3), 0.047, 0.04, uniform, parent=long_arm)
+    box('FistL', (0.08, 0.1, 0.08), (0.07, 0.56, 1.31), glove, bevel=0.025, segs=3, parent=long_arm)
+    short_arm = empty('ArmLShort', (-0.2, 0, 1.42), parent=spine)
+    cyl_between('UpperArmLS', (-0.2, 0, 1.42), (-0.2, 0.13, 1.2), 0.056, 0.05, uniform, parent=short_arm)
+    cyl_between('ForearmLS', (-0.2, 0.13, 1.2), (0.0, 0.29, 1.28), 0.047, 0.04, uniform, parent=short_arm)
+    box('FistLS', (0.075, 0.095, 0.08), (0.03, 0.31, 1.29), glove, bevel=0.025, segs=3, parent=short_arm)
+    # Ursprung der Waffen liegt oben am Griff, knapp über der Faust
+    empty('WeaponAnchor', (0.1, 0.3, 1.365), parent=spine)
+    # Beine mit Knie- und Hüftgelenk
+    for sx, tag in ((-1, 'L'), (1, 'R')):
+        thigh = empty(f'Thigh{tag}', (0.1 * sx, 0, 0.93), parent=hips)
+        cyl_between(f'ThighMesh{tag}', (0.1 * sx, 0, 0.95), (0.1 * sx, 0.01, 0.52), 0.1, 0.078, uniform, parent=thigh)
+        shin = empty(f'Shin{tag}', (0.1 * sx, 0.01, 0.5), parent=thigh)
+        box(f'KneePad{tag}', (0.1, 0.05, 0.11), (0.1 * sx, 0.08, 0.5), vest, bevel=0.02, parent=shin)
+        cyl_between(f'ShinMesh{tag}', (0.1 * sx, 0.01, 0.5), (0.1 * sx, 0.0, 0.12), 0.074, 0.06, uniform, parent=shin)
+        box(f'Boot{tag}', (0.125, 0.29, 0.12), (0.1 * sx, 0.05, 0.06), boot, bevel=0.03, segs=2, parent=shin)
+    return root
+
+
 # ---------- Kisten ----------
 def build_crates():
     wood = textured_mat('CrateWood', 'wood_planks')
     frame = textured_mat('CrateFrame', 'wood_planks')
+    # Kanten nur einmal abgeschrägt (ein Segment): sieht im Spiel gleich aus, halb so viele Dreiecke
     for name, s, xo in (('Crate_S', 1.0, -0.8), ('Crate_L', 1.3, 0.9)):
         root = empty(name, (xo, 0, 0))
         t, inset = 0.08 * s, 0.03 * s
         box(f'{name}_Panels', (s - 2 * inset, s - 2 * inset, s - 2 * inset), (xo, 0, s / 2), wood,
-            bevel=0.006, uv_tile=1.0, parent=root)
+            bevel=0.006, segs=1, uv_tile=1.0, parent=root)
         h = s / 2 - t / 2
         k = 0
         for sx in (-1, 1):
             for sy in (-1, 1):
-                box(f'{name}_Post{k}', (t, t, s), (xo + sx * h, sy * h, s / 2), frame, bevel=0.008,
+                box(f'{name}_Post{k}', (t, t, s), (xo + sx * h, sy * h, s / 2), frame, bevel=0.008, segs=1,
                     uv_tile=1.0, uv_long=2, parent=root)
                 k += 1
         for sy in (-1, 1):
             for zz in (t / 2, s - t / 2):
-                box(f'{name}_BeamX{k}', (s - 2 * t, t, t), (xo, sy * h, zz), frame, bevel=0.008,
+                box(f'{name}_BeamX{k}', (s - 2 * t, t, t), (xo, sy * h, zz), frame, bevel=0.008, segs=1,
                     uv_tile=1.0, uv_long=0, parent=root)
                 k += 1
         for sx in (-1, 1):
             for zz in (t / 2, s - t / 2):
-                box(f'{name}_BeamY{k}', (t, s - 2 * t, t), (xo + sx * h, 0, zz), frame, bevel=0.008,
+                box(f'{name}_BeamY{k}', (t, s - 2 * t, t), (xo + sx * h, 0, zz), frame, bevel=0.008, segs=1,
                     uv_tile=1.0, uv_long=1, parent=root)
                 k += 1
         # Diagonalstrebe auf zwei Seiten
         diag = math.sqrt(2) * (s - 2 * t)
         for sy in (-1, 1):
             box(f'{name}_Brace{sy}', (diag - 0.02, 0.03, t * 0.9), (xo, sy * (s / 2 - inset - 0.012), s / 2),
-                frame, bevel=0.006, rot=(0, math.radians(45 * sy), 0), uv_tile=1.0, uv_long=0, parent=root)
-        join_meshes(list(root.children), f'{name}_Mesh', parent=root)
+                frame, bevel=0.006, segs=1, rot=(0, math.radians(45 * sy), 0), uv_tile=1.0, uv_long=0, parent=root)
+        obj = join_meshes(list(root.children), f'{name}_Mesh', parent=root)
+        print(f'PROP Kiste {name}: {triangle_count(obj)} Dreiecke')
+    shrink_images(PROP_TEXTURE_SIZE)
     return None
 
 
 # ---------- Requisiten von Poly Haven: vereinfachen und bündeln ----------
 PROP_SPECS = [
-    # Name, Anteil der Dreiecke, der erhalten bleibt
-    ('Barrel_01', 1.0), ('barrel_03', 1.0), ('wooden_crate_02', 0.6),
-    ('old_military_crate', 0.2), ('concrete_road_barrier', 0.06), ('metal_jerrycan', 0.15),
+    # Name, Anteil der Dreiecke, der erhalten bleibt (Ziel: etwa 600 bis 1000 pro Requisit,
+    # die Feinheiten übernimmt die Normal-Map)
+    ('Barrel_01', 0.33), ('barrel_03', 0.5), ('wooden_crate_02', 0.15),
+    ('old_military_crate', 0.05), ('concrete_road_barrier', 0.015), ('metal_jerrycan', 0.04),
 ]
+# Requisiten sind im Spiel höchstens einen Meter groß: 512 Pixel reichen
+PROP_TEXTURE_SIZE = 512
+
+
+def shrink_images(size):
+    for img in bpy.data.images:
+        if img.size[0] > size or img.size[1] > size:
+            img.scale(size, size)
 
 
 def build_props():
@@ -517,6 +582,7 @@ def build_props():
             if o is not None:
                 bpy.data.objects.remove(o, do_unlink=True)
         print(f'PROP {pid}: {triangle_count(obj)} Dreiecke')
+    shrink_images(PROP_TEXTURE_SIZE)
 
 
 # ---------- Klappziel (Stahl-Silhouette) ----------
@@ -531,16 +597,18 @@ def build_target():
     base.append(cyl('Hinge', 0.026, 0.5, (0, 0, 0.165), steel, axis='X'))
     join_meshes(base, 'Base')
     pivot = empty('Pivot', (0, 0, 0.165))
-    box('Post', (0.05, 0.05, 1.47), (0, 0.0, 0.165 + 0.735), steel, bevel=0.006, parent=pivot)
+    steel_parts = [box('PostBar', (0.05, 0.05, 1.47), (0, 0.0, 0.165 + 0.735), steel, bevel=0.006, parent=pivot)]
     profile('Body', [(-0.15, 0.92), (0.15, 0.92), (0.23, 1.02), (0.23, 1.38), (0.14, 1.5), (-0.14, 1.5),
                      (-0.23, 1.38), (-0.23, 1.02)], 0.012, paint, axis='Y', offset=-0.031,
             bevel=0.004, segs=2, parent=pivot)
     profile('Head', [(-0.05, 1.535), (0.05, 1.535), (0.082, 1.57), (0.082, 1.67), (0.05, 1.705),
                      (-0.05, 1.705), (-0.082, 1.67), (-0.082, 1.57)], 0.012, head_paint, axis='Y',
             offset=-0.031, bevel=0.004, segs=2, parent=pivot)
-    # Schrauben heißen wie ihre Platte, damit ein Treffer darauf als Kopf bzw. Körper zählt
+    # Schrauben und Pfosten sind aus demselben Stahl: ein Mesh, ein Zeichenaufruf
+    # (Treffer zählen über eigene, unsichtbare Trefferzonen im Spiel)
     for name, zz in (('BodyBolt0', 1.1), ('BodyBolt1', 1.34), ('HeadBolt', 1.62)):
-        cyl(name, 0.011, 0.01, (0, -0.042, zz), steel, bevel=0.002, parent=pivot)
+        steel_parts.append(cyl(name, 0.011, 0.01, (0, -0.042, zz), steel, bevel=0.002, parent=pivot))
+    join_meshes(steel_parts, 'Post', parent=pivot)
     parent_all(root)
     return root
 
@@ -560,6 +628,7 @@ BUILDS = [
     ('crates', build_crates, (0.5, -1.0, 0.55)),
     ('target', build_target, (0.6, -1.0, 0.3)),
     ('props', build_props, (0.5, -1.0, 0.5)),
+    ('soldier', build_soldier, (0.7, 1.0, 0.25)),
 ]
 
 for name, fn, view in BUILDS:
@@ -570,6 +639,6 @@ for name, fn, view in BUILDS:
     export(f'{name}.glb', jpeg=name in ('props', 'crates'))
     if PREVIEW:
         render_preview(name, direction=view)
-        if name not in ('crates', 'target', 'props'):
+        if name not in ('crates', 'target', 'props', 'soldier'):
             render_preview(name + '_detail', direction=(1.0, -0.12, 0.18), hide=('Hand', 'Wrist', 'Sleeve'))
 print('BUILD_DONE')

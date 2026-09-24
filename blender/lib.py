@@ -210,6 +210,19 @@ def sphere(name, r, center, material, scale=(1, 1, 1), parent=None, segs=24):
     return _finish(name, bm, material, parent, center, 0, 0, 0, True)
 
 
+def dome(name, r, center, material, scale=(1, 1, 1), parent=None, segs=24):
+    """Halbkugel (offen nach unten), z. B. für einen Helm."""
+    bm = bmesh.new()
+    bmesh.ops.create_uvsphere(bm, u_segments=segs, v_segments=segs // 2 + 2, radius=r)
+    bmesh.ops.delete(bm, geom=[v for v in bm.verts if v.co.z < -r * 0.05], context='VERTS')
+    for v in bm.verts:
+        v.co.x *= scale[0]
+        v.co.y *= scale[1]
+        v.co.z *= scale[2]
+    bmesh.ops.translate(bm, verts=bm.verts, vec=Vector(center))
+    return _finish(name, bm, material, parent, center, 0, 0, 0, True)
+
+
 def torus(name, R, r, center, material, axis='Z', seg=24, rseg=8, parent=None):
     bm = bmesh.new()
     rings = []

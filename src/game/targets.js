@@ -3,6 +3,7 @@ import * as THREE from 'three';
 const UP_TIME = 0.35;
 const FALL_TIME = 0.45;
 const DOWN_ANGLE = -Math.PI / 2;
+const HITBOX_MATERIAL = new THREE.MeshBasicMaterial({ visible: false });
 
 // Klappziele aus Stahl: Kopf- und Körperplatte, klappen hoch, fallen bei 0 Lebenspunkten nach hinten um.
 export class Targets {
@@ -19,15 +20,35 @@ export class Targets {
   _create() {
     const root = this.template.clone();
     const pivot = root.getObjectByName('Pivot');
-    const t = { root, pivot, hp: 100, state: 'hidden', angle: DOWN_ANGLE, timer: 0, delay: 0, move: null, spot: null };
+    const t = { root, pivot, hp: 100, state: 'hidden', angle: DOWN_ANGLE, timer: 0, delay: 0, move: null, spot: null, hitboxes: [] };
+    const plates = [];
     root.traverse((o) => {
       if (!o.isMesh) return;
       o.castShadow = true;
       o.receiveShadow = true;
-      const zone = o.name.startsWith('Head') ? 'head' : o.name.startsWith('Body') ? 'body' : null;
-      o.userData.target = t;
-      o.userData.zone = zone;
+      if (o.name === 'Head' || o.name === 'Body') plates.push(o);
+      // Sockel und Pfosten halten Kugeln auf, zählen aber nicht als Treffer
+      if (o.name === 'Base' || o.name === 'Post') {
+        o.userData.target = t;
+        o.userData.zone = null;
+        t.hitboxes.push(o);
+      }
     });
+    // Unsichtbare Trefferkästen, etwas größer als die Platten: man trifft leichter
+    for (const plate of plates) {
+      const zone = plate.name === 'Head' ? 'head' : 'body';
+      plate.geometry.computeBoundingBox();
+      const size = plate.geometry.boundingBox.getSize(new THREE.Vector3());
+      const center = plate.geometry.boundingBox.getCenter(new THREE.Vector3());
+      const grow = zone === 'head' ? 0.06 : 0.1;
+      const box = new THREE.Mesh(new THREE.BoxGeometry(size.x + grow, size.y + grow, 0.12), HITBOX_MATERIAL);
+      box.position.copy(center);
+      box.visible = false;
+      box.userData.target = t;
+      box.userData.zone = zone;
+      plate.add(box);
+      t.hitboxes.push(box);
+    }
     root.visible = false;
     this.scene.add(root);
     this.list.push(t);
@@ -69,8 +90,7 @@ export class Targets {
   _collectMeshes() {
     this.hitMeshes = [];
     for (const t of this.list) {
-      if (!t.root.visible) continue;
-      t.root.traverse((o) => { if (o.isMesh) this.hitMeshes.push(o); });
+      if (t.root.visible) this.hitMeshes.push(...t.hitboxes);
     }
   }
 

@@ -1,12 +1,48 @@
 import * as THREE from 'three';
 import { GRENADES, WEAPONS } from '../config.js';
 import { GROUP, groups } from '../engine/physics.js';
+import { mergeByMaterial } from '../engine/merge.js';
 import { puffTexture } from '../effects/textures.js';
 
 const DOWN = { x: 0, y: -1, z: 0 };
+const PUFFS = 38;
 const _v = new THREE.Vector3();
 const _a = new THREE.Vector3();
 const _b = new THREE.Vector3();
+const _fwd = new THREE.Vector3();
+
+// Rauchschwaden als Instanzen einer Fläche, im Shader zur Kamera gedreht:
+// eine Wolke ist ein Zeichenaufruf statt 38 einzelner Sprites
+const SMOKE_VERT = /* glsl */ `
+attribute vec3 iPos;
+attribute float iSize;
+attribute float iRot;
+attribute float iShade;
+varying vec2 vUv;
+varying float vShade;
+#include <fog_pars_vertex>
+void main() {
+  vUv = uv;
+  vShade = iShade;
+  vec4 mvPosition = modelViewMatrix * vec4(iPos, 1.0);
+  float c = cos(iRot), s = sin(iRot);
+  mvPosition.xy += vec2(position.x * c - position.y * s, position.x * s + position.y * c) * iSize;
+  gl_Position = projectionMatrix * mvPosition;
+  #include <fog_vertex>
+}`;
+const SMOKE_FRAG = /* glsl */ `
+uniform sampler2D map;
+uniform float opacity;
+varying vec2 vUv;
+varying float vShade;
+#include <fog_pars_fragment>
+void main() {
+  vec4 t = texture2D(map, vUv);
+  gl_FragColor = vec4(t.rgb * vec3(vShade, vShade, vShade * 0.98), t.a * opacity);
+  #include <tonemapping_fragment>
+  #include <colorspace_fragment>
+  #include <fog_fragment>
+}`;
 
 // Geworfene Granaten (Rapier-Körper) und ihre Wirkung.
 export class Grenades {
@@ -23,13 +59,31 @@ export class Grenades {
         if (o.isMesh) o.castShadow = true;
       });
       for (const o of remove) o.removeFromParent();
+      mergeByMaterial(t);
       this.templates[type] = t;
     }
     this.smokeTex = puffTexture(9, 256, 0.5);
+    this.smokeQuad = new THREE.PlaneGeometry(1, 1);
+    this.nextId = 0;
   }
 
-  throw(type, pos, vel) {
+  _smokeMaterial() {
+    const uniforms = THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { opacity: { value: 0 } }]);
+    uniforms.map = { value: this.smokeTex };
+    return new THREE.ShaderMaterial({
+      uniforms, vertexShader: SMOKE_VERT, fragmentShader: SMOKE_FRAG,
+      transparent: true, depthWrite: false, fog: true,
+    });
+  }
+
+  /**
+   * Granate werfen. ghost = Wurf des Gegners: fliegt nur zum Ansehen mit, gezündet wird sie,
+   * wenn sein Spiel die Explosion meldet (remoteBoom). Gibt die Kennung zurück.
+   */
+  throw(type, pos, vel, { ghost = false, id = null } = {}) {
     const { R, world } = this.g.physics;
+    // eigene Granaten prallen am Gegner ab, seine an einem selbst
+    const hits = GROUP.WORLD | GROUP.STAIR | (ghost ? GROUP.PLAYER : GROUP.OTHER);
     const body = world.createRigidBody(
       R.RigidBodyDesc.dynamic()
         .setTranslation(pos.x, pos.y, pos.z)
@@ -41,20 +95,40 @@ export class Grenades {
     );
     world.createCollider(
       R.ColliderDesc.ball(GRENADES.bodyRadius).setRestitution(0.42).setFriction(0.8).setDensity(2)
-        .setCollisionGroups(groups(GROUP.GRENADE, GROUP.WORLD | GROUP.STAIR)),
+        .setCollisionGroups(groups(GROUP.GRENADE, hits)),
       body,
     );
     const mesh = this.templates[type].clone();
     mesh.position.copy(pos);
     this.g.scene.add(mesh);
-    this.list.push({ type, body, mesh, t: 0, lastVel: vel.clone(), bounceCd: 0 });
+    const gid = id ?? ++this.nextId;
+    this.list.push({ id: gid, ghost, type, body, mesh, t: 0, lastVel: vel.clone(), bounceCd: 0 });
+    return gid;
+  }
+
+  /** Das Spiel des Gegners meldet: seine Granate ist hier losgegangen */
+  remoteBoom(id, type, pos) {
+    const i = this.list.findIndex((gr) => gr.ghost && gr.id === id);
+    if (i >= 0) {
+      this._remove(this.list[i]);
+      this.list.splice(i, 1);
+    }
+    if (type === 'he') this._explode(pos, true);
+    else if (type === 'flash') this._flash(pos);
+    else this._smoke(pos);
   }
 
   clear() {
     for (const gr of this.list) this._remove(gr);
     this.list = [];
-    for (const c of this.clouds) this.g.scene.remove(c.group);
+    for (const c of this.clouds) this._removeCloud(c);
     this.clouds = [];
+  }
+
+  _removeCloud(c) {
+    this.g.scene.remove(c.mesh);
+    c.mesh.geometry.dispose();
+    c.mesh.material.dispose();
   }
 
   _remove(gr) {
@@ -76,6 +150,14 @@ export class Grenades {
         gr.bounceCd = 0.08;
       }
       gr.lastVel.copy(_v);
+      if (gr.ghost) {
+        // kam keine Explosionsmeldung, verschwindet die Granate irgendwann still
+        if (gr.t > 8) {
+          this._remove(gr);
+          this.list.splice(i, 1);
+        }
+        continue;
+      }
       const cfg = GRENADES[gr.type];
       const done = gr.type === 'smoke'
         ? (gr.t > 0.6 && _v.length() < cfg.stopSpeed) || gr.t > 3.5
@@ -89,7 +171,7 @@ export class Grenades {
       const c = this.clouds[i];
       c.t += dt;
       if (c.t > GRENADES.smoke.duration + 2.5) {
-        this.g.scene.remove(c.group);
+        this._removeCloud(c);
         this.clouds.splice(i, 1);
       }
     }
@@ -104,16 +186,32 @@ export class Grenades {
       gr.mesh.quaternion.set(q.x, q.y, q.z, q.w);
     }
     const dur = GRENADES.smoke.duration;
+    const cam = this.g.camera;
+    cam.getWorldDirection(_fwd);
     for (const c of this.clouds) {
       const grow = 1 - Math.pow(1 - Math.min(1, c.t / 1.6), 3);
       const fade = c.t > dur ? Math.max(0, 1 - (c.t - dur) / 2.5) : 1;
-      for (const m of c.materials) m.opacity = Math.min(1, c.t * 3) * fade * 0.94;
-      for (const s of c.sprites) {
-        s.sprite.position.lerpVectors(c.center, s.target, grow);
-        s.sprite.position.y += Math.sin(c.t * 0.3 + s.phase) * 0.15;
-        s.sprite.material.rotation = s.rot + c.t * s.spin;
-        s.sprite.scale.setScalar(s.size * (0.4 + 0.6 * grow));
+      c.mesh.material.uniforms.opacity.value = Math.min(1, c.t * 3) * fade * 0.94;
+      for (const p of c.puffs) {
+        p.pos.lerpVectors(c.center, p.target, grow);
+        p.pos.y += Math.sin(c.t * 0.3 + p.phase) * 0.15;
+        p.depth = _v.subVectors(p.pos, cam.position).dot(_fwd);
       }
+      // von hinten nach vorne zeichnen, damit die Schwaden richtig überblenden
+      c.order.sort((a, b) => c.puffs[b].depth - c.puffs[a].depth);
+      const geo = c.mesh.geometry;
+      const pos = geo.attributes.iPos.array, size = geo.attributes.iSize.array;
+      const rot = geo.attributes.iRot.array, shade = geo.attributes.iShade.array;
+      c.order.forEach((k, i) => {
+        const p = c.puffs[k];
+        pos[i * 3] = p.pos.x - c.center.x;
+        pos[i * 3 + 1] = p.pos.y - c.center.y;
+        pos[i * 3 + 2] = p.pos.z - c.center.z;
+        size[i] = p.size * (0.4 + 0.6 * grow);
+        rot[i] = p.rot + c.t * p.spin;
+        shade[i] = p.shade;
+      });
+      for (const a of ['iPos', 'iSize', 'iRot', 'iShade']) geo.attributes[a].needsUpdate = true;
     }
   }
 
@@ -126,19 +224,21 @@ export class Grenades {
     const p = gr.body.translation();
     const pos = new THREE.Vector3(p.x, p.y, p.z);
     this._remove(gr);
+    this.g.match.boomFx?.(gr.id, gr.type, pos);
     if (gr.type === 'he') this._explode(pos);
     else if (gr.type === 'flash') this._flash(pos);
     else this._smoke(pos);
   }
 
-  _explode(pos) {
+  // remote = Granate des Gegners: trifft nur einen selbst (seinen Schaden rechnet sein Spiel)
+  _explode(pos, remote = false) {
     const g = this.g;
     const cfg = GRENADES.he;
     const ground = this._groundBelow(pos);
     g.effects.explosion(pos, ground !== null && pos.y - ground < 1.2 ? ground : null);
     g.audio.play('explosion', { position: pos });
     _a.copy(pos).y += 0.15;
-    for (const t of g.targets.standing()) {
+    for (const t of remote ? [] : g.targets.standing()) {
       _b.copy(t.root.position).y += 1.2;
       const d = _a.distanceTo(_b);
       if (d > cfg.radius || !g.physics.lineOfSight(_a, _b)) continue;
@@ -154,7 +254,7 @@ export class Grenades {
     const d = _a.distanceTo(_b);
     if (d < cfg.radius && g.physics.lineOfSight(_a, _b)) {
       const dmg = cfg.damage * Math.pow(1 - d / cfg.radius, 1.5);
-      if (dmg >= 1) g.damagePlayer(dmg, { armorPen: cfg.armorPen, from: pos });
+      if (dmg >= 1) g.damagePlayer(dmg, { armorPen: cfg.armorPen, from: pos, byOpponent: remote, weapon: 'he' });
     }
     g.shake(Math.max(0, 1 - d / 22));
   }
@@ -186,10 +286,8 @@ export class Grenades {
     g.audio.play('smoke', { position: pos });
     const ground = this._groundBelow(pos) ?? pos.y;
     const center = new THREE.Vector3(pos.x, ground + 1.1, pos.z);
-    const group = new THREE.Group();
-    const materials = [];
-    const sprites = [];
-    for (let i = 0; i < 38; i++) {
+    const puffs = [];
+    for (let i = 0; i < PUFFS; i++) {
       const a = Math.random() * Math.PI * 2;
       const r = Math.sqrt(Math.random()) * cfg.radius;
       const target = new THREE.Vector3(Math.cos(a) * r, (Math.random() - 0.35) * 1.8, Math.sin(a) * r).add(center);
@@ -202,17 +300,25 @@ export class Grenades {
         const hit = g.physics.raycast(center, dir, len);
         if (hit) target.copy(center).addScaledVector(dir, Math.max(0, hit.distance - 0.6));
       }
-      const v = 0.64 + Math.random() * 0.18;
-      const mat = new THREE.SpriteMaterial({
-        map: this.smokeTex, color: new THREE.Color(v, v, v * 0.98), transparent: true, opacity: 0, depthWrite: false,
+      puffs.push({
+        target, pos: center.clone(), depth: 0, shade: 0.64 + Math.random() * 0.18,
+        size: 2.6 + Math.random() * 1.6, rot: Math.random() * Math.PI * 2,
+        spin: (Math.random() - 0.5) * 0.08, phase: Math.random() * 6,
       });
-      materials.push(mat);
-      const sprite = new THREE.Sprite(mat);
-      sprite.position.copy(center);
-      group.add(sprite);
-      sprites.push({ sprite, target, size: 2.6 + Math.random() * 1.6, rot: Math.random() * Math.PI * 2, spin: (Math.random() - 0.5) * 0.08, phase: Math.random() * 6 });
     }
-    g.scene.add(group);
-    this.clouds.push({ group, sprites, materials, center, t: 0 });
+    // eigene Kopie der Fläche, damit das Aufräumen einer Wolke keine andere trifft
+    const geo = new THREE.InstancedBufferGeometry();
+    geo.index = this.smokeQuad.index.clone();
+    geo.setAttribute('position', this.smokeQuad.attributes.position.clone());
+    geo.setAttribute('uv', this.smokeQuad.attributes.uv.clone());
+    for (const [name, n] of [['iPos', 3], ['iSize', 1], ['iRot', 1], ['iShade', 1]]) {
+      geo.setAttribute(name, new THREE.InstancedBufferAttribute(new Float32Array(PUFFS * n), n).setUsage(THREE.DynamicDrawUsage));
+    }
+    geo.instanceCount = PUFFS;
+    const mesh = new THREE.Mesh(geo, this._smokeMaterial());
+    mesh.position.copy(center);
+    mesh.frustumCulled = false;
+    g.scene.add(mesh);
+    this.clouds.push({ mesh, puffs, order: puffs.map((_, i) => i), center, t: 0 });
   }
 }

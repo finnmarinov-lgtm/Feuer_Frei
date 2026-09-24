@@ -15,8 +15,16 @@ const MATS = {
 // Blickrichtung (Yaw) so, dass die Kamera nach +X schaut
 const FACE_EAST = -Math.PI / 2;
 
-export const SPAWN = { pos: new THREE.Vector3(-26.5, 0, 0), yaw: FACE_EAST };
-export const BUY_ZONE = { x0: -30, x1: -21.5, z0: -8, z1: 8 };
+// Im 1 gegen 1 startet der Host im Westen, der Gast gespiegelt im Osten
+export const SPAWNS = {
+  west: { pos: new THREE.Vector3(-26.5, 0, 0), yaw: FACE_EAST },
+  east: { pos: new THREE.Vector3(26.5, 0, 0), yaw: -FACE_EAST },
+};
+export const SPAWN = SPAWNS.west;
+export const BUY_ZONES = {
+  west: { x0: -30, x1: -21.5, z0: -8, z1: 8 },
+  east: { x0: 21.5, x1: 30, z0: -8, z1: 8 },
+};
 
 // Mögliche Standorte der Klappziele (x, z, Bodenhöhe)
 export const TARGET_SPOTS = [
@@ -340,7 +348,8 @@ export class Arena {
     }
   }
 
-  inBuyZone(p) {
-    return p.x >= BUY_ZONE.x0 && p.x <= BUY_ZONE.x1 && p.z >= BUY_ZONE.z0 && p.z <= BUY_ZONE.z1;
+  inBuyZone(p, side = 'west') {
+    const z = BUY_ZONES[side];
+    return p.x >= z.x0 && p.x <= z.x1 && p.z >= z.z0 && p.z <= z.z1;
   }
 }

@@ -42,6 +42,20 @@ export const TRAINING = {
   moving: [0, 1, 2, 3, 4],
 };
 
+// 1 gegen 1 über die Lobby. Die Rundenzeit wächst mit der Zahl der Leben.
+export const DUEL = {
+  freezeTime: 12,
+  firstFreezeTime: 15,
+  buyWindow: 20,
+  roundTimeBase: 60,
+  roundTimePerLife: 30,
+  roundEndTime: 5,
+  respawnTime: 3,
+  spawnProtect: 1.5,
+  forfeitAfter: 30,
+  legMul: 0.75,
+};
+
 export const PLAYER = {
   health: 100,
   helmetHeadMul: 0.5,
@@ -77,9 +91,9 @@ const LUCHS_PATTERN = [
 export const WEAPONS = {
   natter: {
     name: 'Natter', type: 'Pistole', slot: 'secondary', price: 200, reward: 150, model: 'natter',
-    auto: false, rpm: 400, damage: 20, headMul: 2.4, armorPen: 0.47, rangeMod: 0.87,
+    auto: false, rpm: 400, damage: 30, headMul: 2.4, armorPen: 0.5, rangeMod: 0.9,
     mag: 20, reserve: 120, reload: 2.2, draw: 0.45, speed: 6.0,
-    spread: { base: 6, move: 24, air: 80, fire: 16, recovery: 0.3 },
+    spread: { base: 4.5, move: 22, air: 80, fire: 14, recovery: 0.28 },
     recoil: { up: 0.85, side: 0.15, decay: 8, viewKick: 1.4 },
     ads: { eye: 0.4, zoom: 1.15, time: 0.14, speed: 0.72, spread: 0.45 },
     view: { pos: [0.125, -0.15, -0.44], rot: [0.03, 0.12, -0.04] },
@@ -149,9 +163,10 @@ export const WEAPONS = {
   },
   messer: {
     name: 'Messer', type: 'Messer', slot: 'knife', price: 0, reward: 750, model: 'messer',
-    draw: 0.4, speed: 6.2,
-    slash: { damage: 34, range: 1.7, rate: 0.42 },
-    stab: { damage: 65, range: 1.45, rate: 1.0 },
+    draw: 0.4, speed: 6.2, armorPen: 0.85,
+    // zwei Treffer reichen immer, auch gegen eine Schutzweste
+    slash: { damage: 60, range: 1.7, rate: 0.42 },
+    stab: { damage: 90, range: 1.45, rate: 1.0 },
     view: { pos: [0.15, -0.13, -0.3], rot: [0.45, 0.45, -0.2] },
     anim: 'knife',
   },
@@ -171,6 +186,10 @@ export const WEAPONS = {
     view: { pos: [0.15, -0.125, -0.33], rot: [0.15, 0.25, -0.1] }, anim: 'grenade',
   },
 };
+
+// feste Reihenfolge, damit die Waffe im Netz als kleine Zahl übertragen werden kann
+export const WEAPON_IDS = Object.keys(WEAPONS);
+for (const id of WEAPON_IDS) WEAPONS[id].id = id;
 
 export const GRENADES = {
   he: { fuse: 1.6, radius: 7.5, damage: 100, armorPen: 0.5 },

@@ -36,24 +36,44 @@ export class Renderer {
     this.viewCamera = viewCamera;
   }
 
-  applyQuality(key, sun) {
+  applyQuality(key, sun, renderScale = 1) {
     const q = QUALITY[key];
     this.quality = q;
     this.qualityKey = key;
+    this.renderScale = renderScale;
     const r = this.renderer;
-    r.setPixelRatio(Math.min(window.devicePixelRatio || 1, q.pixelRatio));
+    r.setPixelRatio(Math.min(window.devicePixelRatio || 1, q.pixelRatio) * renderScale);
     if (sun) {
       sun.shadow.mapSize.set(q.shadowSize, q.shadowSize);
       sun.shadow.map?.dispose();
       sun.shadow.map = null;
     }
+    // feste Schatten: nur auf Anforderung neu zeichnen (siehe bakeShadows)
+    r.shadowMap.autoUpdate = !q.staticShadows;
+    r.shadowMap.needsUpdate = true;
+    this.needsShadowBake = q.staticShadows;
     this._buildComposer();
     this.resize();
   }
 
+  /** Schattenkarte einmal zeichnen; bei festen Schatten bleibt sie danach so */
+  bakeShadows() {
+    const r = this.renderer;
+    this._bakeTarget ||= new THREE.WebGLRenderTarget(1, 1);
+    r.shadowMap.needsUpdate = true;
+    r.setRenderTarget(this._bakeTarget);
+    r.render(this.scene, this.camera);
+    r.setRenderTarget(null);
+    this.needsShadowBake = false;
+  }
+
   _buildComposer() {
     this.composer?.dispose();
+    this.composer = null;
+    this.gtao = null;
+    this.viewPass = null;
     const q = this.quality;
+    if (q.direct) return;
     const size = this.renderer.getDrawingBufferSize(new THREE.Vector2());
     const target = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: q.msaa });
     const c = new EffectComposer(this.renderer, target);
@@ -103,7 +123,19 @@ export class Renderer {
   }
 
   render(showViewmodel) {
-    this.viewPass.enabled = showViewmodel;
-    this.composer.render();
+    if (this.composer) {
+      this.viewPass.enabled = showViewmodel;
+      this.composer.render();
+      return;
+    }
+    // niedrige Grafik: Welt und Waffe direkt ins Bild, Tonemapping machen dann die Materialien selbst
+    const r = this.renderer;
+    r.render(this.scene, this.camera);
+    if (showViewmodel) {
+      r.autoClear = false;
+      r.clearDepth();
+      r.render(this.viewScene, this.viewCamera);
+      r.autoClear = true;
+    }
   }
 }

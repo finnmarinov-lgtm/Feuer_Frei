@@ -96,8 +96,9 @@ export class Audio {
     }
   }
 
-  // Ziel-Knoten: mit Position räumlich (HRTF), sonst direkt. reverb = Anteil in den Hall.
-  _out(position, gain = 1, reverb = 0.5) {
+  // Ziel-Knoten: mit Position räumlich (HRTF), sonst direkt. reverb = Anteil in den Hall,
+  // ref = Abstand, ab dem es leiser wird (Schüsse tragen weiter als Schritte).
+  _out(position, gain = 1, reverb = 0.5, ref = 2.5) {
     const ctx = this.ctx;
     const g = ctx.createGain();
     g.gain.value = gain;
@@ -106,7 +107,7 @@ export class Audio {
       const p = ctx.createPanner();
       p.panningModel = 'HRTF';
       p.distanceModel = 'inverse';
-      p.refDistance = 2.5;
+      p.refDistance = ref;
       p.rolloffFactor = 1.1;
       p.maxDistance = 120;
       p.positionX.value = position.x;
@@ -162,12 +163,13 @@ export class Audio {
     o.stop(t0 + attack + decay + 0.05);
   }
 
-  shot(profile) {
+  /** Schuss; mit position (Gegner) räumlich und mit mehr Hall */
+  shot(profile, position = null) {
     if (!this.ctx) return;
     const p = GUN[profile] || GUN.rifle;
     const t = this.ctx.currentTime;
     const pitch = 0.95 + Math.random() * 0.1;
-    const out = this._out(null, p.gain, 0.9);
+    const out = position ? this._out(position, p.gain * 1.1, 1.3, 14) : this._out(null, p.gain, 0.9);
     this._noise(out, t, { type: 'bandpass', freq: p.crack * pitch, q: 0.7, gain: 1.0, decay: p.crackDecay });
     this._noise(out, t, { type: 'lowpass', freq: p.body * 2.2 * pitch, freqEnd: p.body * 0.5, q: 0.8, gain: 1.1, decay: p.bodyDecay });
     this._tone(out, t, { type: 'sine', freq: p.thump * 2.2 * pitch, freqEnd: p.thump * 0.6, gain: 1.0, decay: p.thumpDecay });
@@ -397,6 +399,26 @@ export class Audio {
       case 'hurt': {
         const o = this._out(null, 0.5 * vol, 0.1);
         this._noise(o, t, { type: 'lowpass', freq: 500, q: 1, gain: 1, decay: 0.15 });
+        break;
+      }
+      // Rückmeldung für den Schützen: dumpfer Körpertreffer, heller Helmtreffer
+      case 'hitBody': {
+        const o = this._out(null, 0.5 * vol, 0.05);
+        this._noise(o, t, { type: 'lowpass', freq: 700, q: 1.2, gain: 1, decay: 0.07 });
+        this._tone(o, t, { freq: 180, freqEnd: 90, gain: 0.5, decay: 0.08 });
+        break;
+      }
+      case 'hitHead': {
+        const o = this._out(null, 0.45 * vol, 0.1);
+        this._tone(o, t, { freq: 2300 + Math.random() * 200, gain: 0.5, decay: 0.16 });
+        this._tone(o, t, { freq: 5200, gain: 0.2, decay: 0.08 });
+        this._noise(o, t, { type: 'lowpass', freq: 800, q: 1, gain: 0.7, decay: 0.06 });
+        break;
+      }
+      case 'kill': {
+        const o = this._out(null, 0.3 * vol, 0.1);
+        this._tone(o, t, { type: 'triangle', freq: 880, gain: 0.7, decay: 0.12 });
+        this._tone(o, t + 0.09, { type: 'triangle', freq: 1320, gain: 0.7, decay: 0.2 });
         break;
       }
       default:

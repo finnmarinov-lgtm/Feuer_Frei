@@ -49,6 +49,20 @@ kbd { display: inline-block; min-width: 1.6em; padding: 0 0.35em; border: 1px so
 #topbar .round { font-size: 15px; color: var(--muted); font-weight: 600; }
 #topbar .phase { font-size: 16px; font-weight: 700; color: var(--accent); }
 #topbar .targets { grid-column: 1 / -1; font-size: 15px; font-weight: 600; color: var(--text); text-align: center; }
+#topbar .duel { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr auto 1fr; align-items: start; gap: 12px; margin-top: 4px; padding-top: 5px; border-top: 1px solid rgba(255,255,255,0.1); }
+#topbar .duel b { font-size: 24px; font-variant-numeric: tabular-nums; line-height: 1.1; }
+#topbar .duel .side { display: flex; flex-direction: column; font-size: 16px; font-weight: 700; max-width: 150px; }
+#topbar .duel .side span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#topbar .duel .me { text-align: right; align-items: flex-end; color: var(--money); }
+#topbar .duel .them { text-align: left; align-items: flex-start; color: #ff8a6b; }
+#topbar .duel .side i { font-style: normal; font-size: 13px; letter-spacing: 2px; color: var(--text); opacity: 0.85; }
+#net-status { position: absolute; left: 22px; top: 106px; font-size: 14px; font-weight: 600; color: var(--money); background: var(--panel); padding: 2px 10px; border-radius: 5px; }
+#net-status.server { color: var(--accent); }
+#net-status.bad { color: var(--danger); }
+#dmgdir { position: absolute; left: 50%; top: 50%; width: 300px; height: 300px; border-radius: 50%; opacity: 0; transform: translate(-50%, -50%);
+  background: conic-gradient(from -32deg, rgba(255, 50, 40, 0) 0deg, rgba(255, 50, 40, 0.9) 32deg, rgba(255, 50, 40, 0) 64deg, transparent 64deg);
+  -webkit-mask: radial-gradient(circle, transparent 62%, #000 63%, #000 71%, transparent 72%);
+  mask: radial-gradient(circle, transparent 62%, #000 63%, #000 71%, transparent 72%); }
 
 #money { position: absolute; left: 22px; top: 18px; font-size: 30px; font-weight: 700; color: var(--money); background: var(--panel); padding: 2px 14px; border-radius: 6px; }
 #money-delta { font-size: 20px; margin-left: 8px; opacity: 0; transition: opacity 0.3s; }
@@ -78,6 +92,8 @@ kbd { display: inline-block; min-width: 1.6em; padding: 0 0.35em; border: 1px so
 
 #killfeed { position: absolute; right: 22px; top: 18px; display: flex; flex-direction: column; gap: 5px; align-items: flex-end; }
 .kill { background: var(--panel-strong); padding: 4px 12px; border-radius: 5px; font-size: 16px; font-weight: 600; box-shadow: inset 0 0 0 1px rgba(242, 179, 61, 0.35); }
+.kill.other { box-shadow: none; }
+.kill b { font-weight: 700; }
 .kill .w { color: var(--muted); margin: 0 6px; }
 .kill .h { color: #ff8a5c; }
 .kill .m { color: var(--money); margin-left: 8px; }
@@ -91,6 +107,7 @@ kbd { display: inline-block; min-width: 1.6em; padding: 0 0.35em; border: 1px so
 #round-end .title { font-size: 40px; font-weight: 700; }
 #round-end.win .title { color: var(--money); }
 #round-end.loss .title { color: var(--danger); }
+#round-end.draw .title { color: var(--accent); }
 #round-end .sub { font-size: 20px; color: var(--muted); font-weight: 600; }
 #round-end .bonus { margin-top: 8px; font-size: 22px; color: var(--money); font-weight: 700; }
 
@@ -98,7 +115,7 @@ kbd { display: inline-block; min-width: 1.6em; padding: 0 0.35em; border: 1px so
 #stats-panel h3 { margin: 0 0 10px; font-size: 22px; }
 #stats-panel .row { display: flex; justify-content: space-between; gap: 30px; padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.07); }
 
-#fps { position: absolute; left: 22px; top: 106px; font-size: 14px; color: var(--muted); }
+#fps { position: absolute; left: 22px; top: 136px; font-size: 14px; color: var(--muted); }
 
 #scope { position: absolute; inset: 0; display: none; background: radial-gradient(circle at center, transparent 0, transparent calc(min(46vh, 46vw)), #000 calc(min(46vh, 46vw) + 2px)); }
 #scope.on { display: block; }
@@ -150,7 +167,7 @@ kbd { display: inline-block; min-width: 1.6em; padding: 0 0.35em; border: 1px so
 .buttons button.primary:hover { background: #ffc657; }
 .form { display: flex; flex-direction: column; gap: 14px; width: min(520px, 92vw); background: rgba(255,255,255,0.04); padding: 18px 20px; border-radius: 8px; }
 .form label { display: grid; grid-template-columns: 1fr 180px 54px; align-items: center; gap: 12px; font-size: 18px; font-weight: 600; }
-.form label small { color: var(--muted); font-weight: 500; }
+.form label small { display: block; color: var(--muted); font-weight: 500; font-size: 14px; line-height: 1.2; }
 .form label.check { display: flex; gap: 10px; }
 .form select { grid-column: span 2; font: 600 17px var(--font); background: #1d2126; color: var(--text); border: 1px solid rgba(255,255,255,0.2); border-radius: 5px; padding: 4px 8px; }
 .form output { text-align: right; font-variant-numeric: tabular-nums; }
@@ -169,6 +186,42 @@ kbd { display: inline-block; min-width: 1.6em; padding: 0 0.35em; border: 1px so
 .res-rounds .win { color: var(--money); }
 .res-rounds .loss { color: var(--danger); }
 #click-resume { cursor: pointer; }
+.res-score { font-size: 56px; font-weight: 700; letter-spacing: 2px; margin-top: -8px; font-variant-numeric: tabular-nums; }
+#res-status { min-height: 1.2em; font-size: 18px; font-weight: 600; color: var(--accent); }
+
+/* ---------- Lobby ---------- */
+.lobby-name { display: flex; align-items: center; gap: 12px; font-size: 19px; font-weight: 600; }
+#lobby input { font: 600 19px var(--font); background: #1d2126; color: var(--text); border: 1px solid rgba(255,255,255,0.22); border-radius: 6px; padding: 6px 10px; user-select: text; }
+#lobby input:focus { outline: none; border-color: var(--accent); }
+#lobby-name { width: 220px; }
+.lobby-choice { display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; }
+.lobby-choice .card { width: 300px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 10px; }
+.lobby-choice h3 { margin: 0; font-size: 24px; }
+.lobby-choice p { margin: 0; color: var(--muted); font-size: 16px; min-height: 2.6em; }
+.lobby-choice input { text-transform: uppercase; letter-spacing: 2px; }
+.lobby-choice button, .link-row button, .seg button { font: 700 18px var(--font); padding: 9px 14px; border-radius: 7px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.08); color: var(--text); cursor: pointer; }
+.lobby-choice button:hover, .link-row button:hover, .seg button:hover { background: rgba(255,255,255,0.15); }
+.lobby-choice button.primary { background: var(--accent); color: #1a1407; border-color: var(--accent); }
+.lobby-choice button.primary:hover { background: #ffc657; }
+.lobby-room { display: flex; flex-direction: column; align-items: center; gap: 14px; width: min(640px, 94vw); }
+.code-box { font-size: 18px; color: var(--muted); font-weight: 600; display: flex; align-items: baseline; gap: 14px; }
+.code-box b { font-size: 54px; color: var(--text); letter-spacing: 8px; user-select: text; }
+.link-row { display: flex; gap: 8px; width: 100%; }
+.link-row input { flex: 1; min-width: 0; font-size: 16px !important; color: var(--muted) !important; }
+.opts { display: flex; flex-direction: column; gap: 8px; font-size: 18px; font-weight: 600; background: rgba(255,255,255,0.04); padding: 10px 16px; border-radius: 8px; }
+.opt { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.seg { display: inline-flex; gap: 4px; }
+.seg button { padding: 4px 14px; font-size: 17px; }
+.seg button.on { background: var(--accent); color: #1a1407; border-color: var(--accent); }
+.seg.locked button { cursor: default; opacity: 0.6; }
+.seg.locked button.on { opacity: 1; }
+.players { display: flex; align-items: center; gap: 18px; font-size: 24px; font-weight: 700; }
+.players .pl { min-width: 190px; text-align: center; background: rgba(255,255,255,0.05); border-radius: 8px; padding: 8px 14px; }
+.players .pl small { display: block; font-size: 14px; color: var(--muted); font-weight: 600; }
+.players .pl.empty { color: var(--muted); font-weight: 600; font-size: 18px; }
+.players .vs { color: var(--muted); font-size: 16px; }
+.lobby-room .status { font-size: 22px; font-weight: 700; color: var(--accent); text-align: center; min-height: 1.3em; }
+.lobby-room .net { font-size: 15px; color: var(--muted); text-align: center; min-height: 1.2em; max-width: 560px; }
 .form label.key { grid-template-columns: 1fr 180px; }
 .form label.key button { font: 700 18px var(--font); padding: 6px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.08); color: var(--text); cursor: pointer; }
 .form label.key button.waiting { background: var(--accent); color: #1a1407; }

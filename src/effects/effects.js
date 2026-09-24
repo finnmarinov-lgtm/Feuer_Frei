@@ -124,15 +124,24 @@ class Particles {
       this.alpha[i] = this.a0[i] * (1 - t) * Math.min(1, t * 12 + 0.3);
       this.rot[i] += this.spin[i] * dt;
     }
+    // ohne Partikel nichts hochladen und nichts zeichnen, sonst nur den belegten Teil hochladen
+    this.points.visible = this.n > 0;
+    if (!this.n) return;
     const g = this.geometry;
     g.setDrawRange(0, this.n);
-    for (const name of ['position', 'pColor', 'size', 'alpha', 'rot']) g.attributes[name].needsUpdate = true;
+    for (const name of ['position', 'pColor', 'size', 'alpha', 'rot']) {
+      const a = g.attributes[name];
+      a.clearUpdateRanges();
+      a.addUpdateRange(0, this.n * a.itemSize);
+      a.needsUpdate = true;
+    }
   }
 }
 
 const _v = new THREE.Vector3();
 const _p = new THREE.Vector3();
 const _n = new THREE.Vector3();
+const DECALS = 180;
 
 function randomDir(out, normal, spread) {
   out.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize().multiplyScalar(spread);
@@ -164,15 +173,15 @@ export class Effects {
       polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2,
     });
     this.decalGeo = new THREE.PlaneGeometry(1, 1);
-    this.decals = [];
-    for (let i = 0; i < 180; i++) {
-      const m = new THREE.Mesh(this.decalGeo, holeMat);
-      m.visible = false;
-      m.receiveShadow = true;
-      scene.add(m);
-      this.decals.push(m);
-    }
+    // alle Einschusslöcher in einem Instanz-Mesh: ein Zeichenaufruf statt einer pro Loch
+    this.decals = new THREE.InstancedMesh(this.decalGeo, holeMat, DECALS);
+    this.decals.count = 0;
+    this.decals.frustumCulled = false;
+    this.decals.receiveShadow = true;
+    this.decals.name = 'Einschusslöcher';
+    scene.add(this.decals);
     this.decalIndex = 0;
+    this._decalObj = new THREE.Object3D();
     this.scorches = [];
     for (let i = 0; i < 6; i++) {
       const m = new THREE.Mesh(this.decalGeo, this.scorchMat);
@@ -213,14 +222,19 @@ export class Effects {
   }
 
   _decal(point, normal, size) {
-    const m = this.decals[this.decalIndex];
-    this.decalIndex = (this.decalIndex + 1) % this.decals.length;
+    // Ringpuffer: das älteste Loch wird überschrieben
+    const i = this.decalIndex;
+    this.decalIndex = (i + 1) % DECALS;
+    const m = this._decalObj;
     m.position.copy(point).addScaledVector(normal, 0.004);
     _p.copy(point).add(normal);
     m.lookAt(_p);
     m.rotateZ(Math.random() * Math.PI * 2);
     m.scale.setScalar(size);
-    m.visible = true;
+    m.updateMatrix();
+    this.decals.setMatrixAt(i, m.matrix);
+    this.decals.count = Math.max(this.decals.count, i + 1);
+    this.decals.instanceMatrix.needsUpdate = true;
   }
 
   impact(point, normal, surface) {
@@ -256,6 +270,20 @@ export class Effects {
     for (let i = 0; i < 4; i++) {
       randomDir(_v, _n, 1.0).multiplyScalar(1.5 + Math.random() * 2);
       this.chips.spawn(point, _v, { color: paint, life: 0.6, size0: 0.03, gravity: 9.8, drag: 0.5 });
+    }
+  }
+
+  // Treffer am Gegner: dunkelroter Sprühnebel und ein paar Tropfen, am Kopf mehr
+  bloodHit(point, normal, head) {
+    _n.set(normal.x, normal.y, normal.z);
+    const puffs = head ? 7 : 4;
+    for (let i = 0; i < puffs; i++) {
+      randomDir(_v, _n, 1.1).multiplyScalar(0.6 + Math.random() * 1.4);
+      this.dust.spawn(point, _v, { color: [0.32, 0.03, 0.02], life: 0.35 + Math.random() * 0.3, size0: 0.06, size1: 0.3 + Math.random() * 0.2, alpha: 0.85, gravity: 1.5, drag: 4 });
+    }
+    for (let i = 0; i < (head ? 10 : 6); i++) {
+      randomDir(_v, _n, 1.3).multiplyScalar(1.5 + Math.random() * 2.5);
+      this.chips.spawn(point, _v, { color: [0.25, 0.02, 0.015], life: 0.4 + Math.random() * 0.3, size0: 0.025, size1: 0.015, gravity: 9.8, drag: 0.8 });
     }
   }
 

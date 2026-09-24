@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { WEAPONS } from '../config.js';
 import { muzzleTexture, sparkTexture } from '../effects/textures.js';
+import { mergeByMaterial } from '../engine/merge.js';
 
 const ease = (t) => 1 - Math.pow(1 - Math.min(1, Math.max(0, t)), 3);
 const smooth = (t) => {
@@ -49,6 +50,8 @@ export class Viewmodel {
           o.castShadow = o.receiveShadow = false;
         }
       });
+      // 30 bis 40 Einzelteile pro Waffe: gleiche Materialien am selben Gelenk zusammenfassen
+      mergeByMaterial(model);
       model.visible = false;
       const find = (n) => model.getObjectByName(n) || null;
       const parts = {
@@ -151,13 +154,13 @@ export class Viewmodel {
     });
     const anchor = model.getObjectByName('RedDot');
     if (!anchor) return null;
+    // Farben setzt setDirectOutput (hängt davon ab, ob mit Nachbearbeitung gezeichnet wird)
     const core = new THREE.MeshBasicMaterial({
-      color: new THREE.Color(9, 0.35, 0.25), transparent: true, opacity: 0, depthWrite: false,
-      blending: THREE.AdditiveBlending,
+      transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false,
     });
     const glow = new THREE.MeshBasicMaterial({
-      map: sparkTexture(), color: new THREE.Color(3, 0.15, 0.1), transparent: true, opacity: 0,
-      depthWrite: false, blending: THREE.AdditiveBlending,
+      map: sparkTexture(), transparent: true, opacity: 0, depthWrite: false,
+      blending: THREE.AdditiveBlending, toneMapped: false,
     });
     const dotMesh = new THREE.Mesh(new THREE.CircleGeometry(0.0006, 16), core);
     const glowMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.004, 0.004), glow);
@@ -168,6 +171,27 @@ export class Viewmodel {
       anchor.add(m);
     }
     return { core, glow };
+  }
+
+  /**
+   * Mit Nachbearbeitung wird das ganze Bild am Ende abgeflacht, dann braucht der Rotpunkt ein
+   * überhelles Rot. Ohne (niedrige Grafik) würde dieses Rot einzeln abgeflacht und rosa,
+   * deshalb dort ein fertiges, kräftiges Rot.
+   */
+  setDirectOutput(direct) {
+    for (const m of Object.values(this.models)) {
+      if (!m.dot) continue;
+      if (direct) {
+        // deckend statt aufaddiert: auf hellem Hintergrund bliebe sonst nur ein rosa Fleck
+        m.dot.core.color.setRGB(1, 0.06, 0.05);
+        m.dot.core.blending = THREE.NormalBlending;
+        m.dot.glow.color.setRGB(0.75, 0.04, 0.03);
+      } else {
+        m.dot.core.color.setRGB(9, 0.35, 0.25);
+        m.dot.core.blending = THREE.AdditiveBlending;
+        m.dot.glow.color.setRGB(3, 0.15, 0.1);
+      }
+    }
   }
 
   equip(def) {

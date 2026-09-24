@@ -24,7 +24,14 @@
       <div class="timer" id="hud-timer">1:15</div>
       <div class="phase" id="hud-phase">Kaufzeit</div>
       <div class="targets" id="hud-targets"></div>
+      <div class="duel" id="duelbar" hidden>
+        <div class="side me"><span id="duel-me">Du</span><i id="lives-me"></i></div>
+        <b id="duel-score">0 : 0</b>
+        <div class="side them"><span id="duel-them">Gegner</span><i id="lives-them"></i></div>
+      </div>
     </div>
+    <div id="net-status" hidden></div>
+    <div id="dmgdir"></div>
 
     <div id="money">
       <span id="hud-money">800 $</span>
@@ -73,17 +80,56 @@
 
   <div id="menu" class="screen" hidden>
     <div class="logo">FEUER <span>FREI</span></div>
-    <div class="tagline">Training · 5 Runden gegen Klappziele</div>
+    <div class="tagline">Training gegen Klappziele oder 1 gegen 1 mit einem Freund</div>
     <div class="buttons">
-      <button class="primary" id="btn-start">Training starten</button>
+      <button class="primary" id="btn-duel">1 gegen 1</button>
+      <button id="btn-start">Training</button>
       <button id="btn-settings">Einstellungen</button>
       <button id="btn-controls">Steuerung</button>
     </div>
-    <div class="footnote">1 gegen 1 über eine Lobby kommt als Nächstes.</div>
+  </div>
+
+  <div id="lobby" class="screen dim" hidden>
+    <h1>1 gegen 1</h1>
+    <label class="lobby-name">Dein Name <input id="lobby-name" maxlength="16" spellcheck="false" autocomplete="off"></label>
+    <div id="lobby-choice" class="lobby-choice">
+      <div class="card">
+        <h3>Lobby erstellen</h3>
+        <p>Du bekommst einen Code und einen Link. Den schickst du deinem Freund.</p>
+        <button class="primary" id="btn-create">Lobby erstellen</button>
+      </div>
+      <div class="card">
+        <h3>Beitreten</h3>
+        <p>Code oder Link von deinem Freund:</p>
+        <input id="lobby-code-input" maxlength="80" placeholder="z. B. K7P2QX" spellcheck="false" autocomplete="off">
+        <button id="btn-join">Beitreten</button>
+      </div>
+    </div>
+    <div id="lobby-room" class="lobby-room" hidden>
+      <div class="code-box">Lobby-Code <b id="lobby-code">––––––</b></div>
+      <div class="link-row" id="lobby-link-row">
+        <input id="lobby-link" readonly>
+        <button id="btn-copy">Link kopieren</button>
+        <button id="btn-share">Teilen</button>
+      </div>
+      <div class="opts" id="lobby-opts">
+        <div class="opt">Leben pro Runde <div class="seg" data-opt="lives"><button data-v="1">1</button><button data-v="3">3</button></div></div>
+        <div class="opt">Gewonnen hat, wer zuerst <div class="seg" data-opt="wins"><button data-v="2">2</button><button data-v="3">3</button><button data-v="5">5</button></div> Runden gewinnt</div>
+      </div>
+      <div class="players">
+        <div class="pl" id="lobby-p1"></div>
+        <div class="vs">gegen</div>
+        <div class="pl" id="lobby-p2"></div>
+      </div>
+      <div class="status" id="lobby-status"></div>
+      <div class="net" id="lobby-net"></div>
+    </div>
+    <div class="buttons"><button id="btn-lobby-back">Zurück</button></div>
   </div>
 
   <div id="pause" class="screen dim" hidden>
     <h1>Pause</h1>
+    <div class="hint" id="pause-note" hidden>Das Duell läuft weiter – du stehst gerade still.</div>
     <div class="buttons">
       <button class="primary" id="btn-resume">Weiter</button>
       <button id="btn-settings2">Einstellungen</button>
@@ -95,17 +141,25 @@
   <div id="settings" class="screen dim" hidden>
     <h1>Einstellungen</h1>
     <div class="form">
-      <label>Mausempfindlichkeit <small>(wie in CS)</small><input type="range" id="set-sens" min="0.2" max="8" step="0.05"><output id="out-sens"></output></label>
-      <label>Sichtfeld<input type="range" id="set-fov" min="60" max="95" step="1"><output id="out-fov"></output></label>
-      <label>Lautstärke<input type="range" id="set-vol" min="0" max="1" step="0.01"><output id="out-vol"></output></label>
-      <label>Grafik
+      <label><span>Mausempfindlichkeit <small>(wie in CS)</small></span><input type="range" id="set-sens" min="0.2" max="8" step="0.05"><output id="out-sens"></output></label>
+      <label><span>Sichtfeld</span><input type="range" id="set-fov" min="60" max="95" step="1"><output id="out-fov"></output></label>
+      <label><span>Lautstärke</span><input type="range" id="set-vol" min="0" max="1" step="0.01"><output id="out-vol"></output></label>
+      <label><span>Grafik <small>(niedrig läuft auch auf schwachen Laptops)</small></span>
         <select id="set-quality">
           <option value="niedrig">Niedrig</option>
           <option value="mittel">Mittel</option>
           <option value="hoch">Hoch</option>
         </select>
       </label>
-      <label>Fadenkreuzfarbe
+      <label><span>Auflösung <small>(weniger = flüssiger, aber unschärfer)</small></span>
+        <select id="set-scale">
+          <option value="1">100 %</option>
+          <option value="0.85">85 %</option>
+          <option value="0.7">70 %</option>
+          <option value="0.5">50 %</option>
+        </select>
+      </label>
+      <label><span>Fadenkreuzfarbe</span>
         <select id="set-cross">
           <option value="#5cff7a">Grün</option>
           <option value="#ffffff">Weiß</option>
@@ -114,7 +168,7 @@
           <option value="#ff5cf1">Pink</option>
         </select>
       </label>
-      <label class="key">Notizblock-Taste <small>(wechselt sofort zum weißen Notizblatt)</small>
+      <label class="key"><span>Notizblock-Taste <small>(wechselt sofort zum weißen Notizblatt)</small></span>
         <button type="button" id="set-bosskey">^</button>
       </label>
       <div class="hint" id="bosskey-hint"></div>
@@ -150,8 +204,10 @@
 
   <div id="results" class="screen dim" hidden>
     <h1 id="res-title">Training beendet</h1>
+    <div class="res-score" id="res-score" hidden></div>
     <div class="res-grid" id="res-grid"></div>
     <table class="res-rounds" id="res-rounds"></table>
+    <div class="hint" id="res-status"></div>
     <div class="buttons">
       <button class="primary" id="btn-again">Nochmal</button>
       <button id="btn-menu">Hauptmenü</button>
@@ -159,7 +215,8 @@
   </div>
 
   <div id="click-resume" class="screen dim" hidden>
-    <h1>Klicken zum Weiterspielen</h1>
+    <h1 id="click-title">Klicken zum Weiterspielen</h1>
+    <div class="hint" id="click-hint"></div>
   </div>
 
   <!-- Notizblock: schlichtes weißes Blatt, auf Tastendruck sofort sichtbar -->

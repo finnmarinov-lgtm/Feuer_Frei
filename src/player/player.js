@@ -4,7 +4,9 @@ import { GROUP, groups } from '../engine/physics.js';
 
 const JUMP_VEL = Math.sqrt(2 * MOVE.gravity * MOVE.jumpHeight);
 const DUCK_DELTA = MOVE.standHeight - MOVE.crouchHeight;
-const PLAYER_GROUPS = groups(GROUP.PLAYER, GROUP.WORLD | GROUP.CLIP);
+// Bewegung stößt an Welt, Rampen und den Gegner; Granaten des Gegners prallen vom Körper ab
+const PLAYER_GROUPS = groups(GROUP.PLAYER, GROUP.WORLD | GROUP.CLIP | GROUP.OTHER);
+const BODY_GROUPS = groups(GROUP.PLAYER, GROUP.WORLD | GROUP.CLIP | GROUP.OTHER | GROUP.GRENADE);
 const DOWN = { x: 0, y: -1, z: 0 };
 
 const _wish = new THREE.Vector3();
@@ -21,7 +23,7 @@ export class Player {
     this.halfStand = (MOVE.standHeight - 2 * this.radius) / 2;
     this.halfCrouch = (MOVE.crouchHeight - 2 * this.radius) / 2;
     this.collider = physics.world.createCollider(
-      R.ColliderDesc.capsule(this.halfStand, this.radius).setCollisionGroups(PLAYER_GROUPS),
+      R.ColliderDesc.capsule(this.halfStand, this.radius).setCollisionGroups(BODY_GROUPS),
     );
     const c = physics.world.createCharacterController(0.02);
     c.disableAutostep();
@@ -261,10 +263,11 @@ export class Player {
     return { x: m.x, y: m.y, z: m.z };
   }
 
-  applyDamage(amount, { armorPen = 0.5, head = false } = {}) {
+  // Weste schützt den Körper, den Kopf nur mit Helm, die Beine nie (wie in CS)
+  applyDamage(amount, { armorPen = 0.5, head = false, legs = false } = {}) {
     if (!this.alive) return 0;
     let dmg = amount;
-    if (this.armor > 0 && (!head || this.helmet)) {
+    if (this.armor > 0 && !legs && (!head || this.helmet)) {
       let healthDmg = dmg * armorPen;
       let armorDmg = (dmg - healthDmg) * 0.5;
       if (armorDmg > this.armor) {
@@ -274,8 +277,9 @@ export class Player {
       this.armor = Math.max(0, Math.round(this.armor - armorDmg));
       dmg = healthDmg;
     }
-    dmg = Math.max(0, Math.round(dmg));
-    this.health = Math.max(0, this.health - dmg);
+    // zurück kommt nur, was wirklich abgezogen wurde (kein Überschuss beim letzten Treffer)
+    dmg = Math.min(this.health, Math.max(0, Math.round(dmg)));
+    this.health -= dmg;
     if (this.health <= 0) this.alive = false;
     return dmg;
   }

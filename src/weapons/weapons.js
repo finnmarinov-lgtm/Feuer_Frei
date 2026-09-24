@@ -1,6 +1,7 @@
 import * as THREE from 'three';
-import { GRENADES, MOVE, SLOT_KEYS } from '../config.js';
+import { DUEL, GRENADES, MOVE, SLOT_KEYS } from '../config.js';
 import { Inventory } from './inventory.js';
+import { shotEnd } from '../game/duel.js';
 
 const DEG = Math.PI / 180;
 const MAX_RANGE = 250;
@@ -156,9 +157,15 @@ export class WeaponSystem {
 
     if (input.consume('inspect') && this.drawTimer <= 0 && !this.reloading) this.g.viewmodel.inspect();
 
-    if (def.grenade) this._tickGrenade(dt, input, w);
-    else if (def.slot === 'knife') this._tickKnife(input);
-    else this._tickGun(dt, input, w);
+    // im Duell ist in der Kaufzeit Feuerpause
+    const blocked = this.g.match.fireBlocked;
+    if (def.grenade) {
+      if (!blocked) this._tickGrenade(dt, input, w);
+    } else if (def.slot === 'knife') {
+      if (!blocked) this._tickKnife(input);
+    } else {
+      this._tickGun(dt, input, w, blocked);
+    }
 
     p.maxSpeed = def.ads ? def.speed * (1 + (def.ads.speed - 1) * this.ads) : def.speed;
 
@@ -177,7 +184,7 @@ export class WeaponSystem {
   }
 
   // ---------- Schusswaffen ----------
-  _tickGun(dt, input, w) {
+  _tickGun(dt, input, w, blocked = false) {
     const def = w.def;
     if (this.reloading) {
       this.reloadTimer -= dt;
@@ -205,7 +212,7 @@ export class WeaponSystem {
     }
     if (input.consume('reload')) this.startReload(w);
     if (def.ads) this._tickAds(dt, input);
-    const wants = def.auto ? input.fire : input.firePressed;
+    const wants = !blocked && (def.auto ? input.fire : input.firePressed);
     if (wants && this.drawTimer <= 0 && !this.reloading && this.time >= this.nextFire) {
       if (w.mag > 0) {
         this._shoot(w);
@@ -317,12 +324,17 @@ export class WeaponSystem {
     this.g.audio.shot(def.sound);
     this.g.viewmodel.muzzleWorld(_muzzle, _eye);
     this.g.effects.muzzleFlash(_muzzle);
+    // Endpunkte für das Spiel des Gegners (Leuchtspur, Einschläge)
+    const ends = [];
+    let tracer = false;
     if (def.pellets) {
-      this._firePellets(_eye, _dir, def);
+      this._firePellets(_eye, _dir, def, ends);
     } else {
-      const end = this._trace(_eye, _dir, def);
-      if (def.tracer && this.shotCounter % def.tracer === 0) this.g.effects.tracer(_muzzle, end);
+      const end = this._trace(_eye, _dir, def, ends);
+      tracer = !!def.tracer && this.shotCounter % def.tracer === 0;
+      if (tracer) this.g.effects.tracer(_muzzle, end);
     }
+    this.g.match.shotFx?.(def, _muzzle, ends, tracer);
     this.g.match.onShot();
     this.g.hud.onAmmo();
     if (w.mag === 0) this.g.viewmodel.onMagEmpty();
@@ -340,16 +352,31 @@ export class WeaponSystem {
     }
   }
 
-  _trace(eye, dir, def) {
+  /** Nächster Treffer auf einem Klappziel oder dem Gegner (vor der Wand in maxDist) */
+  _hitscan(eye, dir, maxDist) {
+    const t = this.g.targets.raycast(eye, dir, maxDist);
+    const r = this.g.remote.raycast(eye, dir, t ? t.distance : maxDist);
+    return r || t;
+  }
+
+  /** Schaden eines Treffers vor Weste und Helm: Zone und Entfernung */
+  _rawDamage(def, hit, base = def.damage) {
+    const zone = hit.zone === 'head' ? def.headMul : hit.zone === 'legs' ? DUEL.legMul : 1;
+    return base * zone * Math.pow(def.rangeMod, hit.distance / 10);
+  }
+
+  _trace(eye, dir, def, ends) {
     const world = this.g.physics.raycast(eye, dir, MAX_RANGE);
     const worldDist = world ? world.distance : MAX_RANGE;
-    const hit = this.g.targets.raycast(eye, dir, worldDist);
+    const hit = this._hitscan(eye, dir, worldDist);
     if (hit) {
-      if (hit.zone) this._damageTarget(hit, def, def.damage * (hit.zone === 'head' ? def.headMul : 1) * Math.pow(def.rangeMod, hit.distance / 10));
+      if (hit.remote) this._hitRemote(hit, def, this._rawDamage(def, hit));
+      else if (hit.zone) this._damageTarget(hit, def, this._rawDamage(def, hit));
       else {
         this.g.effects.impact(hit.point, hit.normal, 'metal');
         this.g.audio.play('impact', { position: hit.point, surface: 'metal' });
       }
+      ends.push(shotEnd(hit.point));
       return _end.copy(hit.point);
     }
     _end.copy(eye).addScaledVector(dir, worldDist);
@@ -357,16 +384,20 @@ export class WeaponSystem {
       this.g.effects.impact(_end, world.normal, world.surface);
       this.g.audio.play('impact', { position: _end, surface: world.surface, volume: 0.8 });
     }
+    ends.push(shotEnd(_end, world?.surface, world?.normal));
     return _end;
   }
 
   // Schrot: jede Kugel einzeln verfolgen, Schaden pro Ziel zusammenzählen (ein Treffer, ein Klang)
-  _firePellets(eye, aim, def) {
+  _firePellets(eye, aim, def, ends) {
     const cone = this.pelletCone(def) / 1000;
     _right.set(aim.z, 0, -aim.x).normalize();
     if (_right.lengthSq() < 1e-6) _right.set(1, 0, 0);
     _up.crossVectors(_right, aim).normalize();
     const hits = new Map();
+    // am Gegner pro Zone zusammenzählen, weil Weste und Helm je Zone anders schützen
+    const remote = { head: 0, body: 0, legs: 0 };
+    let remotePoint = null;
     let firstImpact = null;
     for (let i = 0; i < def.pellets; i++) {
       const a = Math.random() * Math.PI * 2;
@@ -374,21 +405,28 @@ export class WeaponSystem {
       _pdir.copy(aim).addScaledVector(_right, Math.cos(a) * r).addScaledVector(_up, Math.sin(a) * r).normalize();
       const world = this.g.physics.raycast(eye, _pdir, MAX_RANGE);
       const worldDist = world ? world.distance : MAX_RANGE;
-      const hit = this.g.targets.raycast(eye, _pdir, worldDist);
-      if (hit) {
+      const hit = this._hitscan(eye, _pdir, worldDist);
+      if (hit?.remote) {
+        remote[hit.zone] += this._rawDamage(def, hit);
+        remotePoint ||= hit.point.clone();
+        this.g.effects.bloodHit(hit.point, hit.normal, hit.zone === 'head');
+        ends.push(shotEnd(hit.point));
+      } else if (hit) {
         const head = hit.zone === 'head';
         this.g.effects.targetHit(hit.point, hit.normal, head);
+        ends.push(shotEnd(hit.point));
         if (!hit.zone) continue;
         let h = hits.get(hit.target);
         if (!h) {
           h = { target: hit.target, damage: 0, head: false, point: hit.point.clone() };
           hits.set(hit.target, h);
         }
-        h.damage += def.damage * (head ? def.headMul : 1) * Math.pow(def.rangeMod, hit.distance / 10);
+        h.damage += this._rawDamage(def, hit);
         if (head) h.head = true;
       } else if (world) {
         const point = eye.clone().addScaledVector(_pdir, worldDist);
         this.g.effects.impact(point, world.normal, world.surface);
+        ends.push(shotEnd(point, world.surface, world.normal));
         if (!firstImpact) firstImpact = { point, surface: world.surface };
       }
     }
@@ -401,6 +439,25 @@ export class WeaponSystem {
       this.g.match.onHit(res.damage, h.head);
       if (res.killed) this.g.match.onKill(def, h.head);
     }
+    if (remotePoint) {
+      const head = remote.head > 0;
+      this.g.audio.play(head ? 'hitHead' : 'hitBody');
+      this.g.hud.hitmarker(head, false);
+      this.g.match.onHit(0, head);
+      for (const zone of ['head', 'body', 'legs']) {
+        if (remote[zone] > 0) this.g.match.sendHit?.(remote[zone], zone, def, remotePoint);
+      }
+    }
+  }
+
+  // Treffer am Gegner: sofort Rückmeldung, den Schaden rechnet sein Spiel aus
+  _hitRemote(hit, def, raw) {
+    const head = hit.zone === 'head';
+    this.g.effects.bloodHit(hit.point, hit.normal, head);
+    this.g.audio.play(head ? 'hitHead' : 'hitBody');
+    this.g.hud.hitmarker(head, false);
+    this.g.match.onHit(0, head);
+    this.g.match.sendHit?.(raw, hit.zone, def, hit.point);
   }
 
   _damageTarget(hit, def, raw) {
@@ -430,6 +487,7 @@ export class WeaponSystem {
     this.pendingKnife = { at: this.time + (kind === 'stab' ? 0.16 : 0.08), attack };
     this.g.viewmodel.knife(kind);
     this.g.audio.play('swing');
+    this.g.match.swingFx?.();
     this.g.match.onShot();
   }
 
@@ -441,12 +499,16 @@ export class WeaponSystem {
       dirFromAngles(_dir, p.pitch, p.yaw + off * DEG);
       const world = this.g.physics.raycast(_eye, _dir, attack.range);
       const limit = world ? world.distance : attack.range;
-      const t = this.g.targets.raycast(_eye, _dir, limit);
+      const t = this._hitscan(_eye, _dir, limit);
       if (t && t.zone) { best = { t }; break; }
       if (!best && world) best = { world, point: _eye.clone().addScaledVector(_dir, world.distance) };
     }
     if (!best) return;
-    if (best.t) {
+    if (best.t?.remote) {
+      // Messer: fester Schaden, egal wo (zwei Treffer reichen)
+      this._hitRemote(best.t, this.def, attack.damage);
+      this.g.audio.play('knifeHit', { position: best.t.point });
+    } else if (best.t) {
       const def = this.def;
       this._damageTarget(best.t, def, attack.damage);
       this.g.audio.play('knifeHit', { position: best.t.point });
@@ -487,7 +549,8 @@ export class WeaponSystem {
     const wall = this.g.physics.raycast(_eye, _dir, 0.4);
     const start = _eye.clone().addScaledVector(_dir, wall ? Math.max(0, wall.distance - 0.12) : 0.35);
     start.y -= mode === 'lob' ? 0.35 : 0.05;
-    this.g.grenades.throw(w.def.grenade, start, _vel);
+    const id = this.g.grenades.throw(w.def.grenade, start, _vel);
+    this.g.match.nadeFx?.(id, w.def.grenade, start, _vel);
     this.g.viewmodel.grenadeThrow();
     this.g.audio.play('throw');
     this.inv.remove(this.inv.current);

@@ -1,8 +1,18 @@
 import * as THREE from 'three';
-import { SLOT_KEYS, TRAINING } from '../config.js';
+import { SLOT_KEYS } from '../config.js';
 
 const $ = (id) => document.getElementById(id);
 const fmtMoney = (v) => `${Math.round(v).toLocaleString('de-DE')} $`;
+const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+
+/** Verbindungsart und Ping als kurzer Text */
+export function netText(net) {
+  if (net.lost) return 'Verbindung unterbrochen …';
+  const ms = net.ping ? ` · ${Math.round(net.ping)} ms` : '';
+  if (net.mode === 'direkt') return `Direkt verbunden${ms}`;
+  if (net.mode === 'server') return `Über Server${ms}`;
+  return 'Verbindung unterbrochen …';
+}
 const fmtTime = (s) => {
   const t = Math.max(0, Math.ceil(s));
   return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
@@ -22,7 +32,12 @@ export class Hud {
       ammo: $('ammo'), weapon: $('hud-weapon'), mag: $('hud-mag'), reserve: $('hud-reserve'),
       slots: $('slots'), killfeed: $('killfeed'), center: $('center-msg'), roundEnd: $('round-end'),
       stats: $('stats-panel'), fps: $('fps'), scope: $('scope'), vignette: $('vignette'), flash: $('flash'),
+      duelbar: $('duelbar'), duelMe: $('duel-me'), duelThem: $('duel-them'), duelScore: $('duel-score'),
+      livesMe: $('lives-me'), livesThem: $('lives-them'), net: $('net-status'), dmgdir: $('dmgdir'),
     };
+    this.mode = 'training';
+    this.dirT = 0;
+    this.dirFrom = new THREE.Vector3();
     this.hitT = 0;
     this.centerT = 0;
     this.slotsT = 0;
@@ -39,6 +54,21 @@ export class Hud {
 
   show(on) {
     this.el.root.hidden = !on;
+  }
+
+  /** 'training' oder 'duel': Punktestand, Leben und Verbindung nur im Duell */
+  setMode(mode) {
+    this.mode = mode;
+    const duel = mode === 'duel';
+    this.el.duelbar.hidden = !duel;
+    this.el.net.hidden = !duel;
+    this.el.targets.hidden = duel;
+  }
+
+  /** Roter Bogen am Bildschirmrand in Richtung der Schadensquelle */
+  hitFrom(pos) {
+    this.dirFrom.copy(pos);
+    this.dirT = 1.2;
   }
 
   // DOM nur anfassen, wenn sich der Wert ändert (spart dem Browser Layout-Arbeit pro Bild)
@@ -64,7 +94,7 @@ export class Hud {
   reset() {
     this.el.roundEnd.hidden = true;
     this.el.flash.style.opacity = 0;
-    this.flashT = this.hurtT = 0;
+    this.flashT = this.hurtT = this.dirT = 0;
     for (const n of this.numbers) n.el.remove();
     this.numbers = [];
     this.el.killfeed.innerHTML = '';
@@ -124,10 +154,14 @@ export class Hud {
     if (this.numbers.length > 24) this.numbers.shift().el.remove();
   }
 
-  killfeed(weaponName, head, reward) {
+  killfeed(weaponName, head, reward, killer = 'Du', victim = 'Ziel', mine = true) {
     const el = document.createElement('div');
-    el.className = 'kill';
-    el.innerHTML = `Du<span class="w">[${weaponName}]</span>Ziel${head ? ' <span class="h">Kopfschuss</span>' : ''}${reward ? `<span class="m">+${fmtMoney(reward)}</span>` : ''}`;
+    el.className = 'kill' + (mine ? '' : ' other');
+    const who = (s) => `<b>${escapeHtml(s)}</b>`;
+    const line = killer === victim
+      ? `${who(killer)}<span class="w">[${weaponName}]</span>${killer === 'Du' ? 'selbst erwischt' : 'hat sich selbst erwischt'}`
+      : `${who(killer)}<span class="w">[${weaponName}]</span>${who(victim)}${head ? ' <span class="h">Kopfschuss</span>' : ''}`;
+    el.innerHTML = line + (reward ? `<span class="m">+${fmtMoney(reward)}</span>` : '');
     this.el.killfeed.prepend(el);
     this.kills.push({ el, t: 5 });
     if (this.kills.length > 5) this.kills.shift().el.remove();
@@ -140,10 +174,10 @@ export class Hud {
     this.centerT = duration;
   }
 
-  roundEnd(won, reason, bonus, last) {
+  roundEnd(won, reason, bonus, last, draw = false) {
     const r = this.el.roundEnd;
-    r.className = won ? 'win' : 'loss';
-    r.querySelector('.title').textContent = won ? 'Runde gewonnen' : 'Runde verloren';
+    r.className = won ? 'win' : draw ? 'draw' : 'loss';
+    r.querySelector('.title').textContent = won ? 'Runde gewonnen' : draw ? 'Unentschieden' : 'Runde verloren';
     r.querySelector('.sub').textContent = reason + (last ? ' · Gleich kommt die Auswertung' : '');
     r.querySelector('.bonus').textContent = `+${fmtMoney(bonus)} ${won ? 'Siegprämie' : 'Niederlagenbonus'}`;
     r.hidden = false;
@@ -166,17 +200,44 @@ export class Hud {
       el.hidden = true;
       return;
     }
-    const s = this.g.match.stats;
+    const m = this.g.match;
+    const s = m.stats;
     const acc = s.shots ? Math.round((s.hits / s.shots) * 100) : 0;
     const hs = s.kills ? Math.round((s.heads / s.kills) * 100) : 0;
-    el.innerHTML = `<h3>Training · Runde ${this.g.match.round}</h3>
+    const html = m.duel
+      ? `<h3>1 gegen 1 · ${escapeHtml(m.names[m.them])} · Runde ${m.round}</h3>
+      <div class="row"><span>Rundensiege</span><b>${m.wins[m.me]} : ${m.wins[m.them]}</b></div>
+      <div class="row"><span>Ausgeschaltet / Tode</span><b>${s.kills} / ${s.deaths}</b></div>
+      <div class="row"><span>Treffergenauigkeit</span><b>${acc} %</b></div>
+      <div class="row"><span>Kopfschüsse</span><b>${hs} %</b></div>
+      <div class="row"><span>Schaden</span><b>${s.damage}</b></div>
+      <div class="row"><span>Verbindung</span><b>${netText(m.net)}</b></div>`
+      : `<h3>Training · Runde ${m.round}</h3>
       <div class="row"><span>Ziele umgelegt</span><b>${s.kills}</b></div>
       <div class="row"><span>Treffergenauigkeit</span><b>${acc} %</b></div>
       <div class="row"><span>Kopfschüsse</span><b>${hs} %</b></div>
       <div class="row"><span>Schaden</span><b>${s.damage}</b></div>
       <div class="row"><span>Granaten geworfen</span><b>${s.grenades}</b></div>
       <div class="row"><span>Geld ausgegeben</span><b>${fmtMoney(s.spent)}</b></div>`;
+    if (el._html !== html) {
+      el._html = html;
+      el.innerHTML = html;
+    }
     el.hidden = false;
+  }
+
+  // Punktestand, Leben (Punkte unter den Namen) und Verbindung
+  _duel(m) {
+    const el = this.el;
+    this._text(el.duelMe, m.names[m.me]);
+    this._text(el.duelThem, m.names[m.them]);
+    this._text(el.duelScore, `${m.wins[m.me]} : ${m.wins[m.them]}`);
+    const pips = (n) => '●'.repeat(Math.max(0, n)) + '○'.repeat(Math.max(0, m.cfg.lives - n));
+    this._text(el.livesMe, m.cfg.lives > 1 ? pips(m.lives[m.me]) : '');
+    this._text(el.livesThem, m.cfg.lives > 1 ? pips(m.lives[m.them]) : '');
+    this._text(el.net, netText(m.net));
+    el.net.classList.toggle('bad', m.net.lost || m.net.mode === 'getrennt');
+    el.net.classList.toggle('server', m.net.mode === 'server');
   }
 
   update(dt, camera, fps) {
@@ -186,7 +247,8 @@ export class Hud {
     const ws = g.weapons;
     const el = this.el;
 
-    this._text(el.round, `Runde ${m.round}/${TRAINING.rounds}`);
+    this._text(el.round, m.roundLabel);
+    if (m.duel) this._duel(m);
     let phase = '', time = m.timer;
     if (m.phase === 'freeze') phase = 'Kaufzeit';
     else if (m.phase === 'live') phase = 'Runde läuft';
@@ -265,6 +327,18 @@ export class Hud {
     }
     this.hurtT = Math.max(0, this.hurtT - dt * 0.8);
     this._set(el.vignette.style, 'opacity', String(Math.max(this.hurtT, p.health < 30 && p.alive ? 0.35 : 0)));
+
+    // Schadensrichtung relativ zur Blickrichtung (0 = vorne, im Uhrzeigersinn)
+    if (this.dirT > 0) {
+      this.dirT -= dt;
+      const dx = this.dirFrom.x - p.feet.x;
+      const dz = this.dirFrom.z - p.feet.z;
+      const angle = Math.atan2(-dx, -dz) - p.yaw;
+      this._set(el.dmgdir.style, 'transform', `translate(-50%, -50%) rotate(${(-angle * 180) / Math.PI}deg)`);
+      this._set(el.dmgdir.style, 'opacity', String(Math.min(1, this.dirT * 1.5)));
+    } else {
+      this._set(el.dmgdir.style, 'opacity', '0');
+    }
 
     if (el.fps.hidden !== !g.settings.showFps) el.fps.hidden = !g.settings.showFps;
     if (g.settings.showFps) {

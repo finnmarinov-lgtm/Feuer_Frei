@@ -14,7 +14,21 @@ export class Match {
   constructor(game) {
     this.g = game;
     this.phase = 'idle';
+    this.side = 'west';
     this.reset();
+  }
+
+  // im Training darf man jederzeit schießen und nur die eigene Granate kann einen treffen
+  get fireBlocked() {
+    return false;
+  }
+
+  get immune() {
+    return false;
+  }
+
+  get roundLabel() {
+    return `Runde ${this.round}/${TRAINING.rounds}`;
   }
 
   reset() {
@@ -69,7 +83,7 @@ export class Match {
   get canBuy() {
     const p = this.g.player;
     const inTime = this.phase === 'freeze' || (this.phase === 'live' && this.buyTimer > 0);
-    return inTime && p.alive && this.g.arena.inBuyZone(p.feet);
+    return inTime && p.alive && this.g.arena.inBuyZone(p.feet, this.side);
   }
 
   get buyTimeLeft() {

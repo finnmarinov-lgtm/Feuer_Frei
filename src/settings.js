@@ -1,17 +1,26 @@
 const KEY = 'feuer-frei-einstellungen';
+// Stand der gespeicherten Einstellungen. Ab Version 2 startet das Spiel auf niedriger Grafik.
+const VERSION = 2;
 
+// direct: ohne Nachbearbeitung direkt ins Bild zeichnen (spart Zwischenbilder und Bandbreite)
+// staticShadows: Schatten der Arena nur einmal berechnen, Bewegliches wirft dann keinen Schatten
+// aniso: Texturfilterung für schräg gesehene Flächen (Boden)
 export const QUALITY = {
-  niedrig: { label: 'Niedrig', pixelRatio: 1, shadowSize: 1024, ao: false, msaa: 0 },
-  mittel: { label: 'Mittel', pixelRatio: 1, shadowSize: 2048, ao: false, msaa: 4 },
-  hoch: { label: 'Hoch', pixelRatio: 1.5, shadowSize: 4096, ao: true, msaa: 4 },
+  niedrig: { label: 'Niedrig', pixelRatio: 1, shadowSize: 2048, ao: false, msaa: 0, direct: true, staticShadows: true, aniso: 2 },
+  mittel: { label: 'Mittel', pixelRatio: 1, shadowSize: 2048, ao: false, msaa: 4, direct: false, staticShadows: false, aniso: 4 },
+  hoch: { label: 'Hoch', pixelRatio: 1.5, shadowSize: 4096, ao: true, msaa: 4, direct: false, staticShadows: false, aniso: 8 },
 };
+
+// Anteil der Bildschirmauflösung, in dem gezeichnet wird (hilft schwachen Grafikchips am meisten)
+export const RENDER_SCALES = [1, 0.85, 0.7, 0.5];
 
 const DEFAULTS = {
   sensitivity: 2.0,
   fov: 74,
   viewmodelFov: 54,
   volume: 0.7,
-  quality: 'hoch',
+  quality: 'niedrig',
+  renderScale: 1,
   crosshairColor: '#5cff7a',
   showFps: false,
   fullscreen: true,
@@ -28,7 +37,14 @@ export function loadSettings() {
     stored = {};
   }
   const s = { ...DEFAULTS, ...stored };
+  if ((stored.version || 1) < VERSION) {
+    // früher war "hoch" voreingestellt: einmalig auf niedrig, danach gilt die eigene Wahl
+    s.quality = 'niedrig';
+    s.version = VERSION;
+    saveSettings(s);
+  }
   if (!QUALITY[s.quality]) s.quality = DEFAULTS.quality;
+  if (!RENDER_SCALES.includes(s.renderScale)) s.renderScale = DEFAULTS.renderScale;
   return s;
 }
 
