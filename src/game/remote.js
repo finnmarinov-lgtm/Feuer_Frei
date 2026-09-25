@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { MOVE, WEAPONS, WEAPON_IDS } from '../config.js';
+import { KNIFE_SKINS, MOVE, TEAM_KNIFE, WEAPONS, WEAPON_IDS } from '../config.js';
 import { GROUP, groups } from '../engine/physics.js';
 import { mergeByMaterial } from '../engine/merge.js';
 import { muzzleTexture } from '../effects/textures.js';
@@ -19,7 +19,8 @@ const THIGH = 0.43;
 const SHIN = 0.5;
 const HIP_CROUCH = 0.55;
 // Lage der Waffe in der Faust, wo der Ursprung nicht oben am Griff sitzt
-const HOLD_OFFSET = { knife: [0, -0.05, -0.05], grenade: [0, -0.015, -0.012] };
+// (Karambit: Ursprung in der Mitte des Fingerrings über der Faust)
+const HOLD_OFFSET = { knife: [0, -0.05, -0.05], butterfly: [0, -0.05, -0.05], karambit: [0, 0, 0.01], grenade: [0, -0.015, -0.012] };
 // Trefferzonen, etwas größer als der sichtbare Körper: [Knoten, Zone, Mitte, Größe] in Ruhelage (vorne = -Z)
 const HITBOXES = [
   ['Head', 'head', [0, 1.645, 0.005], [0.3, 0.3, 0.3]],
@@ -76,23 +77,17 @@ export class RemotePlayer {
     model.traverse((o) => { if (o.isMesh && o.material.emissive) this.bodyMaterials.add(o.material); });
     this.glow = 0;
 
-    // Waffen in der Hand (ohne die Arme aus der Ego-Ansicht)
+    // Waffen in der Hand (ohne die Arme aus der Ego-Ansicht); das Messer je nach Team
     this.weapons = {};
+    this.knives = {};
     for (const id of WEAPON_IDS) {
       const def = WEAPONS[id];
-      const w = game.assets.models[def.model].clone();
-      const remove = [];
-      w.traverse((o) => {
-        if (/^(Hand|Wrist|Sleeve)/.test(o.name)) remove.push(o);
-        else if (o.isMesh) o.castShadow = true;
-      });
-      for (const o of remove) o.removeFromParent();
-      mergeByMaterial(w);
-      const off = HOLD_OFFSET[def.anim];
-      if (off) w.position.set(...off);
-      w.visible = false;
-      this.n.anchor.add(w);
-      this.weapons[id] = { model: w, muzzle: w.getObjectByName('Muzzle'), def };
+      if (def.slot === 'knife') {
+        for (const [skin, s] of Object.entries(KNIFE_SKINS)) this.knives[skin] = this._weaponModel(def, s.model, skin);
+        this.weapons[id] = this.knives[TEAM_KNIFE.guest];
+        continue;
+      }
+      this.weapons[id] = this._weaponModel(def, def.model, def.anim);
     }
     this.flash = new THREE.Sprite(new THREE.SpriteMaterial({
       map: muzzleTexture(), color: new THREE.Color(3, 2.3, 1.4), transparent: true, depthWrite: false,
@@ -161,6 +156,22 @@ export class RemotePlayer {
     for (const m of this.bodyMaterials ?? []) m.emissive.setRGB(0, 0, 0);
   }
 
+  _weaponModel(def, name, holdKey) {
+    const w = this.g.assets.models[name].clone();
+    const remove = [];
+    w.traverse((o) => {
+      if (/^(Hand|Wrist|Sleeve)/.test(o.name)) remove.push(o);
+      else if (o.isMesh) o.castShadow = true;
+    });
+    for (const o of remove) o.removeFromParent();
+    mergeByMaterial(w);
+    const off = HOLD_OFFSET[holdKey];
+    if (off) w.position.set(...off);
+    w.visible = false;
+    this.n.anchor.add(w);
+    return { model: w, muzzle: w.getObjectByName('Muzzle'), def };
+  }
+
   /** Gegner ist mit neuer Seite zurück: seine Uhr fängt neu an, alte Zustände passen nicht mehr */
   resetStream() {
     this.snaps.length = 0;
@@ -180,6 +191,9 @@ export class RemotePlayer {
       const t = TEAMS[team];
       this.uniform?.color.set(t.uniform);
       this.helmet?.color.set(t.helmet);
+      // Team Rot trägt ein Karambit, Team Blau ein Butterflymesser
+      for (const k of Object.values(this.knives)) k.model.visible = false;
+      this.weapons.messer = this.knives[TEAM_KNIFE[team]] || this.weapons.messer;
     }
   }
 

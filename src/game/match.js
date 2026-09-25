@@ -241,7 +241,11 @@ export class Match {
       this.roundStats.reward += def.reward;
     }
     this.addMoney(def.reward);
-    this.g.hud.killfeed(def.name, head, def.reward);
+    const knife = def.slot === 'knife';
+    this.g.hud.killfeed({
+      weapon: knife ? this.g.viewmodel.knifeSkin : def.id, label: def.slot ? this.g.weaponName(def) : def.name,
+      head, reward: def.reward,
+    });
     if (def.id !== 'luftschlag') this.addCharge(SPECIAL.killBonus);
   }
 

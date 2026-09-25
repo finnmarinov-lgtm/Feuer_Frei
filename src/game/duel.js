@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BOMB, DUEL, ECONOMY, KILLERS, QUICK_CHAT, SLOT_KEYS, SPECIAL, WEAPONS, WEAPON_IDS } from '../config.js';
+import { BOMB, DUEL, ECONOMY, KILLERS, KNIFE_SKINS, QUICK_CHAT, SLOT_KEYS, SPECIAL, TEAM_KNIFE, WEAPONS, WEAPON_IDS } from '../config.js';
 import { BOMB_SITES, SPAWNS } from '../world/map.js';
 import { PROTOCOL } from '../net/net.js';
 import { session } from '../net/session.js';
@@ -581,7 +581,13 @@ export class Duel extends Match {
 
   _feed(killer, victim, w, head) {
     const def = WEAPONS[w] || KILLERS[w];
-    this.g.hud.killfeed(def ? def.name : '?', head, 0, this.name(killer), this.name(victim), killer === this.me || victim === this.me);
+    // Messer: Karambit (Rot) oder Butterfly (Blau), je nach Team des Schützen
+    const knife = def?.slot === 'knife' ? TEAM_KNIFE[killer] : null;
+    this.g.hud.killfeed({
+      weapon: knife || w, label: knife ? KNIFE_SKINS[knife].name : def?.name ?? '?', head,
+      killer: this.name(killer), victim: this.name(victim), mine: killer === this.me || victim === this.me,
+      killerTeam: killer, victimTeam: victim,
+    });
   }
 
   // Geld und Statistik für einen eigenen Abschuss (die Meldung kommt vom Gegner)

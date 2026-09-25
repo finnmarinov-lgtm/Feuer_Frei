@@ -11,7 +11,8 @@ import sys, os, math
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import bpy
 from lib import (reset, mat, textured_mat, box, cyl, cyl_between, sphere, dome, torus, tube, profile, empty,
-                 parent_all, export, render_preview, join_meshes, triangle_count, ROOT)
+                 parent_all, export, render_preview, join_meshes, triangle_count, ROOT,
+                 pbr_mat, tex_brushed, tex_grain, tex_stipple, text_mesh)
 
 ARGS = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 PREVIEW = '--preview' in ARGS
@@ -306,35 +307,104 @@ def build_luchs():
 
 
 # ---------- Pistole "Natter" ----------
+# nach dem Vorbild moderner Polymerpistolen: Schlitten aus schwarz nitriertem Stahl mit
+# eingefrästen Griffrillen, Lauf in Bronze (im Auswurffenster und an der Mündung zu sehen),
+# Rahmen aus Kunststoff mit genarbtem Griff, Visier mit drei weißen Punkten, Gravur links
 def build_natter():
     m = M()
+    s_arm, s_nor = tex_brushed('NatterSlide', seed=11, rough=(0.24, 0.42), metal=0.82)
+    f_arm, f_nor = tex_grain('NatterFrame', seed=12)
+    g_arm, g_nor = tex_stipple('NatterGrip', seed=13)
+    steel = pbr_mat('SlideNitride', (0.03, 0.031, 0.034), arm=s_arm, normal=s_nor, normal_strength=0.25)
+    poly = pbr_mat('FramePolymer', (0.026, 0.027, 0.029), arm=f_arm, normal=f_nor, normal_strength=0.35)
+    grip = pbr_mat('GripStipple', (0.024, 0.025, 0.027), arm=g_arm, normal=g_nor, normal_strength=1.0)
+    bronze = mat('BarrelBronze', (0.62, 0.43, 0.2), 1.0, 0.3)
+    dark = mat('PortDark', (0.006, 0.006, 0.007), 0.4, 0.7)
+    sight = mat('SightBlack', (0.018, 0.018, 0.02), 0.6, 0.5)
+    dot = pbr_mat('SightDot', (0.9, 0.92, 0.86), rough=0.45, emission=0.35)
+    engrave = mat('Engrave', (0.3, 0.31, 0.33), 0.9, 0.38)
+    trig = mat('TriggerBlack', (0.02, 0.02, 0.022), 0.0, 0.5)
     root = empty('Natter')
+
+    # --- Schlitten (bewegt sich beim Schuss) ---
     slide = empty('Slide', (0, 0.06, 0.042))
-    box('SlideBody', (0.024, 0.19, 0.032), (0, 0.06, 0.042), m['gun'], bevel=0.003, parent=slide)
+    W, Z0, Z1 = 0.0236, 0.027, 0.058
+    zc, zh = (Z0 + Z1) / 2, Z1 - Z0
+    uv = dict(uv_tile=0.05, uv_long=1)
+    box('SlideFront', (W, 0.146, zh), (0, 0.082, zc), steel, bevel=0.0024, parent=slide, **uv)
+    # hinten: Kern 1 mm schmaler, darauf volle Stege -> sieben eingefräste Rillen je Seite
+    box('SlideRear', (W - 0.0022, 0.044, zh), (0, -0.013, zc), steel, bevel=0.0012, parent=slide, **uv)
+    box('SlideBack', (W, 0.0052, zh), (0, -0.0324, zc), steel, bevel=0.0012, parent=slide, **uv)
+    for i in range(6):
+        y = -0.0272 + i * 0.0036
+        box(f'Serr{i}', (W, 0.002, zh), (0, y, zc), steel, bevel=0.0005, segs=1, parent=slide, **uv)
+    box('SlideMid', (W, 0.0156, zh), (0, 0.0012, zc), steel, bevel=0.0012, parent=slide, **uv)
+    # Auswurffenster oben rechts: dunkle Öffnung, darin das Patronenlager in Bronze
+    box('PortTop', (0.0106, 0.038, 0.0008), (0.0062, 0.066, Z1 + 0.0003), dark, bevel=0.0003, segs=1, parent=slide)
+    box('PortSide', (0.0008, 0.038, 0.012), (W / 2 + 0.0003, 0.066, 0.052), dark, bevel=0.0003, segs=1, parent=slide)
+    box('BarrelHood', (0.0092, 0.033, 0.0006), (0.0058, 0.0665, Z1 + 0.0009), bronze, bevel=0.0002, segs=1, parent=slide)
+    box('BarrelSide', (0.0005, 0.033, 0.0085), (W / 2 + 0.0008, 0.0665, 0.0525), bronze, bevel=0.0002, segs=1, parent=slide)
+    box('Extractor', (0.0008, 0.012, 0.0028), (W / 2 + 0.0003, 0.093, 0.0535), sight, bevel=0.0003, segs=1, parent=slide)
+    # Mündung: Laufkrone in Bronze, Bohrung, darunter die Führungsstange der Schließfeder
+    cyl('BarrelCrown', 0.0066, 0.004, (0, 0.1537, 0.0448), bronze, segs=20, bevel=0.0006, parent=slide)
+    cyl('Bore', 0.0046, 0.002, (0, 0.155, 0.0448), dark, segs=16, bevel=0, parent=slide)
+    cyl('SpringHole', 0.0037, 0.002, (0, 0.1549, 0.0335), dark, segs=16, bevel=0, parent=slide)
+    cyl('GuideRod', 0.0021, 0.003, (0, 0.1558, 0.0335), m['steel'], segs=12, bevel=0, parent=slide)
+    # Visier: Kimme mit zwei, Korn mit einem weißen Punkt (zeigen zum Auge)
+    box('RearSightBase', (0.0175, 0.008, 0.004), (0, -0.0285, Z1 + 0.002), sight, bevel=0.0008, parent=slide)
     for sx in (-1, 1):
-        box(f'RearSight{sx}', (0.005, 0.008, 0.006), (0.005 * sx, -0.028, 0.061), m['gun_dark'], bevel=0.0008, parent=slide)
-    box('FrontSight', (0.004, 0.006, 0.005), (0, 0.148, 0.0605), m['gun_dark'], bevel=0.001, parent=slide)
-    box('EjectPort', (0.0035, 0.03, 0.012), (0.011, 0.07, 0.049), m['bore'], bevel=0.0008, parent=slide)
-    for i in range(5):
-        for sx in (-1, 1):
-            box(f'Serr{i}{sx}', (0.002, 0.0022, 0.022), (0.0115 * sx, -0.028 + i * 0.0045, 0.043),
-                m['gun_dark'], bevel=0, parent=slide)
-    cyl('Bore', 0.0045, 0.002, (0, 0.1555, 0.045), m['bore'], bevel=0, parent=slide)
-    box('Frame', (0.022, 0.16, 0.026), (0, 0.07, 0.013), m['polymer'], bevel=0.003)
-    box('Rail', (0.02, 0.04, 0.008), (0, 0.125, -0.003), m['polymer'], bevel=0.0015)
-    profile('Grip', [(-0.03, 0.002), (0.024, 0.002), (0.02, -0.02), (0.006, -0.105), (-0.036, -0.108),
-                     (-0.042, -0.098), (-0.03, -0.03)], 0.028, m['polymer'], bevel=0.006, segs=3)
-    trigger_group(m, 0.02, 0.083, -0.03, 0.03, material=m['polymer'])
-    mag = empty('Mag', (0, -0.012, -0.03))
-    box('MagBody', (0.021, 0.034, 0.08), (0, -0.01, -0.068), m['gun_dark'], bevel=0.002, parent=mag)
-    box('MagPlate', (0.03, 0.046, 0.01), (0, -0.013, -0.111), m['polymer'], bevel=0.003, parent=mag)
+        box(f'RearSight{sx}', (0.0062, 0.008, 0.0036), (0.0048 * sx, -0.0285, 0.0632), sight, bevel=0.0006, parent=slide)
+        sphere(f'RearDot{sx}', 0.00105, (0.0048 * sx, -0.0325, 0.0631), dot, segs=10, parent=slide)
+    box('FrontSight', (0.0034, 0.005, 0.0072), (0, 0.148, Z1 + 0.0033), sight, bevel=0.0006, parent=slide)
+    sphere('FrontDot', 0.0011, (0, 0.1455, 0.0627), dot, segs=10, parent=slide)
+    # Gravur auf der linken Seite
+    text_mesh('Engraving', 'NATTER', 0.0056, (-W / 2 - 0.00016, 0.078, 0.0445), engrave, parent=slide)
+    text_mesh('Caliber', '9x19', 0.0042, (-W / 2 - 0.00016, 0.126, 0.0445), engrave, parent=slide)
+
+    # --- Rahmen ---
+    puv = dict(uv_tile=0.03, uv_long=1)
+    profile('Frame', [(-0.036, 0.0265), (0.152, 0.0265), (0.1535, 0.012), (0.151, 0.0035), (-0.036, 0.0035)],
+            0.0222, poly, bevel=0.0018, **puv)
+    box('Rail', (0.0205, 0.044, 0.0075), (0, 0.129, -0.0002), poly, bevel=0.0012, **puv)
+    for i, y in enumerate((0.118, 0.13, 0.142)):
+        box(f'RailSlot{i}', (0.021, 0.0032, 0.0034), (0, y, -0.0022), dark, bevel=0.0003, segs=1)
+    # kräftiger Abzugsbügel (vorne eckig) und geschwungener Abzug mit Sicherungszunge
+    box('GuardBottom', (0.016, 0.076, 0.0085), (0, 0.052, -0.0292), poly, bevel=0.0028, **puv)
+    box('GuardFront', (0.016, 0.009, 0.037), (0, 0.0858, -0.0125), poly, bevel=0.0028, rot=(-0.14, 0, 0), **puv)
+    profile('Trigger', [(0.046, 0.0035), (0.0515, 0.0025), (0.0535, -0.006), (0.052, -0.015), (0.047, -0.0215),
+                        (0.0435, -0.0195), (0.0465, -0.0135), (0.0475, -0.006), (0.0445, 0.0015)],
+            0.0056, trig, bevel=0.0009, segs=2)
+    box('TriggerSafety', (0.0022, 0.0026, 0.011), (0, 0.0525, -0.0085), trig, bevel=0.0005, rot=(0.25, 0, 0))
+    # Griff mit Handballenauflage oben hinten, rundum genarbt
+    profile('Grip', [(0.018, 0.0035), (0.014, -0.02), (0.008, -0.05), (0.002, -0.08), (-0.004, -0.1045),
+                     (-0.047, -0.1065), (-0.046, -0.095), (-0.0405, -0.06), (-0.0365, -0.02), (-0.034, 0.0035)],
+            0.0295, grip, bevel=0.0045, segs=3, uv_tile=0.012)
+    # Handballenauflage: kleiner Sporn hinten oben, eigenes Teil (die Kantenrundung verträgt keine spitzen Ecken)
+    profile('Beavertail', [(-0.034, 0.0035), (-0.0375, -0.004), (-0.0445, 0.0055), (-0.0455, 0.0115),
+                           (-0.041, 0.0145), (-0.0345, 0.012)],
+            0.0232, poly, bevel=0.0018, segs=2, **puv)
+    # Bedienelemente links: Magazinhalter, Schlittenfanghebel, Zerlegehebel; Stifte quer durch
+    box('MagRelease', (0.0024, 0.0085, 0.0085), (-0.0152, 0.0112, -0.0045), trig, bevel=0.0008)
+    box('SlideStop', (0.0014, 0.017, 0.0034), (-0.0117, 0.069, 0.0205), sight, bevel=0.0005)
+    box('SlideStopPad', (0.0024, 0.0055, 0.0042), (-0.0121, 0.0635, 0.0205), sight, bevel=0.0007)
+    for sx in (-1, 1):
+        box(f'Takedown{sx}', (0.0012, 0.0095, 0.0022), (0.0115 * sx, 0.095, 0.0212), sight, bevel=0.0004)
+    cyl('PinFront', 0.0012, 0.0228, (0, 0.034, 0.0115), m['steel'], axis='X', segs=12, bevel=0)
+    cyl('PinRear', 0.0012, 0.0228, (0, -0.024, 0.009), m['steel'], axis='X', segs=12, bevel=0)
+
+    # --- Magazin (fällt beim Nachladen heraus) ---
+    mag = empty('Mag', (0, -0.022, -0.03))
+    box('MagBody', (0.019, 0.03, 0.085), (0, -0.019, -0.066), m['gun_dark'], bevel=0.0018, parent=mag)
+    box('MagPlate', (0.0305, 0.047, 0.0085), (0, -0.0255, -0.1118), poly, bevel=0.0026, parent=mag, **puv)
+
     arm(1, (-0.002, -0.005, -0.056), (0.066, 0.08, 0.095), (0.14, -0.4, -0.3), m, hand_rot=(-0.15, 0, 0))
     left_arm((-0.036, 0.004, -0.064), (0.046, 0.075, 0.086), (-0.2, -0.38, -0.3), m,
              wrist=(-0.045, -0.03, -0.085))
-    empty('Muzzle', (0, 0.16, 0.045))
-    empty('Eject', (0.013, 0.07, 0.055))
-    empty('SightRear', (0, -0.028, 0.064))
-    empty('SightFront', (0, 0.148, 0.063))
+    empty('Muzzle', (0, 0.158, 0.0448))
+    empty('Eject', (0.013, 0.066, 0.058))
+    # Visierlinie: Oberkante der Kimme -> Oberkante des Korns
+    empty('SightRear', (0, -0.0285, 0.065))
+    empty('SightFront', (0, 0.148, 0.065))
     parent_all(root)
     return root
 
@@ -374,23 +444,74 @@ def build_kobra():
     return root
 
 
-# ---------- Messer ----------
-def build_messer():
+# ---------- Karambit (Team Rot) ----------
+# Fingerring oben um den Zeigefinger, Griff senkrecht durch die Faust, darunter die gebogene
+# Klauenklinge nach vorne. Alles am Gelenk "Spin" (Mitte des Rings): so kann es beim Ziehen
+# einmal um den Finger kreisen.
+def build_karambit():
     m = M()
-    root = empty('Messer')
-    profile('KnifeGrip', [(-0.11, 0.012), (-0.005, 0.014), (0.0, 0.012), (0.0, -0.016), (-0.005, -0.019),
-                       (-0.03, -0.021), (-0.045, -0.015), (-0.06, -0.021), (-0.075, -0.015),
-                       (-0.09, -0.021), (-0.11, -0.017)], 0.024, m['rubber'], bevel=0.007, segs=3)
-    box('Pommel', (0.026, 0.012, 0.034), (0, -0.116, -0.002), m['gun'], bevel=0.004)
-    box('Guard', (0.03, 0.008, 0.05), (0, 0.004, -0.004), m['gun'], bevel=0.002)
-    blade = [(0.008, 0.012), (0.12, 0.012), (0.15, 0.006), (0.176, -0.004), (0.15, -0.014),
-             (0.1, -0.018), (0.03, -0.018), (0.008, -0.016)]
-    taper = [1.0, 1.0, 0.6, 0.12, 0.2, 0.14, 0.14, 0.4]
-    profile('Blade', blade, 0.0048, m['steel'], taper=taper, bevel=0.0004, segs=1, angle=60)
-    box('Fuller', (0.0052, 0.08, 0.004), (0, 0.07, 0.004), m['gun'], bevel=0)
-    arm(1, (0.0, -0.055, -0.004), (0.058, 0.1, 0.07), (0.14, -0.43, -0.22), m,
+    b_arm, b_nor = tex_brushed('KarambitBlade', seed=21, rough=(0.16, 0.3), metal=1.0)
+    h_arm, h_nor = tex_grain('KarambitG10', seed=22, rough=(0.55, 0.75), strength=3.0)
+    blade_mat = pbr_mat('KarambitSteel', (0.62, 0.62, 0.64), arm=b_arm, normal=b_nor, normal_strength=0.3)
+    g10 = pbr_mat('KarambitGrip', (0.035, 0.045, 0.036), arm=h_arm, normal=h_nor, normal_strength=0.8)
+    root = empty('Karambit')
+    spin = empty('Spin', (0, 0, 0))
+    torus('Ring', 0.0165, 0.0048, (0, 0, 0), m['gun'], axis='X', seg=28, rseg=10, parent=spin)
+    profile('KnifeGrip', [(-0.011, -0.012), (-0.012, -0.04), (-0.008, -0.07), (-0.002, -0.094), (0.016, -0.098),
+                       (0.017, -0.075), (0.013, -0.045), (0.011, -0.012)],
+            0.014, g10, bevel=0.0028, segs=2, parent=spin, uv_tile=0.03, uv_long=2)
+    for i, (y, z) in enumerate(((0.001, -0.035), (0.005, -0.075))):
+        cyl(f'GripPin{i}', 0.0022, 0.0152, (0, y, z), m['steel'], axis='X', segs=12, bevel=0.0004, parent=spin)
+    # Klauenklinge: außen der Rücken, innen die hohle Schneide
+    blade = [(-0.001, -0.093), (0.012, -0.112), (0.032, -0.126), (0.058, -0.13), (0.083, -0.122), (0.101, -0.104),
+             (0.111, -0.082), (0.113, -0.07), (0.101, -0.088), (0.083, -0.101), (0.06, -0.108), (0.038, -0.105),
+             (0.022, -0.097), (0.013, -0.088)]
+    taper = [1.0, 1.0, 1.0, 1.0, 1.0, 0.9, 0.6, 0.1, 0.16, 0.16, 0.16, 0.16, 0.2, 0.5]
+    profile('Blade', blade, 0.0042, blade_mat, taper=taper, bevel=0.0004, segs=1, angle=60,
+            parent=spin, uv_tile=0.06, uv_long=1)
+    empty('Tip', (0, 0.113, -0.07), parent=spin)
+    # Faust um den Griff, Zeigefinger im Ring
+    arm(1, (0.004, 0.003, -0.056), (0.058, 0.068, 0.076), (0.13, -0.42, -0.26), m,
+        wrist=(0.01, -0.03, -0.07))
+    parent_all(root)
+    return root
+
+
+# ---------- Butterflymesser (Team Blau) ----------
+# Zwei Griffhälften links und rechts der Klinge. Offen zeigt die Klinge nach vorne und beide
+# Hälften liegen in der Faust. Beim Ziehen klappt es auf: Klinge (Gelenk "BladePivot") und die
+# zweite Griffhälfte (Gelenk "BitePivot") drehen sich um die Stifte vorne am Griff.
+def build_butterfly():
+    m = M()
+    b_arm, b_nor = tex_brushed('ButterflyBlade', seed=31, rough=(0.14, 0.28), metal=1.0)
+    s_arm, s_nor = tex_brushed('ButterflyHandle', seed=32, rough=(0.3, 0.48), metal=0.75)
+    blade_mat = pbr_mat('ButterflySteel', (0.64, 0.64, 0.66), arm=b_arm, normal=b_nor, normal_strength=0.3)
+    handle_mat = pbr_mat('ButterflyAnodized', (0.028, 0.029, 0.034), arm=s_arm, normal=s_nor, normal_strength=0.3)
+    dark = mat('PortDark', (0.006, 0.006, 0.007), 0.4, 0.7)
+    root = empty('Butterfly')
+
+    def half(side, parent=None):
+        x = 0.0063 * side
+        box(f'GripHalf{side}', (0.009, 0.108, 0.02), (x, -0.052, -0.001), handle_mat, bevel=0.0028,
+            parent=parent, uv_tile=0.05, uv_long=1)
+        # ausgefräste Fenster in der Griffhälfte
+        for i, y in enumerate((-0.026, -0.052, -0.078)):
+            box(f'GripSlot{side}{i}', (0.0007, 0.02, 0.0085), (x + 0.0044 * side, y, -0.001), dark,
+                bevel=0.0003, segs=1, parent=parent)
+    half(-1)
+    blade_pivot = empty('BladePivot', (0, 0, 0))
+    blade = [(0.0, 0.0045), (0.012, 0.0072), (0.07, 0.0072), (0.088, 0.003), (0.104, -0.003), (0.08, -0.0085),
+             (0.03, -0.0092), (0.008, -0.0075), (-0.004, -0.004), (-0.005, 0.001)]
+    taper = [1.0, 1.0, 1.0, 0.7, 0.1, 0.16, 0.16, 0.25, 0.9, 1.0]
+    profile('Blade', blade, 0.0032, blade_mat, taper=taper, bevel=0.0003, segs=1, angle=60,
+            parent=blade_pivot, uv_tile=0.06, uv_long=1)
+    handle_pivot = empty('BitePivot', (0, 0, 0), parent=blade_pivot)
+    half(1, parent=handle_pivot)
+    box('Latch', (0.0042, 0.013, 0.0035), (0.0034, -0.097, 0.0102), m['steel'], bevel=0.0008, parent=handle_pivot)
+    cyl('Pins', 0.0024, 0.0232, (0, 0, 0), m['steel'], axis='X', segs=16, bevel=0.0004)
+    empty('Tip', (0, 0.104, -0.003), parent=blade_pivot)
+    arm(1, (0.0, -0.055, -0.003), (0.058, 0.1, 0.07), (0.14, -0.43, -0.22), m,
         wrist=(0.008, -0.1, -0.02))
-    empty('Tip', (0, 0.176, -0.004))
     parent_all(root)
     return root
 
@@ -629,7 +750,8 @@ BUILDS = [
     ('luchs', build_luchs, (1.0, -0.2, 0.3)),
     ('natter', build_natter, (1.0, -0.3, 0.3)),
     ('kobra', build_kobra, (1.0, -0.3, 0.3)),
-    ('messer', build_messer, (1.0, -0.3, 0.45)),
+    ('karambit', build_karambit, (1.0, -0.3, 0.3)),
+    ('butterfly', build_butterfly, (1.0, -0.3, 0.3)),
     ('he', build_he, (1.0, -0.6, 0.4)),
     ('flash', build_flash, (1.0, -0.6, 0.4)),
     ('smoke', build_smoke, (1.0, -0.6, 0.4)),
@@ -644,9 +766,12 @@ for name, fn, view in BUILDS:
         continue
     reset()
     fn()
-    export(f'{name}.glb', jpeg=name in ('props', 'crates'))
+    export(f'{name}.glb', jpeg=name in ('props', 'crates', 'natter', 'karambit', 'butterfly'))
     if PREVIEW:
         render_preview(name, direction=view)
         if name not in ('crates', 'target', 'props', 'soldier'):
             render_preview(name + '_detail', direction=(1.0, -0.12, 0.18), hide=('Hand', 'Wrist', 'Sleeve'))
+        if name in ('natter', 'kobra'):
+            # so ähnlich sieht man die Pistole im Spiel: von links hinten oben
+            render_preview(name + '_left', direction=(-1.0, -0.75, 0.5), res=(1280, 720), hide=('Hand', 'Wrist', 'Sleeve'))
 print('BUILD_DONE')

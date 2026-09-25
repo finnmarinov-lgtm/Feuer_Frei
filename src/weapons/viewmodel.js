@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { WEAPONS } from '../config.js';
+import { KNIFE_SKINS, WEAPONS } from '../config.js';
 import { muzzleTexture, sparkTexture } from '../effects/textures.js';
 import { mergeByMaterial } from '../engine/merge.js';
 
@@ -54,35 +54,46 @@ export class Viewmodel {
     camera.add(this.root);
     this.models = {};
     for (const [id, def] of Object.entries(WEAPONS)) {
-      const model = assets.models[def.model].clone();
-      model.traverse((o) => {
-        if (o.isMesh) {
-          o.frustumCulled = false;
-          o.castShadow = o.receiveShadow = false;
+      // das Messer gibt es in zwei Ausführungen (je Team eine), jede mit eigener Haltung
+      const variants = def.slot === 'knife'
+        ? Object.entries(KNIFE_SKINS).map(([skin, s]) => ({ key: `${id}:${skin}`, model: s.model, view: s.view }))
+        : [{ key: id, model: def.model, view: def.view }];
+      for (const v of variants) {
+        const model = assets.models[v.model].clone();
+        model.traverse((o) => {
+          if (o.isMesh) {
+            o.frustumCulled = false;
+            o.castShadow = o.receiveShadow = false;
+          }
+        });
+        // 30 bis 40 Einzelteile pro Waffe: gleiche Materialien am selben Gelenk zusammenfassen
+        mergeByMaterial(model);
+        model.visible = false;
+        const find = (n) => model.getObjectByName(n) || null;
+        const parts = {
+          mag: find('Mag'), slide: find('Slide'), bolt: find('Bolt'), pin: find('Pin'), pump: find('Pump'),
+          muzzle: find('Muzzle'), eject: find('Eject'), armL: find('ArmL'),
+          // Messer: Karambit dreht um den Ring, beim Butterfly klappen Klinge und zweite Griffhälfte
+          spin: find('Spin'), blade: find('BladePivot'), bite: find('BitePivot'),
+        };
+        const rest = {};
+        for (const [k, o] of Object.entries(parts)) {
+          if (o) rest[k] = { p: o.position.clone(), r: o.rotation.clone() };
         }
-      });
-      // 30 bis 40 Einzelteile pro Waffe: gleiche Materialien am selben Gelenk zusammenfassen
-      mergeByMaterial(model);
-      model.visible = false;
-      const find = (n) => model.getObjectByName(n) || null;
-      const parts = {
-        mag: find('Mag'), slide: find('Slide'), bolt: find('Bolt'), pin: find('Pin'), pump: find('Pump'),
-        muzzle: find('Muzzle'), eject: find('Eject'), armL: find('ArmL'),
-      };
-      const rest = {};
-      for (const [k, o] of Object.entries(parts)) {
-        if (o) rest[k] = { p: o.position.clone(), r: o.rotation.clone() };
+        const hip = {
+          pos: new THREE.Vector3(...v.view.pos),
+          quat: new THREE.Quaternion().setFromEuler(new THREE.Euler(...v.view.rot)),
+        };
+        const ads = def.ads ? adsPose(model, def.ads.eye) : null;
+        const dot = def.reddot ? this._setupRedDot(model) : null;
+        const reload = parts.mag && parts.armL ? this._reloadSetup(parts) : null;
+        this.root.add(model);
+        this.models[v.key] = { model, parts, rest, hip, ads, dot, reload };
       }
-      const hip = {
-        pos: new THREE.Vector3(...def.view.pos),
-        quat: new THREE.Quaternion().setFromEuler(new THREE.Euler(...def.view.rot)),
-      };
-      const ads = def.ads ? adsPose(model, def.ads.eye) : null;
-      const dot = def.reddot ? this._setupRedDot(model) : null;
-      const reload = parts.mag && parts.armL ? this._reloadSetup(parts) : null;
-      this.root.add(model);
-      this.models[id] = { model, parts, rest, hip, ads, dot, reload };
     }
+    // welches Messer man hat (im Duell je Team, im Training zufällig, siehe Game)
+    this.knifeSkin = Math.random() < 0.5 ? 'karambit' : 'butterfly';
+    this.flipT = -1;
     this.onMagDrop = null;
     this.reloadTilt = { ...RELOAD_TILT };
 
@@ -217,8 +228,11 @@ export class Viewmodel {
 
   equip(def) {
     const id = Object.keys(WEAPONS).find((k) => WEAPONS[k] === def);
+    const knife = def.slot === 'knife';
     for (const m of Object.values(this.models)) m.model.visible = false;
-    this.current = this.models[id];
+    this.current = this.models[knife ? `${id}:${this.knifeSkin}` : id];
+    // Messer ziehen: Karambit einmal um den Finger drehen, Butterfly aufklappen
+    this.flipT = knife ? 0 : -1;
     this.def = def;
     this.current.model.visible = true;
     this._resetParts();
@@ -290,6 +304,15 @@ export class Viewmodel {
     this.knifeKind = kind;
     this.knifeSide = -this.knifeSide;
     this.inspectT = -1;
+    // zustechen geht sofort: Kunststück abbrechen, Messer steht offen in der Hand
+    this._endFlip();
+  }
+
+  _endFlip() {
+    if (this.flipT < 0 || !this.current) return;
+    this.flipT = -1;
+    const { parts, rest } = this.current;
+    for (const k of ['spin', 'blade', 'bite']) if (parts[k]) parts[k].rotation.copy(rest[k].r);
   }
 
   grenadePull() {
@@ -301,7 +324,11 @@ export class Viewmodel {
   }
 
   inspect() {
-    if (this.reloadT < 0 && this.knifeT < 0 && this.grenadeT < 0) this.inspectT = 0;
+    if (this.reloadT < 0 && this.knifeT < 0 && this.grenadeT < 0) {
+      this.inspectT = 0;
+      // Messer: beim Begutachten dasselbe Kunststück wie beim Ziehen
+      if (this.def?.slot === 'knife') this.flipT = 0;
+    }
   }
 
   _eject(def) {
@@ -529,6 +556,32 @@ export class Viewmodel {
         rot.z -= 0.6 * s * f;
       }
       if (k >= 1) this.knifeT = -1;
+    }
+
+    // Messer ziehen oder begutachten: Karambit kreist einmal um den Zeigefinger (Ring als Achse),
+    // beim Butterfly schwingen Klinge und zweite Griffhälfte über die Faust nach vorne, dann klappt
+    // die Griffhälfte unten herum zurück in die Hand
+    if (this.flipT >= 0) {
+      this.flipT = Math.min(1, this.flipT + dt / (parts.spin ? 0.75 : 0.95));
+      const f = this.flipT;
+      if (parts.spin) {
+        const k = 1 - Math.pow(1 - f, 2.4);
+        parts.spin.rotation.x = rest.spin.r.x + k * Math.PI * 2;
+        const w = Math.sin(f * Math.PI);
+        rot.x += 0.12 * w;
+        pos.y += 0.012 * w;
+      }
+      if (parts.blade && parts.bite) {
+        const a = smooth(f / 0.42);
+        const b = smooth((f - 0.36) / 0.42);
+        parts.blade.rotation.x = rest.blade.r.x + Math.PI * (1 - a);
+        parts.bite.rotation.x = rest.bite.r.x - Math.PI - Math.PI * b;
+        const w = Math.sin(Math.min(1, f / 0.85) * Math.PI);
+        rot.z += 0.3 * w;
+        rot.y -= 0.15 * w;
+        pos.y += 0.02 * w;
+      }
+      if (f >= 1) this._endFlip();
     }
 
     // Granate: Stift ziehen, ausholen, werfen

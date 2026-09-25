@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { BOMB, QUICK_CHAT, SLOT_KEYS, SPECIAL } from '../config.js';
+import { HEADSHOT_ICON, weaponIcon } from './icons.js';
 
 const $ = (id) => document.getElementById(id);
 const fmtMoney = (v) => `${Math.round(v).toLocaleString('de-DE')} $`;
@@ -152,7 +153,7 @@ export class Hud {
   onAmmo() {
     const w = this.g.weapons.active;
     if (!w) return;
-    this.el.weapon.textContent = w.def.name;
+    this.el.weapon.textContent = this.g.weaponName(w.def);
     const hasAmmo = !!w.def.mag;
     this.el.mag.textContent = hasAmmo ? w.mag : '';
     this.el.reserve.textContent = hasAmmo ? `/ ${w.reserve}` : '';
@@ -188,16 +189,23 @@ export class Hud {
     if (this.numbers.length > 24) this.numbers.shift().el.remove();
   }
 
-  killfeed(weaponName, head, reward, killer = 'Du', victim = 'Ziel', mine = true) {
+  /**
+   * Eintrag im Kill-Feed: Schütze, Waffen-Symbol (dazu das Kopfschuss-Zeichen), Opfer.
+   * weapon: Waffen-Id bzw. 'karambit', 'butterfly', 'luftschlag', 'bombe'; label: Name der Waffe (Tooltip);
+   * killerTeam/victimTeam: 'host' (Rot) oder 'guest' (Blau) für die Namensfarbe;
+   * mine: eigener Abschuss oder eigener Tod (hervorgehoben)
+   */
+  killfeed({ weapon, label = '', head = false, reward = 0, killer = 'Du', victim = 'Ziel', mine = true, killerTeam = null, victimTeam = null }) {
     const el = document.createElement('div');
     el.className = 'kill' + (mine ? '' : ' other');
-    const who = (s) => `<b>${escapeHtml(s)}</b>`;
+    const who = (s, team) => `<b${team ? ` class="t-${team}"` : ''}>${escapeHtml(s)}</b>`;
+    const icon = weaponIcon(weapon, escapeHtml(label)) + (head ? HEADSHOT_ICON : '');
     const line = killer === victim
-      ? `${who(killer)}<span class="w">[${weaponName}]</span>${killer === 'Du' ? 'selbst erwischt' : 'hat sich selbst erwischt'}`
-      : `${who(killer)}<span class="w">[${weaponName}]</span>${who(victim)}${head ? ' <span class="h">Kopfschuss</span>' : ''}`;
+      ? `${who(killer, killerTeam)}${icon}<span class="self">${killer === 'Du' ? 'selbst erwischt' : 'hat sich selbst erwischt'}</span>`
+      : `${who(killer, killerTeam)}${icon}${who(victim, victimTeam)}`;
     el.innerHTML = line + (reward ? `<span class="m">+${fmtMoney(reward)}</span>` : '');
     this.el.killfeed.prepend(el);
-    this.kills.push({ el, t: 5 });
+    this.kills.push({ el, t: 6 });
     if (this.kills.length > 5) this.kills.shift().el.remove();
   }
 

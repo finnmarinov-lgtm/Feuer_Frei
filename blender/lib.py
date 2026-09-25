@@ -80,6 +80,164 @@ def textured_mat(name, tex_id):
     return m
 
 
+def image_from_array(name, arr, non_color=True):
+    """Bild aus einem numpy-Feld (Höhe x Breite x 3, Werte 0 bis 1), wird mit exportiert."""
+    import numpy as np
+    h, w = arr.shape[:2]
+    rgba = np.ones((h, w, 4), dtype=np.float32)
+    rgba[:, :, :3] = np.clip(arr[:, :, :3], 0, 1)
+    img = bpy.data.images.new(name, w, h, alpha=False)
+    if non_color:
+        img.colorspace_settings.name = 'Non-Color'
+    img.pixels.foreach_set(rgba.ravel())
+    img.pack()
+    return img
+
+
+def pbr_mat(name, color, arm=None, normal=None, normal_strength=1.0, metal=0.0, rough=0.5, emission=0.0):
+    """Material mit fester Grundfarbe; arm: Bild mit Rauheit (grün) und Metall (blau), normal: Normal-Map."""
+    m = bpy.data.materials.get(name)
+    if m:
+        return m
+    m = _new_material(name)
+    nt = m.node_tree
+    b = _bsdf(m)
+    b.inputs['Base Color'].default_value = (*color, 1.0)
+    b.inputs['Metallic'].default_value = metal
+    b.inputs['Roughness'].default_value = rough
+    m.diffuse_color = (*color, 1.0)
+    if arm is not None:
+        t = nt.nodes.new('ShaderNodeTexImage')
+        t.image = arm
+        sep = nt.nodes.new('ShaderNodeSeparateColor')
+        nt.links.new(t.outputs['Color'], sep.inputs['Color'])
+        nt.links.new(sep.outputs['Green'], b.inputs['Roughness'])
+        nt.links.new(sep.outputs['Blue'], b.inputs['Metallic'])
+    if normal is not None:
+        t = nt.nodes.new('ShaderNodeTexImage')
+        t.image = normal
+        nm = nt.nodes.new('ShaderNodeNormalMap')
+        nm.inputs['Strength'].default_value = normal_strength
+        nt.links.new(t.outputs['Color'], nm.inputs['Color'])
+        nt.links.new(nm.outputs['Normal'], b.inputs['Normal'])
+    if emission > 0:
+        b.inputs['Emission Color'].default_value = (*color, 1.0)
+        b.inputs['Emission Strength'].default_value = emission
+    return m
+
+
+# ---------- Texturen per Rechnung (kachelbar, ohne Fremddateien) ----------
+def _value_noise(size, cells_u, cells_v, rng):
+    """kachelbares Wertrauschen: cells_u Zellen quer, cells_v Zellen hoch"""
+    import numpy as np
+    g = rng.random((cells_v, cells_u))
+    def axis(n):
+        t = np.arange(size) * n / size
+        i0 = np.floor(t).astype(int) % n
+        f = t - np.floor(t)
+        return i0, (i0 + 1) % n, f * f * (3 - 2 * f)
+    u0, u1, fu = axis(cells_u)
+    v0, v1, fv = axis(cells_v)
+    a, b = g[np.ix_(v0, u0)], g[np.ix_(v0, u1)]
+    c, d = g[np.ix_(v1, u0)], g[np.ix_(v1, u1)]
+    fu, fv = fu[None, :], fv[:, None]
+    return (a * (1 - fu) + b * fu) * (1 - fv) + (c * (1 - fu) + d * fu) * fv
+
+
+def _normal_from_height(h, strength):
+    import numpy as np
+    dx = (np.roll(h, -1, axis=1) - np.roll(h, 1, axis=1)) * strength
+    dy = (np.roll(h, -1, axis=0) - np.roll(h, 1, axis=0)) * strength
+    n = np.stack([-dx, -dy, np.ones_like(h)], axis=-1)
+    n /= np.linalg.norm(n, axis=-1, keepdims=True)
+    return n * 0.5 + 0.5
+
+
+def _arm(rough, metal):
+    import numpy as np
+    arr = np.zeros(rough.shape + (3,), dtype=np.float32)
+    arr[:, :, 0] = 1.0
+    arr[:, :, 1] = rough
+    arr[:, :, 2] = metal
+    return arr
+
+
+def tex_brushed(name, size=256, seed=1, rough=(0.25, 0.4), metal=0.8, strength=2.0):
+    """Geschliffenes Metall: feine Längsstreifen (entlang u) in Rauheit und Oberfläche."""
+    import numpy as np
+    rng = np.random.default_rng(seed)
+    n = (_value_noise(size, 2, 96, rng) * 0.6 + _value_noise(size, 4, 192, rng) * 0.3
+         + _value_noise(size, 8, 24, rng) * 0.1)
+    n = (n - n.min()) / (n.max() - n.min())
+    r = rough[0] + (rough[1] - rough[0]) * n
+    return (image_from_array(name + 'ARM', _arm(r, np.full_like(r, metal))),
+            image_from_array(name + 'Nor', _normal_from_height(n, strength)))
+
+
+def tex_grain(name, size=256, seed=2, rough=(0.5, 0.64), metal=0.0, strength=1.5):
+    """Mattierter Kunststoff: feines, ungerichtetes Korn."""
+    import numpy as np
+    rng = np.random.default_rng(seed)
+    n = _value_noise(size, 64, 64, rng) * 0.6 + _value_noise(size, 128, 128, rng) * 0.4
+    n = (n - n.min()) / (n.max() - n.min())
+    r = rough[0] + (rough[1] - rough[0]) * n
+    return (image_from_array(name + 'ARM', _arm(r, np.full_like(r, metal))),
+            image_from_array(name + 'Nor', _normal_from_height(n, strength)))
+
+
+def tex_stipple(name, size=256, seed=3, dots=520, radius=5.5, rough=(0.62, 0.86), strength=6.0):
+    """Griffnarbung: dicht an dicht kleine Noppen (wie bei Polymerpistolen)."""
+    import numpy as np
+    rng = np.random.default_rng(seed)
+    h = np.zeros((size, size), dtype=np.float64)
+    r = int(math.ceil(radius))
+    oy, ox = np.mgrid[-r:r + 1, -r:r + 1]
+    for _ in range(dots):
+        cx, cy = rng.random() * size, rng.random() * size
+        rad = radius * (0.75 + rng.random() * 0.5)
+        ix, iy = int(cx), int(cy)
+        d = np.sqrt((ox + ix - cx) ** 2 + (oy + iy - cy) ** 2) / rad
+        bump = np.clip(1 - d * d, 0, None)
+        ys = (oy + iy) % size
+        xs = (ox + ix) % size
+        np.maximum.at(h, (ys, xs), bump)
+    h += _value_noise(size, 48, 48, rng) * 0.15
+    rough_map = rough[1] - (rough[1] - rough[0]) * np.clip(h, 0, 1)
+    return (image_from_array(name + 'ARM', _arm(rough_map, np.zeros_like(h))),
+            image_from_array(name + 'Nor', _normal_from_height(h, strength)))
+
+
+def text_mesh(name, body, size, center, material, facing='-X', parent=None):
+    """Schrift als flaches Mesh (z. B. eine Gravur auf dem Schlitten).
+    facing='-X': Schrift liegt auf der linken Seite (liest sich von vorne nach hinten)."""
+    cu = bpy.data.curves.new(name, type='FONT')
+    cu.body = body
+    cu.size = size
+    cu.align_x = 'CENTER'
+    cu.align_y = 'CENTER'
+    cu.resolution_u = 3
+    tmp = bpy.data.objects.new(name + 'Tmp', cu)
+    bpy.context.scene.collection.objects.link(tmp)
+    bpy.context.view_layer.update()
+    deps = bpy.context.evaluated_depsgraph_get()
+    me = bpy.data.meshes.new_from_object(tmp.evaluated_get(deps))
+    bpy.data.objects.remove(tmp, do_unlink=True)
+    bpy.data.curves.remove(cu)
+    # Schriftebene (x lesen, y oben, z Normale) auf die gewünschte Seite drehen
+    if facing == '-X':
+        rot = Matrix(((0, 0, -1), (-1, 0, 0), (0, 1, 0)))
+    else:
+        rot = Matrix(((0, 0, 1), (1, 0, 0), (0, 1, 0)))
+    me.transform(rot.to_4x4())
+    me.materials.append(material)
+    o = bpy.data.objects.new(name, me)
+    bpy.context.scene.collection.objects.link(o)
+    o.location = Vector(center) - (_world_offset(parent) if parent else Vector((0, 0, 0)))
+    if parent:
+        o.parent = parent
+    return o
+
+
 def _world_offset(parent):
     off = Vector((0, 0, 0))
     p = parent
@@ -244,7 +402,7 @@ def torus(name, R, r, center, material, axis='Z', seg=24, rseg=8, parent=None):
 
 
 def profile(name, pts, width, material, axis='X', offset=0.0, taper=None, bevel=0.003, segs=2,
-            parent=None, angle=35):
+            parent=None, angle=35, uv_tile=None, uv_long=None):
     """Seitenprofil extrudieren.
     axis='X': pts sind (y, z), Dicke entlang X (Seitenansicht einer Waffe).
     axis='Y': pts sind (x, z), Dicke entlang Y (flache Platte, Vorderseite -Y).
@@ -269,7 +427,7 @@ def profile(name, pts, width, material, axis='X', offset=0.0, taper=None, bevel=
     cx = sum(p for p, _ in pts) / n
     cz = sum(q for _, q in pts) / n
     origin = (offset, cx, cz) if axis == 'X' else (cx, offset, cz)
-    return _finish(name, bm, material, parent, origin, bevel, segs, angle, False)
+    return _finish(name, bm, material, parent, origin, bevel, segs, angle, False, uv_tile, uv_long)
 
 
 def empty(name, loc=(0, 0, 0), parent=None):

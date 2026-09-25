@@ -213,7 +213,7 @@ export const WEAPONS = {
     sound: 'sniper', tracer: 1, anim: 'sniper',
   },
   messer: {
-    name: 'Messer', type: 'Messer', slot: 'knife', price: 0, reward: 750, model: 'messer',
+    name: 'Messer', type: 'Messer', slot: 'knife', price: 0, reward: 750, model: 'karambit',
     draw: 0.4, speed: 6.2, sprint: 8.8, sprintOut: 0, armorPen: 0.85,
     // zwei Treffer reichen immer, auch gegen eine Schutzweste
     slash: { damage: 60, range: 1.7, rate: 0.42 },
@@ -237,6 +237,14 @@ export const WEAPONS = {
     view: { pos: [0.15, -0.125, -0.33], rot: [0.15, 0.25, -0.1] }, anim: 'grenade',
   },
 };
+
+// Messer: Team Rot (Host) hat ein Karambit, Team Blau (Gast) ein Butterflymesser, im Training
+// entscheidet der Zufall. Gleiche Werte, nur Aussehen, Haltung und die Bewegung beim Ziehen sind anders.
+export const KNIFE_SKINS = {
+  karambit: { name: 'Karambit', model: 'karambit', view: { pos: [0.12, -0.07, -0.29], rot: [0.85, 1.05, -0.05] } },
+  butterfly: { name: 'Butterfly', model: 'butterfly', view: { pos: [0.15, -0.13, -0.3], rot: [0.45, 0.45, -0.2] } },
+};
+export const TEAM_KNIFE = { host: 'karambit', guest: 'butterfly' };
 
 // feste Reihenfolge, damit die Waffe im Netz als kleine Zahl übertragen werden kann
 export const WEAPON_IDS = Object.keys(WEAPONS);

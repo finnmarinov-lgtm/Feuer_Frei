@@ -125,13 +125,18 @@ kbd { display: inline-block; min-width: 1.6em; padding: 0 0.35em; border: 1px so
 .slot.active { background: rgba(242, 179, 61, 0.22); box-shadow: inset 3px 0 0 var(--accent); }
 .slot.empty { opacity: 0.4; }
 
+/* Kill-Feed: Schütze, Waffen-Symbol, Kopfschuss-Zeichen, Opfer (Namen in Teamfarben) */
 #killfeed { position: absolute; right: 22px; top: 18px; display: flex; flex-direction: column; gap: 5px; align-items: flex-end; }
-.kill { background: var(--panel-strong); padding: 4px 12px; border-radius: 5px; font-size: 16px; font-weight: 600; box-shadow: inset 0 0 0 1px rgba(242, 179, 61, 0.35); }
+.kill { display: flex; align-items: center; gap: 7px; background: var(--panel-strong); padding: 4px 12px; border-radius: 5px; font-size: 17px; font-weight: 600; box-shadow: inset 0 0 0 2px rgba(242, 179, 61, 0.55); animation: killIn 0.22s ease-out; }
 .kill.other { box-shadow: none; }
-.kill b { font-weight: 700; }
-.kill .w { color: var(--muted); margin: 0 6px; }
-.kill .h { color: #ff8a5c; }
-.kill .m { color: var(--money); margin-left: 8px; }
+.kill b { font-weight: 700; white-space: nowrap; }
+.kill b.t-host { color: #ff8a6b; }
+.kill b.t-guest { color: #8fb8ff; }
+.kill .wicon { width: 44px; height: 18px; fill: #eceae4; flex-shrink: 0; }
+.kill .hs { width: 17px; height: 17px; fill: #ff8a5c; flex-shrink: 0; margin-left: -3px; }
+.kill .self { color: var(--muted); }
+.kill .m { color: var(--money); margin-left: 4px; }
+@keyframes killIn { from { transform: translateX(28px); opacity: 0; } to { transform: none; opacity: 1; } }
 
 #center-msg { position: absolute; top: 24%; left: 50%; transform: translateX(-50%); text-align: center; opacity: 0; transition: opacity 0.4s; }
 #center-msg.show { opacity: 1; transition: opacity 0.15s; }

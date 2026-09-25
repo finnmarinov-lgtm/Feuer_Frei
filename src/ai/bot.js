@@ -10,7 +10,9 @@ import { attackerOf, shotEnd } from '../game/duel.js';
 // Zielen mit Reaktionszeit und Zielfehler, Feuerstöße, Nachladen, Bombe legen und entschärfen,
 // Luftschlag. Mit dem Spiel spricht er über dieselben Nachrichten wie ein Gast im Duell.
 
+// weak: kauft keine Gewehre und läuft etwas langsamer (Anfänger)
 export const LEVELS = {
+  anfaenger: { name: 'Anfänger', reaction: 1.15, aim: 6.5, turn: 130, head: 0.03, stop: false, fov: 85, hear: 8, tap: [0.45, 0.9], burst: [1, 3], rest: [0.6, 1.2], air: 0, pistol: false, hunt: 14, weak: true },
   leicht: { name: 'Leicht', reaction: 0.75, aim: 3.6, turn: 200, head: 0.08, stop: false, fov: 95, hear: 12, tap: [0.2, 0.45], burst: [2, 4], rest: [0.4, 0.8], air: 0.35, pistol: false, hunt: 11 },
   mittel: { name: 'Mittel', reaction: 0.42, aim: 1.9, turn: 330, head: 0.22, stop: true, fov: 110, hear: 18, tap: [0.1, 0.26], burst: [3, 6], rest: [0.25, 0.5], air: 0.65, pistol: true, hunt: 8 },
   schwer: { name: 'Schwer', reaction: 0.25, aim: 1.0, turn: 540, head: 0.42, stop: true, fov: 120, hear: 24, tap: [0.05, 0.15], burst: [4, 8], rest: [0.15, 0.35], air: 0.9, pistol: true, hunt: 5 },
@@ -94,7 +96,17 @@ export class Bot {
     this.g = game;
     this.nav = nav;
     this.level = LEVELS[level] ? level : 'mittel';
-    this.L = LEVELS[this.level];
+    this.L = { ...LEVELS[this.level] };
+    // auf dem Touchscreen zielt man langsamer: dort reagiert und trifft die KI in jeder Stufe schlechter
+    if (game.input.touch) {
+      const L = this.L;
+      L.reaction += 0.3;
+      L.aim *= 1.5;
+      L.turn *= 0.75;
+      L.head *= 0.5;
+      L.tap = [L.tap[0] + 0.15, L.tap[1] + 0.25];
+      L.air *= 0.5;
+    }
     this.name = name;
     this.body = new Player(game.physics, SILENT, { bot: true });
     this.body.collider.setEnabled(false);
@@ -432,8 +444,9 @@ export class Bot {
     const def = this.weapon.def;
     b.frozen = !active;
     b.busy = this.plantT > 0 || this.defuseT > 0;
-    b.maxSpeed = def.speed * (this.scoped ? 0.5 : 1);
-    b.sprintSpeed = def.sprint ?? def.speed;
+    const slow = this.L.weak ? 0.85 : 1;
+    b.maxSpeed = def.speed * (this.scoped ? 0.5 : 1) * slow;
+    b.sprintSpeed = (def.sprint ?? def.speed) * slow;
     b.tick(dt, this.in);
     if (def.spread) this.inacc *= Math.exp(-dt / def.spread.recovery);
     this.sendT -= dt;
@@ -491,7 +504,11 @@ export class Bot {
     let m = this.money;
     if (!this.inv.primary) {
       let id = null;
-      if (m >= 4750 + 650 && this.level === 'schwer' && Math.random() < 0.25) id = 'adler';
+      if (this.L.weak) {
+        // Anfänger: höchstens MP oder Schrotflinte, nie Gewehre
+        if (m >= 1250 && Math.random() < 0.5) id = 'falke';
+        else if (m >= 1050 && Math.random() < 0.3) id = 'keiler';
+      } else if (m >= 4750 + 650 && this.level === 'schwer' && Math.random() < 0.25) id = 'adler';
       else if (m >= 3100 + 650 && Math.random() < 0.45) id = 'luchs';
       else if (m >= 2700) id = 'wolf';
       else if (m >= 1250 && Math.random() < 0.7) id = 'falke';
@@ -506,8 +523,8 @@ export class Bot {
         this._switch('secondary');
       }
     }
-    if (b.armor < 100 && m >= 650) {
-      const helmet = m >= 1000 + 800;
+    if (b.armor < 100 && m >= 650 && !(this.L.weak && Math.random() < 0.5)) {
+      const helmet = m >= 1000 + 800 && !this.L.weak;
       b.armor = 100;
       b.helmet = helmet;
       m -= helmet ? 1000 : 650;

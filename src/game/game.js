@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { MOVE, SPECIAL, TICK } from '../config.js';
+import { KNIFE_SKINS, MOVE, SPECIAL, TEAM_KNIFE, TICK } from '../config.js';
 import { setupEnvironment } from '../world/environment.js';
 import { Arena, SPAWN } from '../world/map.js';
 import { BombSites } from '../world/bombsites.js';
@@ -50,6 +50,12 @@ export class Game {
     renderer.setup(this.scene, this.camera, this.viewScene, this.viewCamera);
 
     this.env = setupEnvironment(renderer.renderer, this.scene, this.viewScene, assets.sky);
+    // Fülllicht für die Waffe in der Hand, fest zur Blickrichtung: Rillen, Visier und Kanten
+    // bleiben erkennbar, auch wenn die Sonne von vorne kommt
+    const fill = new THREE.DirectionalLight(0xfff4e6, 0.8);
+    fill.position.set(0.4, 0.9, 0.6);
+    fill.target.position.set(0, 0, -1);
+    this.viewCamera.add(fill, fill.target);
     this.arena = new Arena(assets, physics, this.scene);
     this.arena.build();
     this.effects = new Effects(this.scene);
@@ -139,9 +145,16 @@ export class Game {
     this.effects.setViewport(this.renderer.renderer.getDrawingBufferSize(new THREE.Vector2()).y, this.camera.fov);
   }
 
+  /** Anzeigename einer Waffe; beim Messer das eigene (Karambit oder Butterfly) */
+  weaponName(def, knifeSkin = this.viewmodel.knifeSkin) {
+    return def.slot === 'knife' ? KNIFE_SKINS[knifeSkin].name : def.name;
+  }
+
   startMatch() {
     this._setMode('training');
     this.match = this.training;
+    // im Training entscheidet der Zufall, welches Messer man bekommt
+    this.viewmodel.knifeSkin = Math.random() < 0.5 ? 'karambit' : 'butterfly';
     this.grenades.clear();
     this.airstrikes.clear();
     this.hud.reset();
@@ -159,6 +172,8 @@ export class Game {
   startDuel(net, opts) {
     this._setMode('duel');
     this.remote.setActive(true, opts.role === 'host' ? 'guest' : 'host');
+    // Team Rot (Host) hat das Karambit, Team Blau (Gast) das Butterflymesser
+    this.viewmodel.knifeSkin = TEAM_KNIFE[opts.role];
     // gegen die KI hat ihr eigener Körper die Kollision, die Figur zeigt ihn nur an
     this.remote.solid = !net.bot;
     this.match = new Duel(this, net, opts);

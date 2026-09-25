@@ -68,9 +68,12 @@ Die KI spielt nach denselben Regeln wie ein Freund im 1 gegen 1 (sie ist dabei d
 
 | Stufe | Reaktion | Zielfehler | Besonderheiten |
 |---|---|---|---|
+| Anfänger | 1,15 s | sehr groß | schießt zögerlich, kauft keine Gewehre, keine Luftschläge, läuft etwas langsamer |
 | Leicht | 0,75 s | groß | läuft beim Schießen herum, selten Kopfschüsse |
 | Mittel | 0,4 s | mittel | bleibt zum Schießen stehen, hört Schritte weiter |
 | Schwer | 0,25 s | klein | dreht sich schnell, oft Kopfschüsse, duckt sich bei langen Salven |
+
+Auf dem Handy spielt die KI in jeder Stufe schwächer, weil Zielen mit dem Finger schwerer ist: 0,3 s längere Reaktion, anderthalbfacher Zielfehler, langsameres Drehen und Schießen, halb so oft Luftschläge. Ohne gespeicherte Wahl beginnt man dort bei den Anfängern.
 
 Gegen die KI hält die Pause das Spiel wirklich an. Technisch hängt die KI wie ein zweiter Spieler am Duell: Sie schickt und bekommt dieselben Nachrichten wie ein Gast, nur ohne Netz (`src/ai/`).
 
@@ -142,18 +145,22 @@ Das Spiel geht beim Start in den Vollbildmodus. So fängt Chrome auch `Strg+W` a
 
 | Waffe | Art | Preis | Besonderheit |
 |---|---|---|---|
-| Natter | Pistole | 200 $ | Startwaffe, 30 Schaden (Kopf 72) |
+| Natter | Pistole | 200 $ | Startwaffe, 30 Schaden (Kopf 72); moderne Polymerpistole mit Bronzelauf und Visier mit drei weißen Punkten |
 | Kobra | Schwere Pistole | 700 $ | Kopftreffer tödlich |
 | Falke | Maschinenpistole | 1.250 $ | Genau auch im Laufen |
 | Keiler | Pump-Schrotflinte | 1.050 $ | 9 Schrotkugeln, auf kurze Distanz ein Treffer, lädt Patrone für Patrone |
 | Wolf | Sturmgewehr | 2.700 $ | Stark, festes Rückstoßmuster |
 | Luchs | Sturmgewehr mit Rotpunkt | 3.100 $ | Rotpunktvisier, ruhigerer Rückstoß |
 | Adler | Scharfschützengewehr | 4.750 $ | Ein Körpertreffer reicht, Zielfernrohr nur beim Halten |
-| Messer | Nahkampf | frei | Hieb (links, 60) und Stich (rechts, 90): zwei Treffer reichen immer, auch gegen eine Weste |
+| Messer | Nahkampf | frei | Karambit oder Butterfly (siehe unten). Hieb (links, 60) und Stich (rechts, 90): zwei Treffer reichen immer, auch gegen eine Weste |
 
 Dazu Schutzweste, Weste mit Helm und drei Granaten (Splitter, Blend, Rauch) für die zwei Extra-Slots. Mit einer Granate in der Hand zeigt die Bildmitte statt des Fadenkreuzes nur einen Punkt, der die Wurfrichtung markiert.
 
 Beim Nachladen einer Waffe mit Magazin kippt die Waffe zur Seite, das leere Magazin fällt heraus und die linke Hand steckt ein neues ein. Die Keiler lädt weiter Patrone für Patrone.
+
+**Messer:** Im 1 gegen 1 hat Team Rot (Host) ein **Karambit**, Team Blau (Gast, auch die KI) ein **Butterflymesser**. Im Training entscheidet der Zufall. Beim Ziehen und beim Begutachten (`F`) dreht sich das Karambit einmal um den Zeigefinger, das Butterfly klappt auf: Klinge und zweite Griffhälfte schwingen über die Faust, dann klappt die Griffhälfte unten herum zurück. Ein Hieb bricht das sofort ab. Beide Messer haben dieselben Werte. In der Waffenleiste heißt es weiter „Messer“, welches es ist, steht über der Munitionsanzeige und im Kill-Feed.
+
+**Kill-Feed** oben rechts: Schütze, Waffen-Symbol (Kopfschüsse mit eigenem Zeichen), Opfer. Im 1 gegen 1 stehen die Namen in Teamfarben (Rot und Blau), eigene Abschüsse und der eigene Tod sind gelb umrandet.
 
 Trefferzonen: Kopf (Faktor je Waffe, meist 2,4), Körper und Arme (1), Beine (0,75, dort schützt die Weste nicht). Die Trefferzonen sind etwas größer als die sichtbaren Figuren und Klappziele, damit man leichter trifft.
 
@@ -196,7 +203,11 @@ Alle Werte (Waffen, Rückstoßmuster, Streuung, Preise, Rundenzeiten) stehen in 
   npm run models -- wolf natter
   ```
 
-  Mit `--preview` legt Blender Vorschaubilder in `blender/preview/` ab. Blender wird unter `C:\Program Files\Blender Foundation` gesucht, sonst über die Umgebungsvariable `BLENDER`.
+  Mit `--preview` legt Blender Vorschaubilder in `blender/preview/` ab (für die Pistolen zusätzlich eine größere Ansicht von links hinten, so wie man sie im Spiel sieht). Blender wird unter `C:\Program Files\Blender Foundation` gesucht, sonst über die Umgebungsvariable `BLENDER`.
+
+  Die Oberflächen von Natter, Karambit und Butterfly (geschliffener Stahl, mattierter Kunststoff, Griffnarbung, G10) rechnet das Skript selbst als kleine, kachelbare Texturen aus (`tex_brushed`, `tex_grain`, `tex_stipple` in `blender/lib.py`), es braucht dafür keine Fremddateien. Schrift wie die Gravur „NATTER 9x19“ entsteht mit `text_mesh`. Teile, deren Name mit `Hand`, `Wrist` oder `Sleeve` beginnt, gelten als Arm und fehlen bei der Figur des Gegners.
+
+  Die Waffe in der Hand wird mit einer entsättigten Kopie des Himmels beleuchtet, damit schwarze Waffen schwarz und nicht dunkelblau wirken.
 
 - **Texturen, Himmel und Requisiten** kommen von [Poly Haven](https://polyhaven.com) (CC0, frei nutzbar). `npm run assets` lädt alles herunter, danach verkleinert `npm run textures` die Texturen (JPEG-Qualität 85, gleiche Auflösung, rund ein Viertel der Dateigröße). Die Requisiten landen als Quelle in `assets-src/` (nicht im Repo). `npm run models` macht daraus die optimierte `public/assets/models/props.glb` (etwa 1.000 Dreiecke und 512er-Texturen pro Requisit).
 

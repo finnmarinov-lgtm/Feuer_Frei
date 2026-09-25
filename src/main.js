@@ -16,6 +16,7 @@ const $ = (id) => document.getElementById(id);
 const SCREENS = ['loading', 'menu', 'lobby', 'bots', 'pause', 'settings', 'controls', 'results', 'click-resume'];
 const BOT_KEY = 'feuer-frei-ki';
 const BOT_INFO = {
+  anfaenger: 'Reagiert sehr langsam, trifft kaum, kauft keine Gewehre und fordert keine Luftschläge an. Zum Üben.',
   leicht: 'Reagiert langsam, trifft selten und läuft beim Schießen herum. Gut zum Reinkommen.',
   mittel: 'Solider Gegner: bleibt zum Schießen stehen, hört deine Schritte, fordert Luftschläge an.',
   schwer: 'Reagiert blitzschnell, trifft oft den Kopf und spielt die Bombe klug.',
@@ -156,7 +157,7 @@ function setupMenus(game, input, audio) {
   });
 
   // ---------- Gegen KI: Einstellungen merken, dann wie ein Duell starten (die KI ist der Gast) ----------
-  let botOpts = { level: 'mittel', mode: 'kampf', lives: 3, wins: 2 };
+  let botOpts = { level: null, mode: 'kampf', lives: 3, wins: 2 };
   try {
     botOpts = { ...botOpts, ...JSON.parse(localStorage.getItem(BOT_KEY) || '{}') };
   } catch {
@@ -166,7 +167,8 @@ function setupMenus(game, input, audio) {
     for (const seg of document.querySelectorAll('#bot-opts .seg')) {
       for (const b of seg.children) b.classList.toggle('on', b.dataset.v === String(botOpts[seg.dataset.opt]));
     }
-    $('bot-level-info').textContent = BOT_INFO[botOpts.level] || '';
+    $('bot-level-info').textContent = (BOT_INFO[botOpts.level] || '')
+      + (input.touch ? ' Auf dem Handy spielt die KI in jeder Stufe schwächer als am PC.' : '');
   }
   for (const seg of document.querySelectorAll('#bot-opts .seg')) {
     seg.addEventListener('click', (e) => {
@@ -183,6 +185,8 @@ function setupMenus(game, input, audio) {
     });
   }
   $('btn-bots').addEventListener('click', () => {
+    // noch nichts gewählt: auf dem Handy bei den Anfängern beginnen (Zielen mit dem Finger ist schwerer)
+    botOpts.level ||= input.touch ? 'anfaenger' : 'mittel';
     renderBotOpts();
     show('bots');
   });
