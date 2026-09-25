@@ -792,12 +792,16 @@ export class Bot {
         return { wish: this._follow(this.bomb.pos.x, this.bomb.pos.z), sprint: true };
       }
       if (!this.attacking) {
-        // Platz halten, ab und zu ein Stück versetzen; Blick zur Mitte, woher der Angreifer kommt
+        // Platz halten, ab und zu ein Stück versetzen; Blick dorthin, woher der Angreifer kommt:
+        // die Gasse entlang nach Westen oder durch die Öffnung zur Mitte
         plan.holdT -= dt;
         if (plan.holdT <= 0) {
           plan.holdT = rand(6, 11);
           if (Math.random() < 0.4) plan.hold = this._holdSpot(BOMB_SITES.east, 7);
-          plan.watch = { x: rand(-2, 6), y: 1.2, z: rand(-8, 8) };
+          const site = BOMB_SITES.east;
+          plan.watch = Math.random() < 0.55
+            ? { x: site.x - rand(9, 16), y: 1.2, z: site.z + rand(-3, 4) }
+            : { x: site.x + rand(-6, 2), y: 1.2, z: rand(1, 7) };
         }
         const w = this._follow(plan.hold.x, plan.hold.z);
         return { wish: w, look: w ? null : plan.watch, sprint: false };

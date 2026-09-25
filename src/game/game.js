@@ -8,6 +8,7 @@ import { Targets } from './targets.js';
 import { Match } from './match.js';
 import { Duel } from './duel.js';
 import { RemotePlayer } from './remote.js';
+import { KillCam } from './killcam.js';
 import { Airstrikes } from './airstrike.js';
 import { Player } from '../player/player.js';
 import { Viewmodel } from '../weapons/viewmodel.js';
@@ -15,16 +16,12 @@ import { WeaponSystem } from '../weapons/weapons.js';
 import { Grenades } from '../weapons/grenades.js';
 import { Hud } from '../ui/hud.js';
 import { BuyMenu } from '../ui/buymenu.js';
+import { finishOrNull, setKnifeFinish } from '../weapons/skins.js';
 
 const DEG = Math.PI / 180;
 const MAX_TICKS = 10;
 const _eye = new THREE.Vector3();
 const _fwd = new THREE.Vector3();
-const _to = new THREE.Vector3();
-const smooth = (t) => {
-  const x = Math.min(1, Math.max(0, t));
-  return x * x * (3 - 2 * x);
-};
 
 export class Game {
   constructor({ renderer, physics, assets, input, audio, settings }) {
@@ -74,10 +71,13 @@ export class Game {
     this.match = this.training;
     this.remote = new RemotePlayer(this);
     this.onRematch = null;
-    this.deathT = 0;
     this.sprintFov = 0;
     this.hud = new Hud(this);
     this.buyMenu = new BuyMenu(this);
+    // nach dem eigenen Tod im Duell: Kill-Cam und Gegner-Sicht
+    this.killcam = new KillCam(this);
+    // eigener Messer-Skin (Geschenk für den Sieg gegen die KI auf "Schwer")
+    this.knifeFinish = finishOrNull(settings.knifeFinish);
     this.hud.setCrosshairColor(settings.crosshairColor);
 
     this.renderer.applyQuality(settings.quality, this.env.sun, settings.renderScale);
@@ -93,7 +93,11 @@ export class Game {
   /** Shader vorab übersetzen, damit es beim ersten Schuss nicht ruckelt */
   async warmup() {
     const r = this.renderer.renderer;
-    for (const m of Object.values(this.viewmodel.models)) m.model.visible = true;
+    for (const [key, m] of Object.entries(this.viewmodel.models)) {
+      m.model.visible = true;
+      // Regenbogen-Klinge (falls freigeschaltet) gleich mit übersetzen
+      if (key.startsWith('messer:') && this.knifeFinish) setKnifeFinish(m.model, this.knifeFinish);
+    }
     this.effects.muzzleLight.intensity = 1;
     this.effects.boomLight.intensity = 1;
     await r.compileAsync(this.scene, this.camera);
@@ -103,6 +107,10 @@ export class Game {
 
   applySettings() {
     const s = this.settings;
+    this.knifeFinish = finishOrNull(s.knifeFinish);
+    // in der Kill-Cam hält man gerade das Messer des Gegners: dann erst beim Zurückkommen
+    if (this.killcam.saved) this.killcam.saved.finish = this.knifeFinish;
+    else this.viewmodel.setKnifeFinish(this.knifeFinish);
     this.camera.fov = s.fov;
     this.camera.updateProjectionMatrix();
     this.audio.setVolume(s.volume);
@@ -132,9 +140,10 @@ export class Game {
     const hide = [];
     for (const t of this.targets.list) if (t.root.visible) hide.push(t.root);
     if (this.remote.root.visible) hide.push(this.remote.root);
+    if (this.killcam.ghost?.root.visible) hide.push(this.killcam.ghost.root);
     for (const gr of this.grenades.list) if (gr.mesh.visible) hide.push(gr.mesh);
     if (this.bombSites.bomb.visible) hide.push(this.bombSites.bomb);
-    for (const s of this.airstrikes.list) hide.push(s.plane, ...s.bombs);
+    for (const s of this.airstrikes.list) hide.push(s.plane);
     for (const o of hide) o.visible = false;
     this.renderer.bakeShadows();
     for (const o of hide) o.visible = true;
@@ -155,6 +164,7 @@ export class Game {
     this.match = this.training;
     // im Training entscheidet der Zufall, welches Messer man bekommt
     this.viewmodel.knifeSkin = Math.random() < 0.5 ? 'karambit' : 'butterfly';
+    this.viewmodel.knifeFinish = this.knifeFinish;
     this.grenades.clear();
     this.airstrikes.clear();
     this.hud.reset();
@@ -166,14 +176,18 @@ export class Game {
   }
 
   /**
-   * 1 gegen 1 starten. opts: role ('host'/'guest'), lives, wins, myName, theirName;
-   * mit resume (Stand der Partie) und saved (eigener Stand) geht es in einer laufenden Partie weiter.
+   * 1 gegen 1 starten. opts: role ('host'/'guest'), lives, wins, myName, theirName, theirSkin
+   * (Messer-Skin des Gegners); mit resume (Stand der Partie) und saved (eigener Stand) geht es in
+   * einer laufenden Partie weiter.
    */
   startDuel(net, opts) {
     this._setMode('duel');
+    this.killcam.reset();
     this.remote.setActive(true, opts.role === 'host' ? 'guest' : 'host');
+    this.remote.setKnifeFinish(opts.theirSkin);
     // Team Rot (Host) hat das Karambit, Team Blau (Gast) das Butterflymesser
     this.viewmodel.knifeSkin = TEAM_KNIFE[opts.role];
+    this.viewmodel.knifeFinish = this.knifeFinish;
     // gegen die KI hat ihr eigener Körper die Kollision, die Figur zeigt ihn nur an
     this.remote.solid = !net.bot;
     this.match = new Duel(this, net, opts);
@@ -192,6 +206,7 @@ export class Game {
 
   _setMode(mode) {
     this.mode = mode;
+    this.killcam.stop();
     if (mode !== 'duel') this.remote.setActive(false);
     // Bombenplätze zeigt nur der Bombenmodus (in jeder Runde neu)
     this.bombSites.show(null);
@@ -223,6 +238,7 @@ export class Game {
   }
 
   onMatchOver(summary) {
+    this.killcam.stop();
     this.state = 'results';
     this.buyMenu.hide();
     this.hud.show(false);
@@ -372,6 +388,7 @@ export class Game {
       }
       this._quickChat(input);
       this._special(input);
+      if (duel) this.killcam.handleInput(input);
       this.hud.showStats(input.isDown('scores'));
       mouse = input.takeMouse();
       this._look(mouse, input.takeLook());
@@ -396,6 +413,7 @@ export class Game {
     if (duel) {
       this.remote.update(dt);
       this.match.netUpdate(dt);
+      if (simulate) this.killcam.update(dt);
     }
     if (this.renderPaused) return;
     const alpha = simulate ? this.acc / TICK : 1;
@@ -406,17 +424,25 @@ export class Game {
     this.airstrikes.update(dt);
     this.effects.update(dt);
 
-    const scoped = this.weapons.scoped && simulate;
-    const showVm = simulate && this.player.alive && !scoped;
+    // Kill-Cam und Gegner-Sicht: seine Waffe in der Hand statt der eigenen
+    const kc = this.killcam;
+    const spectate = duel && kc.firstPerson;
+    const scoped = spectate ? kc.scoped : this.weapons.scoped && simulate;
+    const showVm = simulate && !scoped && (spectate || this.player.alive);
     if (showVm) {
       this._viewLighting(dt);
-      const ws = this.weapons;
-      this._aim.pitch = ws.recoil.pitch * 0.5 * DEG;
-      this._aim.yaw = ws.recoil.yaw * 0.5 * DEG;
-      this.viewmodel.update(dt, this.player, mouse, scoped, ws.ads, this._aim);
+      if (spectate) {
+        kc.drawViewmodel(dt);
+      } else {
+        const ws = this.weapons;
+        this._aim.pitch = ws.recoil.pitch * 0.5 * DEG;
+        this._aim.yaw = ws.recoil.yaw * 0.5 * DEG;
+        this.viewmodel.update(dt, this.player, mouse, scoped, ws.ads, this._aim);
+      }
     }
     if (simulate) this.hud.update(dt, this.camera);
-    this.player.forward(_fwd);
+    // hören, wo die Kamera ist (in der Kill-Cam also wie der Gegner)
+    this.camera.getWorldDirection(_fwd);
     this.audio.updateListener(this.camera.position, _fwd);
     if (this.renderer.needsShadowBake) this._bakeShadows();
     this.renderer.render(showVm);
@@ -437,10 +463,10 @@ export class Game {
     const ws = this.weapons;
     p.eyePosition(_eye, alpha);
     if (this.mode === 'duel' && !p.alive && this.state !== 'results') {
-      this._deathCamera(dt);
+      this.killcam.camera(dt, _eye);
       return;
     }
-    this.deathT = 0;
+    this.killcam.resetDeathView();
     cam.position.copy(_eye);
     this.shakeAmt = Math.max(0, this.shakeAmt - dt * 1.5);
     const sh = this.shakeAmt * this.shakeAmt;
@@ -473,33 +499,6 @@ export class Game {
       hud.toggleChat(false);
       break;
     }
-  }
-
-  // Nach dem eigenen Tod: Blick sinkt zu Boden und dreht sich zum Gegner (wie in CS)
-  _deathCamera(dt) {
-    const cam = this.camera;
-    const p = this.player;
-    this.deathT += dt;
-    const k = smooth(this.deathT / 0.9);
-    _eye.y -= (p.eyeHeight - 0.45) * k;
-    let yaw = p.yaw, pitch = p.pitch;
-    if (this.remote.shown) {
-      this.remote.headPosition(_to).sub(_eye);
-      const targetYaw = Math.atan2(-_to.x, -_to.z);
-      const targetPitch = Math.atan2(_to.y, Math.hypot(_to.x, _to.z));
-      yaw += Math.atan2(Math.sin(targetYaw - yaw), Math.cos(targetYaw - yaw)) * k;
-      pitch += (targetPitch - pitch) * k;
-    }
-    cam.position.copy(_eye);
-    cam.rotation.set(pitch, yaw, 0.2 * k);
-    if (cam.fov !== this.settings.fov) {
-      cam.fov = this.settings.fov;
-      cam.updateProjectionMatrix();
-      this.effects.setViewport(this.renderer.renderer.getDrawingBufferSize(this._size).y, cam.fov);
-    }
-    cam.updateMatrixWorld();
-    this.viewCamera.quaternion.copy(cam.quaternion);
-    this.viewCamera.updateMatrixWorld();
   }
 
   // Waffe im Schatten dunkler machen: Strahl vom Auge Richtung Sonne

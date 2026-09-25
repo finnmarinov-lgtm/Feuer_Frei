@@ -163,6 +163,54 @@ export class Audio {
     o.stop(t0 + attack + decay + 0.05);
   }
 
+  // Rauschen, das gut 40-mal pro Sekunde aufknallt und abklingt (Sägezahn als Lautstärke, so
+  // schnell wie die Einschläge), darunter ein tiefes Brummen im selben Takt: "Drrrrrt"
+  _cannon(t, dur, pos, vol) {
+    const ctx = this.ctx;
+    const o = this._out(pos, 2.4 * vol, 1.1, 60);
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0.0001, t);
+    env.gain.exponentialRampToValueAtTime(1, t + 0.03);
+    env.gain.setValueAtTime(1, t + dur);
+    env.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.22);
+    env.connect(o);
+    const rate = 40 + Math.random() * 5;
+    const src = ctx.createBufferSource();
+    src.buffer = this.noise;
+    src.loop = true;
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 2600;
+    const am = ctx.createGain();
+    am.gain.value = 0.5;
+    const lfo = ctx.createOscillator();
+    lfo.type = 'sawtooth';
+    lfo.frequency.value = rate;
+    // fallender Sägezahn: jeder Schuss knallt sofort und klingt bis zum nächsten ab
+    const depth = ctx.createGain();
+    depth.gain.value = -0.5;
+    lfo.connect(depth).connect(am.gain);
+    src.connect(lp).connect(am).connect(env);
+    const growl = ctx.createOscillator();
+    growl.type = 'sawtooth';
+    growl.frequency.value = rate;
+    const glp = ctx.createBiquadFilter();
+    glp.type = 'lowpass';
+    glp.frequency.value = 340;
+    const gg = ctx.createGain();
+    gg.gain.value = 0.6;
+    growl.connect(glp).connect(gg).connect(env);
+    const end = t + dur + 0.3;
+    src.start(t, Math.random());
+    lfo.start(t);
+    growl.start(t);
+    src.stop(end);
+    lfo.stop(end);
+    growl.stop(end);
+    // Nachhall über den Hof
+    this._noise(o, t + dur, { type: 'lowpass', freq: 700, freqEnd: 150, q: 0.6, gain: 0.45, attack: 0.02, decay: 1.2 });
+  }
+
   /** Schuss; mit position (Gegner) räumlich und mit mehr Hall */
   shot(profile, position = null) {
     if (!this.ctx) return;
@@ -512,10 +560,17 @@ export class Audio {
         this._tone(o, t, { type: 'sawtooth', freq: 150, freqEnd: 95, gain: 0.05, attack: dur * 0.55, decay: dur * 0.4 });
         break;
       }
-      // fallende Bombe pfeift kurz vor dem Einschlag
-      case 'whistle': {
-        const o = this._out(pos, 0.35 * vol, 0.2, 10);
-        this._tone(o, t, { type: 'sine', freq: 1700, freqEnd: 520, gain: 0.5, attack: 0.05, decay: 0.55 });
+      // Bordkanone: so schnelle Schussfolge, dass sie zu einem ratternden "Drrrrrt" verschwimmt
+      case 'cannon': {
+        this._cannon(t, opt.duration || 1.2, pos, vol);
+        break;
+      }
+      // Granate der Bordkanone schlägt ein: harter Knall mit dumpfem Nachdröhnen
+      case 'cannonHit': {
+        const o = this._out(pos, 0.9 * vol, 0.6, 8);
+        this._noise(o, t, { type: 'bandpass', freq: 1500 + Math.random() * 400, q: 0.7, gain: 1, decay: 0.07 });
+        this._noise(o, t, { type: 'lowpass', freq: 650, freqEnd: 120, q: 0.8, gain: 1, decay: 0.28 });
+        this._tone(o, t, { freq: 95, freqEnd: 40, gain: 0.7, decay: 0.18 });
         break;
       }
       default:

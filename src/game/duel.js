@@ -233,6 +233,7 @@ export class Duel extends Match {
     this.phase = 'freeze';
     this.purchases = [];
     this.roundStats = { kills: 0, heads: 0, shots: 0, hits: 0, deaths: 0, reward: 0 };
+    g.killcam.stop();
     g.grenades.clear();
     const sp = SPAWNS[this.side];
     g.player.spawn(sp.pos, sp.yaw);
@@ -552,10 +553,12 @@ export class Duel extends Match {
     this._feed(by, this.me, w, head);
     const left = this.lives[this.me] - 1;
     let sub = this.phase === 'live' && left > 0
-      ? `Noch ${left} ${left === 1 ? 'Leben' : 'Leben'} · gleich geht es weiter` : '';
+      ? `Noch ${left} Leben · in ${DUEL.respawnTime} s geht es weiter` : '';
     if (!sub && this.attacking && this.bomb && !this.bomb.done) sub = `Die Bombe tickt weiter – schafft ${this.names[this.them]} es noch?`;
     const title = by === this.me ? 'Selbst erwischt' : `${this.names[by]} hat dich erwischt`;
-    g.hud.message(title, sub, 3);
+    // kurz, danach zeigt die Kill-Cam, wie es passiert ist
+    g.hud.message(title, sub, 1.6);
+    g.killcam.start(by, w);
     if (this.isHost) this._hostDeath(this.me);
   }
 
@@ -564,6 +567,7 @@ export class Duel extends Match {
     if (g.player.alive || this.respawnT <= 0) return;
     this.respawnT -= dt;
     if (this.respawnT > 0 || this.lives[this.me] <= 0) return;
+    g.killcam.stop();
     const sp = SPAWNS[this.side];
     const p = g.player;
     p.spawn(sp.pos, sp.yaw);
@@ -688,6 +692,8 @@ export class Duel extends Match {
       y: Math.round(p.yaw * 1000), a: Math.round(p.pitch * 1000), d: Math.round(p.duckAmount * 100),
       w: ws.active ? WEAPON_IDS.indexOf(ws.active.id) : -1, f, hp: Math.ceil(p.health),
     };
+    // für die Kill-Cam: so hat einen der Gegner gesehen
+    g.killcam.noteSelf(msg);
     if (this.queue.length) {
       msg.ev = this.queue;
       this.queue = [];
@@ -704,7 +710,12 @@ export class Duel extends Match {
         // Zustände kommen weiter: doch nicht weg (z. B. Seite wurde nicht wirklich verlassen)
         this.awayMsg = false;
         g.remote.push(msg);
-        if (msg.ev) for (const ev of msg.ev) this._onEvent(ev);
+        if (msg.ev) {
+          for (const ev of msg.ev) {
+            g.killcam.noteEvent(msg.k, ev);
+            this._onEvent(ev);
+          }
+        }
         break;
       case 'ph':
         if (!this.isHost) this._applyPhase(msg);
@@ -769,12 +780,14 @@ export class Duel extends Match {
       case 'f': this._onFire(ev); break;
       case 'k':
         g.remote.jabMove();
+        g.killcam.liveEvent(ev);
         g.audio.play('swing', { position: g.remote.position });
         break;
       case 'n': {
         const pos = unpack(ev.p);
         g.grenades.throw(ev.k, pos, unpack(ev.v), { ghost: true, id: ev.id });
         g.remote.jabMove();
+        g.killcam.liveEvent(ev);
         g.audio.play('throw', { position: pos });
         break;
       }
@@ -817,7 +830,10 @@ export class Duel extends Match {
     const def = WEAPONS[ev.w];
     if (!def) return;
     g.remote.fire(def);
-    g.remote.muzzlePosition(_muzzle);
+    // in der Gegner-Sicht kommt die Leuchtspur aus der Waffe in der Hand
+    g.killcam.liveEvent(ev);
+    if (g.killcam.shown === 'live') g.viewmodel.muzzleWorld(_muzzle, g.camera.position, g.camera);
+    else g.remote.muzzlePosition(_muzzle);
     g.audio.shot(def.sound, _muzzle);
     g.effects.muzzleFlash(_muzzle);
     let sound = true;
@@ -880,13 +896,14 @@ export class Duel extends Match {
     this.net.setPartner(from);
     this.awayMsg = false;
     if (msg.name) this.names[this.them] = String(msg.name).replace(/[<>]/g, '').slice(0, 16);
+    if (msg.skin !== undefined) this.g.remote.setKnifeFinish(msg.skin);
     this.g.remote.resetStream();
     this._sendResume(from);
   }
 
   _sendResume(to) {
     this.net.send({
-      t: 'hi', v: PROTOCOL, ack: true, role: this.me, name: this.names[this.me], cfg: this.cfg,
+      t: 'hi', v: PROTOCOL, ack: true, role: this.me, name: this.names[this.me], skin: this.g.knifeFinish, cfg: this.cfg,
       resume: this._currentPhase(),
     }, to);
   }
@@ -1016,6 +1033,7 @@ export class Duel extends Match {
 
   _finish(forfeit = false) {
     this.phase = 'over';
+    this.g.killcam.stop();
     this.g.player.frozen = true;
     const s = this.stats;
     const my = this.wins[this.me];

@@ -21,11 +21,13 @@ export const SPAWNS = {
   east: { pos: new THREE.Vector3(26.5, 0, 0), yaw: -FACE_EAST },
 };
 export const SPAWN = SPAWNS.west;
-// Bombenplätze: je einer in der Gasse neben dem eigenen Startpunkt (am Kistenstapel), gespiegelt.
-// Wer angreift, legt die Bombe auf dem Platz des anderen.
+// Bombenplätze: je einer in der Gasse der eigenen Hälfte, nah an der Mitte vor dem Container,
+// gespiegelt. Wer angreift, legt die Bombe auf dem Platz des anderen. Vom Startpunkt des
+// Verteidigers aus sieht man den Platz nicht (erst nach gut 18 m Weg), die Wege sind fast gleich
+// lang (Verteidiger etwa 29 m, Angreifer 33 m): wer den Verteidiger erwischt, hat Zeit zum Legen.
 export const BOMB_SITES = {
-  west: new THREE.Vector3(-17.5, 0, -15),
-  east: new THREE.Vector3(17.5, 0, 15),
+  west: new THREE.Vector3(-3, 0, -12.5),
+  east: new THREE.Vector3(3, 0, 12.5),
 };
 export const BUY_ZONES = {
   west: { x0: -30, x1: -21.5, z0: -8, z1: 8 },

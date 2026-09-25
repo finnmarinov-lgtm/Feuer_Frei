@@ -10,6 +10,7 @@ import { BotNet } from './ai/botnet.js';
 import { parseCode } from './net/net.js';
 import { session, setUrlLobby } from './net/session.js';
 import { loadSettings, saveSettings } from './settings.js';
+import { KNIFE_FINISHES, unlockFinish, unlockedFinishes } from './weapons/skins.js';
 import { TRAINING } from './config.js';
 
 const $ = (id) => document.getElementById(id);
@@ -19,7 +20,7 @@ const BOT_INFO = {
   anfaenger: 'Reagiert sehr langsam, trifft kaum, kauft keine Gewehre und fordert keine Luftschläge an. Zum Üben.',
   leicht: 'Reagiert langsam, trifft selten und läuft beim Schießen herum. Gut zum Reinkommen.',
   mittel: 'Solider Gegner: bleibt zum Schießen stehen, hört deine Schritte, fordert Luftschläge an.',
-  schwer: 'Reagiert blitzschnell, trifft oft den Kopf und spielt die Bombe klug.',
+  schwer: 'Reagiert blitzschnell, trifft oft den Kopf und spielt die Bombe klug. Wer sie besiegt, bekommt eine Überraschung.',
 };
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const fmtMoney = (v) => `${Math.round(v).toLocaleString('de-DE')} $`;
@@ -31,6 +32,8 @@ function show(name) {
 }
 
 const settings = loadSettings();
+// Messer-Skin nur, wenn er freigeschaltet ist (Geschenk für den Sieg gegen die KI auf "Schwer")
+if (settings.knifeFinish !== 'standard' && !unlockedFinishes().includes(settings.knifeFinish)) settings.knifeFinish = 'standard';
 
 async function boot() {
   const renderer = new Renderer($('game'));
@@ -156,6 +159,8 @@ function setupMenus(game, input, audio) {
     onStart: startDuel,
     netMode: new URLSearchParams(location.search).get('netz'),
     keyName: (action) => input.label(action),
+    // eigener Messer-Skin: der Gegner soll ihn auch sehen
+    skin: () => game.knifeFinish,
   });
 
   // ---------- Gegen KI: Einstellungen merken, dann wie ein Duell starten (die KI ist der Gast) ----------
@@ -422,12 +427,22 @@ function setupMenus(game, input, audio) {
     bind('set-fps', 'showFps', () => ''),
     bind('set-touch', 'touch', (v) => v, String),
     bind('set-touchsens', 'touchSens', (v) => v.toFixed(2)),
+    bind('set-knife', 'knifeFinish', (v) => v, String),
   ];
   $('set-touch').addEventListener('input', () => touch.setEnabled(wantsTouch(settings)));
   function openSettings() {
+    syncKnifeOptions();
     for (const s of syncs) s();
     syncBossKey();
     show('settings');
+  }
+
+  // Messer-Skins: die Zeile gibt es erst, wenn man einen geschenkt bekommen hat
+  function syncKnifeOptions() {
+    const have = unlockedFinishes();
+    $('set-knife-row').hidden = !have.length;
+    $('set-knife').innerHTML = ['standard', ...have]
+      .map((id) => `<option value="${id}">${escapeHtml(KNIFE_FINISHES[id].name)}</option>`).join('');
   }
 
   // ---------- Notizblock-Taste ----------
@@ -562,6 +577,15 @@ function setupMenus(game, input, audio) {
         `<td>${why[x.why] || ''}</td><td>${x.kills}</td><td>${x.deaths}</td></tr>`).join('');
     $('btn-again').textContent = 'Nochmal';
     updateRematch();
+    // Easter Egg: wer die KI auf "Schwer" besiegt, bekommt die Regenbogen-Klinge (gleich angelegt)
+    const gift = m.net.bot && m.net.level === 'schwer' && r.won && !r.forfeit && unlockFinish('regenbogen');
+    $('res-gift').hidden = !gift;
+    if (gift) {
+      settings.knifeFinish = 'regenbogen';
+      saveSettings(settings);
+      game.applySettings();
+      audio.play('specialReady');
+    }
     show('results');
   }
 
@@ -572,6 +596,7 @@ function setupMenus(game, input, audio) {
     window.removeEventListener('beforeunload', leaveGuard);
     $('btn-again').disabled = false;
     $('res-status').textContent = '';
+    $('res-gift').hidden = true;
     if (r.duel) {
       duelResults(r);
       return;

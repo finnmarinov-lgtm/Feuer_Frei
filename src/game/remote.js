@@ -3,6 +3,7 @@ import { KNIFE_SKINS, MOVE, TEAM_KNIFE, WEAPONS, WEAPON_IDS } from '../config.js
 import { GROUP, groups } from '../engine/physics.js';
 import { mergeByMaterial } from '../engine/merge.js';
 import { muzzleTexture } from '../effects/textures.js';
+import { animateKnife, finishOrNull, setKnifeFinish } from '../weapons/skins.js';
 
 // Farben der beiden Seiten (sRGB). Im Spiel sieht man immer nur den Gegner.
 export const TEAMS = {
@@ -34,22 +35,75 @@ const HITBOXES = [
 ];
 const HITBOX_MATERIAL = new THREE.MeshBasicMaterial({ visible: false });
 
-const smooth = (t) => {
-  const x = Math.min(1, Math.max(0, t));
-  return x * x * (3 - 2 * x);
-};
 const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+// so lange bleiben die Zustände des Gegners gespeichert (für die Kill-Cam)
+const HISTORY_MS = 6000;
 
 const _v = new THREE.Vector3();
 const _prev = new THREE.Vector3();
 
+/**
+ * Zustand zur Zeit rt (in der Uhr des Absenders) aus einer Liste von Zuständen, Ergebnis in s.
+ * Zwischen zwei Zuständen wird interpoliert, nach dem letzten kurz weitergerechnet.
+ */
+export function sampleSnaps(snaps, rt, s) {
+  const n = snaps.length;
+  if (!n) return false;
+  let a = snaps[0];
+  let b = null;
+  if (rt > a.t) {
+    for (let i = n - 1; i >= 0; i--) {
+      if (snaps[i].t <= rt) {
+        a = snaps[i];
+        b = snaps[i + 1] || null;
+        break;
+      }
+    }
+  }
+  s.t = a.t;
+  s.f = a.f;
+  s.w = a.w;
+  if (!b) {
+    s.pos.copy(a.pos);
+    s.yaw = a.yaw;
+    s.pitch = a.pitch;
+    s.duck = a.duck;
+    // fehlt ein Paket, kurz in der letzten Richtung weiterlaufen
+    const p = snaps[n - 2];
+    if (a === snaps[n - 1] && p && a.t > p.t && rt > a.t && a.pos.distanceToSquared(p.pos) < 9) {
+      const ex = Math.min(rt - a.t, 120) / (a.t - p.t);
+      s.pos.lerpVectors(p.pos, a.pos, 1 + ex);
+    }
+    return true;
+  }
+  const k = (rt - a.t) / (b.t - a.t);
+  if (a.pos.distanceToSquared(b.pos) > 9) {
+    // Sprung (Wiederbelebung, neue Runde): nicht quer durch die Arena gleiten
+    s.pos.copy(b.pos);
+    s.yaw = b.yaw;
+    s.pitch = b.pitch;
+    s.duck = b.duck;
+    s.f = b.f;
+    s.w = b.w;
+    s.t = b.t;
+  } else {
+    s.pos.lerpVectors(a.pos, b.pos, k);
+    s.yaw = a.yaw + wrap(b.yaw - a.yaw) * k;
+    s.pitch = a.pitch + (b.pitch - a.pitch) * k;
+    s.duck = a.duck + (b.duck - a.duck) * k;
+  }
+  return true;
+}
+
 // Der Gegner im eigenen Spiel: Modell, Animation, Trefferzonen, Körper für die Kollision
 // und flüssige Bewegung trotz Netz (Zustände werden mit kurzer Verzögerung interpoliert).
+// Als "ghost" ohne Kollision und Trefferzonen: die eigene Figur in der Kill-Cam.
 export class RemotePlayer {
-  constructor(game) {
+  constructor(game, { ghost = false } = {}) {
     this.g = game;
+    this.ghost = ghost;
     this.root = new THREE.Group();
-    this.root.name = 'Gegner';
+    this.root.name = ghost ? 'Eigene Figur (Kill-Cam)' : 'Gegner';
     this.fall = new THREE.Group();
     this.root.add(this.fall);
     const model = game.assets.models.soldier.clone();
@@ -98,7 +152,7 @@ export class RemotePlayer {
     // Trefferzonen in Ruhelage an die Gelenke hängen, damit sie jede Bewegung mitmachen
     this.hitboxes = [];
     this.root.updateMatrixWorld(true);
-    for (const [name, zone, c, s] of HITBOXES) {
+    for (const [name, zone, c, s] of ghost ? [] : HITBOXES) {
       const box = new THREE.Mesh(new THREE.BoxGeometry(...s), HITBOX_MATERIAL);
       box.position.set(...c);
       box.visible = false;
@@ -114,22 +168,27 @@ export class RemotePlayer {
     this.radius = MOVE.radius;
     this.halfStand = (MOVE.standHeight - 2 * this.radius) / 2;
     this.halfCrouch = (MOVE.crouchHeight - 2 * this.radius) / 2;
-    this.collider = world.createCollider(
+    this.collider = ghost ? null : world.createCollider(
       R.ColliderDesc.capsule(this.halfStand, this.radius).setCollisionGroups(groups(GROUP.OTHER, GROUP.PLAYER | GROUP.GRENADE)),
     );
-    this.collider.setEnabled(false);
+    this.collider?.setEnabled(false);
     this.colliderHalf = this.halfStand;
 
     this.root.visible = false;
     game.scene.add(this.root);
     this.active = false;
+    // firstPerson: man schaut gerade durch seine Augen (Kill-Cam), die Figur ist dann ausgeblendet
+    this.firstPerson = false;
+    this.finish = null;
     this.snaps = [];
+    this.history = [];
     this.state = { pos: new THREE.Vector3(), yaw: 0, pitch: 0, duck: 0, f: 0, w: -1, t: 0 };
     this._reset();
   }
 
   _reset() {
     this.snaps.length = 0;
+    this.history.length = 0;
     this.clockOff = null;
     this.hp = 100;
     this.dead = false;
@@ -154,6 +213,14 @@ export class RemotePlayer {
     this.busyT = 0;
     this.hidden = false;
     for (const m of this.bodyMaterials ?? []) m.emissive.setRGB(0, 0, 0);
+    // Waffe aus der letzten Partie weglegen, sonst bliebe sie in der Hand sichtbar, egal was
+    // der Gegner gerade hält (weaponId fängt ja wieder bei null an)
+    for (const w of Object.values(this.weapons ?? {})) w.model.visible = false;
+    for (const k of Object.values(this.knives ?? {})) k.model.visible = false;
+    this.flash?.removeFromParent();
+    this.fall?.rotation.set(0, 0, 0);
+    this.fall?.position.set(0, 0, 0);
+    if (this.n) this.n.anchor.rotation.z = 0;
   }
 
   _weaponModel(def, name, holdKey) {
@@ -175,6 +242,7 @@ export class RemotePlayer {
   /** Gegner ist mit neuer Seite zurück: seine Uhr fängt neu an, alte Zustände passen nicht mehr */
   resetStream() {
     this.snaps.length = 0;
+    this.history.length = 0;
     this.clockOff = null;
     this.dead = false;
     this.shown = false;
@@ -186,15 +254,21 @@ export class RemotePlayer {
     this.active = on;
     this._reset();
     this.root.visible = false;
-    this.collider.setEnabled(false);
+    this.firstPerson = false;
+    this.collider?.setEnabled(false);
     if (on) {
       const t = TEAMS[team];
       this.uniform?.color.set(t.uniform);
       this.helmet?.color.set(t.helmet);
       // Team Rot trägt ein Karambit, Team Blau ein Butterflymesser
-      for (const k of Object.values(this.knives)) k.model.visible = false;
       this.weapons.messer = this.knives[TEAM_KNIFE[team]] || this.weapons.messer;
     }
+  }
+
+  /** Aussehen der Klinge (Skin, den der Spieler gewählt hat), null = Stahl */
+  setKnifeFinish(finish) {
+    this.finish = finishOrNull(finish);
+    for (const k of Object.values(this.knives)) setKnifeFinish(k.model, this.finish);
   }
 
   get alive() {
@@ -230,11 +304,16 @@ export class RemotePlayer {
     else this.clockOff += (off - this.clockOff) * 0.02;
     const last = this.snaps[this.snaps.length - 1];
     if (last && msg.k <= last.t) return;
-    this.snaps.push({
+    const snap = {
       t: msg.k, pos: new THREE.Vector3(msg.p[0] / 100, msg.p[1] / 100, msg.p[2] / 100),
       yaw: msg.y / 1000, pitch: msg.a / 1000, duck: msg.d / 100, f: msg.f, w: msg.w,
-    });
+    };
+    this.snaps.push(snap);
     if (this.snaps.length > 40) this.snaps.shift();
+    // längerer Verlauf für die Kill-Cam (dieselben Zustände, die nie mehr verändert werden)
+    const h = this.history;
+    h.push(snap);
+    while (h[0].t < snap.t - HISTORY_MS) h.shift();
     this.hp = msg.hp;
   }
 
@@ -245,7 +324,7 @@ export class RemotePlayer {
     this.deadAt = last ? last.t : 0;
     this.deathT = 0;
     this.deathSide = (Math.random() - 0.5) * 0.7;
-    this.collider.setEnabled(false);
+    this.collider?.setEnabled(false);
   }
 
   fire(def) {
@@ -261,56 +340,16 @@ export class RemotePlayer {
     this.jab = 0;
   }
 
-  // Interpolierter Zustand zur Zeit "jetzt minus Puffer" (in der Uhr des Absenders)
-  _sample(delay) {
+  /** Puffer gegen Ruckeln im Netz (ms); die KI schickt 60 Zustände pro Sekunde ohne Verzögerung */
+  get delay() {
+    const mode = this.g.match.net?.mode;
+    return mode === 'server' ? 170 : mode === 'bot' ? 35 : 90;
+  }
+
+  // Interpolierter Zustand zur Zeit rt (in der Uhr des Absenders), danach alte Zustände verwerfen
+  _sample(rt) {
     const snaps = this.snaps;
-    const n = snaps.length;
-    const s = this.state;
-    if (!n) return false;
-    const rt = performance.now() + this.clockOff - delay;
-    let a = snaps[0];
-    let b = null;
-    if (rt > a.t) {
-      for (let i = n - 1; i >= 0; i--) {
-        if (snaps[i].t <= rt) {
-          a = snaps[i];
-          b = snaps[i + 1] || null;
-          break;
-        }
-      }
-    }
-    s.t = a.t;
-    s.f = a.f;
-    s.w = a.w;
-    if (!b) {
-      s.pos.copy(a.pos);
-      s.yaw = a.yaw;
-      s.pitch = a.pitch;
-      s.duck = a.duck;
-      // fehlt ein Paket, kurz in der letzten Richtung weiterlaufen
-      const p = snaps[n - 2];
-      if (a === snaps[n - 1] && p && a.t > p.t && rt > a.t && a.pos.distanceToSquared(p.pos) < 9) {
-        const ex = Math.min(rt - a.t, 120) / (a.t - p.t);
-        s.pos.lerpVectors(p.pos, a.pos, 1 + ex);
-      }
-      return true;
-    }
-    const k = (rt - a.t) / (b.t - a.t);
-    if (a.pos.distanceToSquared(b.pos) > 9) {
-      // Sprung (Wiederbelebung, neue Runde): nicht quer durch die Arena gleiten
-      s.pos.copy(b.pos);
-      s.yaw = b.yaw;
-      s.pitch = b.pitch;
-      s.duck = b.duck;
-      s.f = b.f;
-      s.t = b.t;
-    } else {
-      s.pos.lerpVectors(a.pos, b.pos, k);
-      s.yaw = a.yaw + wrap(b.yaw - a.yaw) * k;
-      s.pitch = a.pitch + (b.pitch - a.pitch) * k;
-      s.duck = a.duck + (b.duck - a.duck) * k;
-    }
-    // alte Zustände verwerfen
+    if (!sampleSnaps(snaps, rt, this.state)) return false;
     while (snaps.length > 3 && snaps[1].t < rt - 500) snaps.shift();
     return true;
   }
@@ -329,17 +368,16 @@ export class RemotePlayer {
     else this.flash.removeFromParent();
   }
 
-  update(dt) {
+  /** at: Zeitpunkt in der Uhr des Absenders (Kill-Cam), sonst "jetzt minus Puffer" */
+  update(dt, at = null) {
     if (!this.active) return;
     // Verbindung weg: Figur ausblenden, bis der Gegner zurück ist
     if (this.hidden) {
       this.root.visible = false;
-      if (this.collider.isEnabled()) this.collider.setEnabled(false);
+      if (this.collider?.isEnabled()) this.collider.setEnabled(false);
       return;
     }
-    const net = this.g.match.net;
-    // Puffer gegen Ruckeln im Netz; die KI schickt 60 Zustände pro Sekunde ohne Verzögerung
-    if (!this._sample(net?.mode === 'server' ? 170 : net?.mode === 'bot' ? 35 : 90)) return;
+    if (!this._sample(at ?? performance.now() + this.clockOff - this.delay)) return;
     const s = this.state;
     const aliveFlag = (s.f & FLAG.ALIVE) !== 0;
     // falls die Todesmeldung unterwegs verloren ging, reicht auch der Zustand
@@ -349,13 +387,14 @@ export class RemotePlayer {
       this.dead = false;
       this.fall.rotation.set(0, 0, 0);
       this.fall.position.set(0, 0, 0);
+      this.n.anchor.rotation.z = 0;
     }
     if (!this.shown) {
       if (!aliveFlag) return;
       this.shown = true;
       this.root.position.copy(s.pos);
     }
-    this.root.visible = true;
+    this.root.visible = !this.firstPerson;
 
     _prev.copy(this.root.position);
     this.root.position.copy(s.pos);
@@ -364,6 +403,7 @@ export class RemotePlayer {
     const spd = dt > 0 && moved < 1 ? moved / dt : 0;
     this.speed += (spd - this.speed) * Math.min(1, dt * 10);
     this._setWeapon(s.w >= 0 ? WEAPON_IDS[s.w] : null);
+    if (this.finish && this.weaponId === 'messer' && !this.firstPerson) animateKnife(this.weapons.messer.model, performance.now() / 1000);
 
     const n = this.n;
     const ground = (s.f & FLAG.GROUND) !== 0;
@@ -396,6 +436,7 @@ export class RemotePlayer {
     this._protectGlow(dt);
 
     // Körper für die Kollision mitführen (geduckt niedriger); gegen die KI hat ihr eigener Körper die Kollision
+    if (!this.collider) return;
     const on = !this.dead && this.solid !== false;
     if (this.collider.isEnabled() !== on) this.collider.setEnabled(on);
     const half = s.duck > 0.5 ? this.halfCrouch : this.halfStand;
@@ -473,7 +514,7 @@ export class RemotePlayer {
     if (s.f & FLAG.BUSY) {
       this.busyT -= dt;
       if (this.busyT <= 0) {
-        const planting = g.match.attacker === g.match.them;
+        const planting = g.match.attacker === (this.ghost ? g.match.me : g.match.them);
         this.busyT = planting ? 0.32 : 0.45;
         g.audio.play(planting ? 'plantKey' : 'defuseTick', { position: feet });
       }

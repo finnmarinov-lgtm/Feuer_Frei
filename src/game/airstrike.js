@@ -1,20 +1,38 @@
 import * as THREE from 'three';
 import { KILLERS, SPECIAL } from '../config.js';
+import { muzzleTexture } from '../effects/textures.js';
 
 // Luftschlag (Spezialleiste voll, Taste X): erst Ziel wählen, dann steigt roter Rauch auf und ein
-// roter Kreis warnt alle. Nach der Warnzeit fliegt ein Jet über den Hof und wirft Bomben, die
-// nacheinander im Kreis einschlagen. Schaden rechnet jedes Spiel für den eigenen Spieler
-// (wie bei Granaten), die Klappziele trifft nur der eigene Luftschlag.
+// roter Kreis warnt alle: in der Mitte kräftig rot, nach außen immer blasser (genau so verteilt
+// sich auch der Schaden). Nach der Warnzeit kommt ein Jet im Sturzflug und feuert mit der
+// Bordkanone ("Brrrrrt"): die Einschläge wandern in Flugrichtung durch den Kreis, in der Mitte am
+// dichtesten. Schaden rechnet jedes Spiel für den eigenen Spieler (wie bei Granaten), die
+// Klappziele trifft nur der eigene Luftschlag. Aus derselben Zahl (seed) entstehen bei beiden
+// Spielern dieselben Einschläge.
 
 const DOWN = { x: 0, y: -1, z: 0 };
-const PLANE_HEIGHT = 34;
-const PLANE_SPEED = 120;
-const FALL_TIME = 0.6;
+// Anflug: Tempo (m/s), Höhe beim Überflug, Sturzflug davor und Steigflug danach
+const PLANE_SPEED = 95;
+const PASS_HEIGHT = 24;
+const DIVE = Math.tan((15 * Math.PI) / 180);
+const CLIMB = Math.tan((14 * Math.PI) / 180);
+// so lange nach der letzten Granate zieht der Jet über den Kreis hinweg
+const PASS_AFTER = 0.35;
+// Leuchtspur der Bordkanone: Tempo und Länge des Strichs
+const TRACER = { width: 9, speed: 900, streak: 14 };
+// Mündung der Kanone am Jet (Nase zeigt nach -Z)
+const NOSE = new THREE.Vector3(0, -0.35, -8.6);
 
 const _v = new THREE.Vector3();
 const _a = new THREE.Vector3();
 const _b = new THREE.Vector3();
 const _dir = new THREE.Vector3();
+const _e = new THREE.Euler(0, 0, 0, 'YXZ');
+
+const smooth = (t) => {
+  const x = Math.min(1, Math.max(0, t));
+  return x * x * (3 - 2 * x);
+};
 
 /** kleiner Zufallsgenerator: gleiche Zahl ergibt bei beiden Spielern die gleichen Einschläge */
 function seeded(seed) {
@@ -28,28 +46,39 @@ function seeded(seed) {
   };
 }
 
-function ringMesh(radius, color) {
-  const geo = new THREE.RingGeometry(radius - 0.22, radius, 64).rotateX(-Math.PI / 2);
-  const mat = new THREE.MeshBasicMaterial({
-    color, transparent: true, opacity: 0.9, depthWrite: false,
-    polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3,
-  });
-  const ring = new THREE.Mesh(geo, mat);
-  const fill = new THREE.Mesh(
-    new THREE.CircleGeometry(radius - 0.22, 48).rotateX(-Math.PI / 2),
-    new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.16, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }),
-  );
-  const g = new THREE.Group();
-  g.add(ring, fill);
-  g.renderOrder = 2;
-  g.visible = false;
-  return { group: g, ring: mat, fill: fill.material };
+// Kreis ohne Rand: innen kräftig, nach außen immer blasser (Farbe kommt vom Material)
+let gradient = null;
+function gradientTexture() {
+  if (gradient) return gradient;
+  const c = document.createElement('canvas');
+  c.width = c.height = 256;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(128, 128, 0, 128, 128, 128);
+  for (const [at, a] of [[0, 1], [0.22, 0.86], [0.46, 0.62], [0.68, 0.4], [0.86, 0.2], [1, 0]]) {
+    g.addColorStop(at, `rgba(255, 255, 255, ${a})`);
+  }
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 256, 256);
+  gradient = new THREE.CanvasTexture(c);
+  return gradient;
 }
 
-/** Jet aus einfachen Formen, die Nase zeigt nach -Z */
+function markerMesh(radius, color) {
+  const mat = new THREE.MeshBasicMaterial({
+    color, map: gradientTexture(), transparent: true, opacity: 0.9, depthWrite: false,
+    polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3,
+  });
+  const mesh = new THREE.Mesh(new THREE.CircleGeometry(radius, 48).rotateX(-Math.PI / 2), mat);
+  mesh.renderOrder = 2;
+  mesh.visible = false;
+  return mesh;
+}
+
+/** Jet aus einfachen Formen, die Nase zeigt nach -Z; dazu das Mündungsfeuer der Bordkanone */
 function planeModel() {
   const g = new THREE.Group();
   g.name = 'Jet';
+  g.rotation.order = 'YXZ';
   const body = new THREE.MeshStandardMaterial({ color: 0x5f666d, roughness: 0.45, metalness: 0.5 });
   // beidseitig: die gespiegelten Flügel haben umgedrehte Flächen
   const dark = new THREE.MeshStandardMaterial({ color: 0x2d3136, roughness: 0.5, metalness: 0.4, side: THREE.DoubleSide });
@@ -79,22 +108,17 @@ function planeModel() {
   const glow = new THREE.Mesh(new THREE.CircleGeometry(0.45, 16), new THREE.MeshBasicMaterial({ color: new THREE.Color(4, 1.6, 0.5) }));
   glow.position.set(0, 0, 5.52);
   g.add(glow);
-  return g;
-}
-
-function bombMesh() {
-  const g = new THREE.Group();
-  const mat = new THREE.MeshStandardMaterial({ color: 0x3a3f33, roughness: 0.6, metalness: 0.3 });
-  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.16, 0.7, 4, 10), mat);
-  body.rotation.x = Math.PI / 2;
-  g.add(body);
-  for (let i = 0; i < 4; i++) {
-    const fin = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.3, 0.22), mat);
-    fin.position.set(0, 0, 0.5);
-    fin.rotation.z = (i * Math.PI) / 2;
-    fin.translateY(0.14);
-    g.add(fin);
-  }
+  // Rohr der Kanone unter der Nase, davor das Mündungsfeuer
+  add(new THREE.CylinderGeometry(0.09, 0.11, 1.4, 8), dark, 0, -0.35, -8.0, Math.PI / 2);
+  const flash = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: muzzleTexture(), color: new THREE.Color(4, 2.3, 1.1), transparent: true, depthWrite: false,
+    blending: THREE.AdditiveBlending,
+  }));
+  flash.name = 'Mündungsfeuer';
+  flash.position.copy(NOSE);
+  flash.scale.setScalar(2.6);
+  flash.visible = false;
+  g.add(flash);
   return g;
 }
 
@@ -105,11 +129,9 @@ export class Airstrikes {
     this.targeting = false;
     this.aimPoint = new THREE.Vector3();
     this.aimValid = false;
-    const aim = ringMesh(SPECIAL.radius, 0xffb23d);
-    this.aim = aim;
-    game.scene.add(aim.group);
+    this.aim = markerMesh(SPECIAL.radius, 0xffb23d);
+    game.scene.add(this.aim);
     this.planeTemplate = planeModel();
-    this.bombTemplate = bombMesh();
   }
 
   // ---------- Ziel wählen ----------
@@ -120,7 +142,7 @@ export class Airstrikes {
 
   cancel() {
     this.targeting = false;
-    this.aim.group.visible = false;
+    this.aim.visible = false;
   }
 
   /** Zielpunkt: dort, wo man hinschaut (an Wänden der Boden davor) */
@@ -142,12 +164,11 @@ export class Airstrikes {
       this.aimPoint.copy(_a);
       this.aimValid = true;
     }
-    const grp = this.aim.group;
-    grp.visible = this.aimValid;
+    const m = this.aim;
+    m.visible = this.aimValid;
     if (this.aimValid) {
-      grp.position.copy(this.aimPoint).y += 0.04;
-      const pulse = 0.65 + 0.35 * Math.sin(performance.now() / 120);
-      this.aim.ring.opacity = 0.9 * pulse;
+      m.position.copy(this.aimPoint).y += 0.04;
+      m.material.opacity = 0.7 + 0.2 * Math.sin(performance.now() / 120);
     }
   }
 
@@ -167,52 +188,81 @@ export class Airstrikes {
     const g = this.g;
     const rand = seeded(seed);
     const fly = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
-    // Einschläge im Kreis, entlang der Flugrichtung sortiert: die Bomben fallen nacheinander
+    const R = SPECIAL.radius;
+    const sigma = R * SPECIAL.scatter;
+    // Einschläge: um die Mitte gestreut (Normalverteilung, nichts außerhalb des Kreises) und
+    // entlang der Flugrichtung sortiert; die Kanone feuert gleichmäßig, die Einschläge wandern also
+    // am Rand schnell und in der dichten Mitte langsam
     const hits = [];
-    for (let i = 0; i < SPECIAL.bombs; i++) {
-      const a = rand() * Math.PI * 2;
-      const r = i === 0 ? rand() * 1.2 : Math.sqrt(rand()) * SPECIAL.radius * 0.92;
-      const p = new THREE.Vector3(point.x + Math.cos(a) * r, point.y, point.z + Math.sin(a) * r);
+    for (let i = 0; i < SPECIAL.rounds; i++) {
+      let x, z;
+      do {
+        const r = Math.sqrt(-2 * Math.log(1 - rand())) * sigma;
+        const a = rand() * Math.PI * 2;
+        x = Math.cos(a) * r;
+        z = Math.sin(a) * r;
+      } while (x * x + z * z > R * R);
+      const p = new THREE.Vector3(point.x + x, point.y, point.z + z);
       // Boden unter dem Einschlag suchen (Dächer, Container, Balkon)
       _a.set(p.x, point.y + 12, p.z);
       const ground = g.physics.raycast(_a, DOWN, 30);
       if (ground) p.y = _a.y - ground.distance;
-      hits.push(p);
+      hits.push({ pos: p, along: x * fly.x + z * fly.z });
     }
-    hits.sort((p, q) => (p.x - point.x) * fly.x + (p.z - point.z) * fly.z - ((q.x - point.x) * fly.x + (q.z - point.z) * fly.z));
-    const marker = ringMesh(SPECIAL.radius, 0xff2a1a);
-    marker.group.position.copy(point).y += 0.05;
-    marker.group.visible = true;
-    g.scene.add(marker.group);
-    const plane = this.planeTemplate.clone();
-    plane.rotation.y = yaw;
-    plane.visible = false;
-    g.scene.add(plane);
-    const bombs = hits.map(() => {
-      const b = this.bombTemplate.clone();
-      b.visible = false;
-      g.scene.add(b);
-      return b;
-    });
+    hits.sort((p, q) => p.along - q.along);
+    const pass = SPECIAL.delay + SPECIAL.burst + PASS_AFTER;
     const strike = {
-      point: point.clone(), fly, yaw, mine, hits, bombs, plane, marker,
-      t: 0, next: 0, smokeT: 0, jet: false, whistles: 0,
-      over: SPECIAL.delay - 0.35,
-      end: SPECIAL.delay + (SPECIAL.bombs - 1) * SPECIAL.spacing + 1.5,
+      point: point.clone(), fly, yaw, mine, hits, pass,
+      t: 0, next: 0, fired: 0, smokeT: 0, jet: false, brrt: false,
+      end: pass + 2.2,
     };
+    hits.forEach((h, i) => {
+      h.at = SPECIAL.delay + (SPECIAL.burst * i) / (hits.length - 1);
+      // abgefeuert etwas früher: so lange fliegt die Granate vom Jet bis zum Boden
+      h.fire = h.at - this._muzzleAt(strike, h.at, _a).distanceTo(h.pos) / TRACER.speed;
+    });
+    strike.marker = markerMesh(R, 0xff2a1a);
+    strike.marker.position.copy(point).y += 0.05;
+    strike.marker.visible = true;
+    g.scene.add(strike.marker);
+    strike.plane = this.planeTemplate.clone();
+    strike.plane.visible = false;
+    strike.flash = strike.plane.getObjectByName('Mündungsfeuer');
+    g.scene.add(strike.plane);
     this.list.push(strike);
     // Warnung: wer im oder nahe am Kreis steht, bekommt Piepen und Hinweis
     const p = g.player;
-    const near = Math.hypot(p.feet.x - point.x, p.feet.z - point.z) < SPECIAL.radius + 5;
+    const near = Math.hypot(p.feet.x - point.x, p.feet.z - point.z) < R + 5;
     if (mine) {
       g.audio.play('radio');
-      g.hud.message('Luftschlag angefordert', `Einschlag in ${Math.round(SPECIAL.delay)} Sekunden`, 2);
+      g.hud.message('Luftschlag angefordert', `Der Jet feuert in ${Math.round(SPECIAL.delay)} Sekunden`, 2);
     } else {
       g.hud.message('Luftschlag!', near ? 'Raus aus dem roten Kreis!' : 'Achte auf den roten Rauch', 2.2);
       g.audio.play('airWarn');
     }
     if (mine && near) g.audio.play('airWarn', { delay: 0.6 });
     return strike;
+  }
+
+  /** Ort des Jets zur Zeit t (Sekunden seit dem Anfordern); liefert die Strecke zum Überflug */
+  _planeAt(s, t, out) {
+    const d = (t - s.pass) * PLANE_SPEED;
+    out.copy(s.point).addScaledVector(s.fly, d);
+    out.y = s.point.y + PASS_HEIGHT + (d < 0 ? -d * DIVE : d * CLIMB);
+    return d;
+  }
+
+  /** Neigung des Jets: im Sturzflug Nase unten, nach dem Überflug steil nach oben */
+  _pitch(d) {
+    const k = smooth((d + 18) / 36);
+    return -Math.atan(DIVE) * (1 - k) + Math.atan(CLIMB) * k;
+  }
+
+  /** Mündung der Kanone zur Zeit t */
+  _muzzleAt(s, t, out) {
+    const d = this._planeAt(s, t, out);
+    _e.set(this._pitch(d), s.yaw, 0);
+    return out.add(_v.copy(NOSE).applyEuler(_e));
   }
 
   clear() {
@@ -222,33 +272,37 @@ export class Airstrikes {
   }
 
   _remove(s) {
-    const scene = this.g.scene;
-    scene.remove(s.plane, s.marker.group, ...s.bombs);
-    s.marker.group.traverse((o) => {
-      if (o.isMesh) {
-        o.geometry.dispose();
-        o.material.dispose();
-      }
-    });
+    this.g.scene.remove(s.plane, s.marker);
+    s.marker.geometry.dispose();
+    s.marker.material.dispose();
   }
 
-  /** Zeitablauf und Einschläge (pro Simulationsschritt) */
+  /** Zeitablauf, Schüsse und Einschläge (pro Simulationsschritt) */
   tick(dt) {
+    const g = this.g;
     for (let i = this.list.length - 1; i >= 0; i--) {
       const s = this.list[i];
       s.t += dt;
-      const g = this.g;
-      if (!s.jet && s.t >= s.over - 1.4) {
+      if (!s.jet && s.t >= s.pass - 1.9) {
         s.jet = true;
-        g.audio.play('jet', { duration: 2.8 });
+        g.audio.play('jet', { duration: 3.4 });
       }
-      while (s.whistles < s.hits.length && s.t >= SPECIAL.delay + s.whistles * SPECIAL.spacing - FALL_TIME) {
-        g.audio.play('whistle', { position: s.hits[s.whistles] });
-        s.whistles++;
+      // das "Brrrrt" der Kanone, dort wo der Jet mitten im Feuerstoß ist
+      if (!s.brrt && s.t >= SPECIAL.delay - 0.05) {
+        s.brrt = true;
+        this._planeAt(s, SPECIAL.delay + SPECIAL.burst / 2, _a);
+        g.audio.play('cannon', { position: _a, duration: SPECIAL.burst });
       }
-      while (s.next < s.hits.length && s.t >= SPECIAL.delay + s.next * SPECIAL.spacing) {
-        this._impact(s, s.hits[s.next]);
-        s.bombs[s.next].visible = false;
+      // Leuchtspuren (jede zweite Granate) aus der Kanone zum Einschlag
+      while (s.fired < s.hits.length && s.t >= s.hits[s.fired].fire) {
+        if (s.fired % 2 === 0) {
+          const h = s.hits[s.fired];
+          g.effects.tracer(this._muzzleAt(s, h.fire, _a), h.pos, TRACER);
+        }
+        s.fired++;
+      }
+      while (s.next < s.hits.length && s.t >= s.hits[s.next].at) {
+        this._impact(s, s.hits[s.next], s.next);
         s.next++;
       }
       if (s.t >= s.end) {
@@ -258,18 +312,20 @@ export class Airstrikes {
     }
   }
 
-  _impact(s, pos) {
+  // eine Granate der Bordkanone schlägt ein: kleiner Sprengradius, Schaden nach Abstand
+  _impact(s, h, i) {
     const g = this.g;
+    const pos = h.pos;
+    g.effects.cannonHit(pos, i % 2 === 0);
+    if (i % 3 === 0) g.audio.play('cannonHit', { position: pos });
     _a.copy(pos).y += 0.3;
-    g.effects.explosion(_a, pos.y, 1.3);
-    g.audio.play('explosion', { position: _a, volume: 1.2 });
     const r = SPECIAL.blastRadius;
     if (s.mine) {
       for (const t of g.targets.standing()) {
         _b.copy(t.root.position).y += 1.2;
         const d = _a.distanceTo(_b);
         if (d > r || !g.physics.lineOfSight(_a, _b)) continue;
-        const dmg = Math.round(SPECIAL.damage * Math.pow(1 - d / r, 1.4));
+        const dmg = Math.round(SPECIAL.damage * Math.pow(1 - d / r, 1.2));
         if (dmg <= 0) continue;
         const res = g.targets.damage(t, dmg);
         g.hud.damageNumber(_b, res.damage, false);
@@ -281,20 +337,20 @@ export class Airstrikes {
     _b.copy(p.feet).y += 1.0;
     const d = _a.distanceTo(_b);
     if (p.alive && d < r && g.physics.lineOfSight(_a, _b)) {
-      const dmg = SPECIAL.damage * Math.pow(1 - d / r, 1.4);
+      const dmg = SPECIAL.damage * Math.pow(1 - d / r, 1.2);
       if (dmg >= 1) g.damagePlayer(dmg, { armorPen: SPECIAL.armorPen, from: _a, byOpponent: !s.mine, weapon: 'luftschlag' });
     }
-    g.onBlast?.(_a, r, SPECIAL.damage, SPECIAL.armorPen, 1.4, s.mine ? 'host' : 'guest', 'luftschlag', true);
-    g.shake(Math.max(0, 1 - d / 26));
+    g.onBlast?.(_a, r, SPECIAL.damage, SPECIAL.armorPen, 1.2, s.mine ? 'host' : 'guest', 'luftschlag', true);
+    g.shake(Math.max(0, 0.45 - d / 40));
   }
 
-  /** Bild für Bild: Rauch, Warnkreis, Jet und fallende Bomben */
+  /** Bild für Bild: Rauch, Warnkreis, Jet und Mündungsfeuer */
   update(dt) {
     this.updateAim();
     const g = this.g;
     for (const s of this.list) {
-      // roter Rauch steigt am Ziel auf, solange die Bomben noch nicht gefallen sind
-      if (s.next < s.hits.length) {
+      // roter Rauch steigt am Ziel auf, bis die Kanone feuert
+      if (s.next === 0) {
         s.smokeT -= dt;
         if (s.smokeT <= 0) {
           s.smokeT = 0.07;
@@ -305,34 +361,23 @@ export class Airstrikes {
           });
         }
       }
-      const fade = s.next >= s.hits.length ? Math.max(0, 1 - (s.t - (s.end - 1.5)) / 1.2) : 1;
-      const pulse = 0.6 + 0.4 * Math.sin(s.t * 9);
-      s.marker.ring.opacity = 0.9 * pulse * fade;
-      s.marker.fill.opacity = 0.18 * fade;
-      // Jet: fliegt in Blickrichtung des Anfordernden über den Zielpunkt
-      const k = s.t - s.over;
-      s.plane.visible = Math.abs(k) < 1.5;
-      if (s.plane.visible) {
-        s.plane.position.copy(s.point).addScaledVector(s.fly, k * PLANE_SPEED);
-        s.plane.position.y = s.point.y + PLANE_HEIGHT;
-        s.plane.rotation.set(0, s.yaw, Math.sin(s.t * 2) * 0.06);
+      // Warnkreis pulsiert, nach dem Feuerstoß blendet er aus
+      const done = s.next >= s.hits.length;
+      const fade = done ? Math.max(0, 1 - (s.t - SPECIAL.delay - SPECIAL.burst) / 0.8) : 1;
+      s.marker.material.opacity = (0.84 + 0.14 * Math.sin(s.t * 9)) * fade;
+      s.marker.visible = fade > 0;
+      // Jet: im Sturzflug auf den Kreis zu, danach steil nach oben weg
+      const plane = s.plane;
+      const d = this._planeAt(s, s.t, plane.position);
+      plane.visible = d > -330 && d < 260;
+      if (plane.visible) plane.rotation.set(this._pitch(d), s.yaw, Math.sin(s.t * 2) * 0.05);
+      // Mündungsfeuer flackert, solange die Kanone feuert
+      const firing = s.fired > 0 && s.fired < s.hits.length;
+      s.flash.visible = firing && plane.visible;
+      if (s.flash.visible) {
+        s.flash.material.rotation = Math.random() * Math.PI;
+        s.flash.scale.setScalar(2 + Math.random() * 1.6);
       }
-      // Bomben: aus dem Jet nach unten, zuletzt steil
-      s.hits.forEach((hit, i) => {
-        const b = s.bombs[i];
-        const land = SPECIAL.delay + i * SPECIAL.spacing;
-        const f = 1 - (land - s.t) / FALL_TIME;
-        if (i < s.next || f < 0 || f >= 1) {
-          b.visible = false;
-          return;
-        }
-        b.visible = true;
-        const u = 1 - f;
-        b.position.copy(hit).addScaledVector(s.fly, -14 * u);
-        b.position.y = hit.y + 0.3 + (PLANE_HEIGHT - 2) * u * u;
-        _v.copy(s.fly).multiplyScalar(14).setY(-2 * (PLANE_HEIGHT - 2) * u);
-        b.lookAt(_a.copy(b.position).sub(_v));
-      });
     }
   }
 }

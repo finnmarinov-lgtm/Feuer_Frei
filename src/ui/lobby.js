@@ -19,17 +19,20 @@ function cleanName(s) {
 // läuft ein Countdown und das Spiel startet von selbst. Wer die Seite neu lädt, kommt mit
 // derselben Rolle zurück, bei einem laufenden Duell auch zurück ins Spiel (rejoin).
 export class Lobby {
-  constructor({ show, onStart, netMode = null, keyName = () => 'E' }) {
+  constructor({ show, onStart, netMode = null, keyName = () => 'E', skin = () => null }) {
     this.show = show;
     this.onStart = onStart;
     this.netMode = netMode;
     // Beschriftung der eigenen Taste für eine Aktion (Tastenbelegung)
     this.keyName = keyName;
+    // eigener Messer-Skin (wird mitgeschickt, damit der andere ihn sieht)
+    this.skin = skin;
     this.net = null;
     this.role = null;
     this.rejoin = null;
     this.code = null;
     this.partnerName = '';
+    this.partnerSkin = null;
     this.opts = { mode: 'kampf', lives: 3, wins: 2 };
     this.countdown = 0;
     this.cdTimer = null;
@@ -132,6 +135,7 @@ export class Lobby {
     this.role = null;
     this.rejoin = null;
     this.partnerName = '';
+    this.partnerSkin = null;
     this.problem = '';
     session.clear();
     setUrlLobby(null);
@@ -165,11 +169,12 @@ export class Lobby {
   }
 
   _sayHi(id, ack = false) {
-    this.net?.send({ t: 'hi', v: PROTOCOL, name: this.name, role: this.role, cfg: this.opts, ack, rejoin: !!this.rejoin }, id);
+    this.net?.send({ t: 'hi', v: PROTOCOL, name: this.name, skin: this.skin(), role: this.role, cfg: this.opts, ack, rejoin: !!this.rejoin }, id);
   }
 
-  _adopt(id, name) {
+  _adopt(id, name, skin) {
     const net = this.net;
+    if (skin !== undefined) this.partnerSkin = typeof skin === 'string' ? skin : null;
     if (net.partner === id) {
       if (name) this.partnerName = cleanName(name);
       return false;
@@ -194,7 +199,7 @@ export class Lobby {
         if (this.role === 'host') net.send({ t: 'full' }, from);
         return;
       }
-      const isNew = this._adopt(from, msg.name);
+      const isNew = this._adopt(from, msg.name, msg.skin);
       // Das Duell läuft beim anderen noch: mit dem geschickten Stand wieder einsteigen
       if (msg.resume) {
         this._launch(msg.cfg || this.opts, msg.resume);
@@ -203,7 +208,7 @@ export class Lobby {
       // Beide haben neu geladen: der Host hat den Stand der Partie in seinem Speicher
       if (this.role === 'host' && this.rejoin?.phase && msg.rejoin) {
         const saved = this.rejoin;
-        net.send({ t: 'hi', v: PROTOCOL, ack: true, role: 'host', name: this.name, cfg: saved.cfg, resume: saved.phase }, from);
+        net.send({ t: 'hi', v: PROTOCOL, ack: true, role: 'host', name: this.name, skin: this.skin(), cfg: saved.cfg, resume: saved.phase }, from);
         this._launch(saved.cfg, saved.phase);
         return;
       }
@@ -230,7 +235,8 @@ export class Lobby {
       return;
     }
     // der Gast übernimmt den Host auch über Countdown oder Start, falls ein "Hallo" fehlte
-    if (this.role === 'guest' && !net.partner && ['cd', 'start', 'ph'].includes(msg.t)) this._adopt(from, msg.name);
+    if (this.role === 'guest' && !net.partner && ['cd', 'start', 'ph'].includes(msg.t)) this._adopt(from, msg.name, msg.skin);
+    else if (from === net.partner && msg.skin !== undefined) this.partnerSkin = typeof msg.skin === 'string' ? msg.skin : null;
     if (from !== net.partner) return;
     if (msg.t === 'cfg' && this.role === 'guest') {
       this.opts = msg.cfg;
@@ -262,7 +268,7 @@ export class Lobby {
   _startCountdown() {
     this._stopCountdown();
     const send = () => {
-      this.net.send({ t: 'cd', n: this.countdown, cfg: this.opts, name: this.name });
+      this.net.send({ t: 'cd', n: this.countdown, cfg: this.opts, name: this.name, skin: this.skin() });
       this._render();
     };
     this.countdown = COUNTDOWN;
@@ -281,7 +287,7 @@ export class Lobby {
         return;
       }
       this._stopCountdown();
-      net.send({ t: 'start', cfg: this.opts, name: this.name });
+      net.send({ t: 'start', cfg: this.opts, name: this.name, skin: this.skin() });
       this._launch(this.opts);
     }, 1000);
   }
@@ -311,7 +317,7 @@ export class Lobby {
     $('lobby-room').hidden = true;
     this.onStart(net, {
       role: this.role, lives: cfg.lives, wins: cfg.wins, mode: cfg.mode,
-      myName: this.name, theirName: this.partnerName || 'Mitspieler',
+      myName: this.name, theirName: this.partnerName || 'Mitspieler', theirSkin: this.partnerSkin,
       resume, saved,
     });
   }

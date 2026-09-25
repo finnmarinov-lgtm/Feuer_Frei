@@ -141,6 +141,7 @@ class Particles {
 const _v = new THREE.Vector3();
 const _p = new THREE.Vector3();
 const _n = new THREE.Vector3();
+const UP = new THREE.Vector3(0, 1, 0);
 const DECALS = 180;
 
 function randomDir(out, normal, spread) {
@@ -240,9 +241,10 @@ export class Effects {
     this.decals.instanceMatrix.needsUpdate = true;
   }
 
-  impact(point, normal, surface) {
+  /** decal = false: ohne Einschussloch (Wiederholung in der Kill-Cam, das Loch gibt es schon) */
+  impact(point, normal, surface, decal = true) {
     _n.set(normal.x, normal.y, normal.z);
-    this._decal(point, _n, surface === 'metal' ? 0.05 : 0.07);
+    if (decal) this._decal(point, _n, surface === 'metal' ? 0.05 : 0.07);
     const dust = SURFACE_DUST[surface] || SURFACE_DUST.stone;
     const puffs = surface === 'sand' ? 6 : surface === 'metal' ? 2 : 4;
     for (let i = 0; i < puffs; i++) {
@@ -298,7 +300,8 @@ export class Effects {
     }
   }
 
-  tracer(from, to) {
+  /** Leuchtspur; width = Dicke (Vielfaches), speed in m/s, streak = Länge des Strichs */
+  tracer(from, to, { width = 1, speed = 420, streak = 5 } = {}) {
     const tr = this.tracers.find((t) => !t.active) || this.tracers[0];
     tr.from.copy(from);
     tr.dir.subVectors(to, from);
@@ -306,12 +309,43 @@ export class Effects {
     if (tr.len < 2) return;
     tr.dir.divideScalar(tr.len);
     tr.t = 0;
+    tr.w = width;
+    tr.speed = speed;
+    tr.streak = streak;
     tr.active = true;
     tr.mesh.visible = true;
     _p.copy(from).add(tr.dir);
     tr.mesh.position.copy(from);
     tr.mesh.lookAt(_p);
     tr.mesh.rotateY(Math.PI);
+  }
+
+  /** Einschlag einer Granate der Bordkanone: Feuerblitz, glühende Splitter, Sandfontäne, Loch im Boden */
+  cannonHit(pos, decal = true) {
+    for (let i = 0; i < 3; i++) {
+      _v.set(Math.random() - 0.5, Math.random() * 0.7 + 0.3, Math.random() - 0.5).multiplyScalar(2.2);
+      this.sparks.spawn(pos, _v, { color: [4, 1.9, 0.6], life: 0.1 + Math.random() * 0.08, size0: 0.55 + Math.random() * 0.35, size1: 1.2, gravity: -2, drag: 6, alpha: 0.9 });
+    }
+    for (let i = 0; i < 7; i++) {
+      _v.set(Math.random() - 0.5, Math.random() * 1.1 + 0.35, Math.random() - 0.5).normalize().multiplyScalar(6 + Math.random() * 9);
+      this.sparks.spawn(pos, _v, { color: [4, 2.4, 1.1], life: 0.25 + Math.random() * 0.3, size0: 0.045, size1: 0.02, gravity: 9.8, drag: 0.8 });
+    }
+    for (let i = 0; i < 4; i++) {
+      _v.set((Math.random() - 0.5) * 1.4, 2.5 + Math.random() * 3, (Math.random() - 0.5) * 1.4);
+      const k = 0.34 + Math.random() * 0.1;
+      this.dust.spawn(pos, _v, { color: [k * 1.3, k * 1.05, k * 0.75], life: 1 + Math.random() * 0.8, size0: 0.35, size1: 1.4 + Math.random() * 0.7, alpha: 0.75, gravity: 3, drag: 2.5 });
+    }
+    for (let i = 0; i < 4; i++) {
+      _v.set(Math.random() - 0.5, Math.random() + 0.4, Math.random() - 0.5).normalize().multiplyScalar(3 + Math.random() * 4);
+      this.chips.spawn(pos, _v, { color: [0.3, 0.24, 0.17], life: 0.6 + Math.random() * 0.4, size0: 0.05, size1: 0.04, gravity: 9.8, drag: 0.4 });
+    }
+    if (decal) this._decal(pos, UP, 0.32 + Math.random() * 0.14);
+    // kurzer Lichtblitz (größere Explosionen haben Vorrang)
+    if (this.boomTime > 0 && this.boomPeak > 300) return;
+    this.boomLight.position.copy(pos).y += 0.7;
+    this.boomLight.color.set(0xffa050);
+    this.boomTime = this.boomDur = 0.1;
+    this.boomPeak = 240;
   }
 
   muzzleFlash(pos) {
@@ -370,8 +404,8 @@ export class Effects {
     for (const tr of this.tracers) {
       if (!tr.active) continue;
       tr.t += dt;
-      const head = tr.t * 420;
-      const tail = Math.max(0, head - 5);
+      const head = tr.t * tr.speed;
+      const tail = Math.max(0, head - tr.streak);
       if (tail >= tr.len) {
         tr.active = false;
         tr.mesh.visible = false;
@@ -379,7 +413,7 @@ export class Effects {
       }
       const h = Math.min(head, tr.len);
       tr.mesh.position.copy(tr.from).addScaledVector(tr.dir, tail);
-      tr.mesh.scale.set(1, 1, Math.max(0.01, h - tail));
+      tr.mesh.scale.set(tr.w, tr.w, Math.max(0.01, h - tail));
     }
     this.muzzleTime = Math.max(0, this.muzzleTime - dt);
     this.muzzleLight.intensity = this.muzzleTime > 0 ? 45 * (this.muzzleTime / 0.06) : 0;

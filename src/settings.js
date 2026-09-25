@@ -33,6 +33,8 @@ const DEFAULTS = {
   keys: null,
   // Taste links neben der 1 (^): wechselt sofort zu einem weißen Notizblatt
   bossKey: 'Backquote',
+  // Messer-Skin ('standard' oder ein freigeschalteter wie 'regenbogen', siehe weapons/skins.js)
+  knifeFinish: 'standard',
 };
 
 export function loadSettings() {

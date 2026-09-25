@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { KNIFE_SKINS, WEAPONS } from '../config.js';
 import { muzzleTexture, sparkTexture } from '../effects/textures.js';
 import { mergeByMaterial } from '../engine/merge.js';
+import { animateKnife, setKnifeFinish } from './skins.js';
 
 const ease = (t) => 1 - Math.pow(1 - Math.min(1, Math.max(0, t)), 3);
 const smooth = (t) => {
@@ -93,6 +94,8 @@ export class Viewmodel {
     }
     // welches Messer man hat (im Duell je Team, im Training zufällig, siehe Game)
     this.knifeSkin = Math.random() < 0.5 ? 'karambit' : 'butterfly';
+    // Aussehen der Klinge: null = Stahl, 'regenbogen' = Geschenk (siehe skins.js)
+    this.knifeFinish = null;
     this.flipT = -1;
     this.onMagDrop = null;
     this.reloadTilt = { ...RELOAD_TILT };
@@ -231,6 +234,7 @@ export class Viewmodel {
     const knife = def.slot === 'knife';
     for (const m of Object.values(this.models)) m.model.visible = false;
     this.current = this.models[knife ? `${id}:${this.knifeSkin}` : id];
+    if (knife) setKnifeFinish(this.current.model, this.knifeFinish);
     // Messer ziehen: Karambit einmal um den Finger drehen, Butterfly aufklappen
     this.flipT = knife ? 0 : -1;
     this.def = def;
@@ -249,6 +253,12 @@ export class Viewmodel {
     this.shellTilt = 0;
     this.shellBump = 0;
     this.slideLocked = false;
+  }
+
+  /** anderer Messer-Skin (Einstellungen): gilt sofort, auch wenn man das Messer gerade hält */
+  setKnifeFinish(finish) {
+    this.knifeFinish = finish;
+    if (this.def?.slot === 'knife') setKnifeFinish(this.current.model, finish);
   }
 
   /** Pumpschaft zurück und vor, nach einer kurzen Wartezeit (Sekunden) */
@@ -373,6 +383,7 @@ export class Viewmodel {
     this.t += dt;
     if (!this.current) return;
     const def = this.def;
+    if (def.slot === 'knife') animateKnife(this.current.model, this.t);
     const { parts, rest, hip } = this.current;
     const adsPoseData = this.current.ads;
     const e = adsPoseData ? smooth(ads) : 0;

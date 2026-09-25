@@ -5,7 +5,7 @@
 Drei Spielarten:
 
 - **1 gegen 1** über eine Lobby: einer erstellt sie und schickt Code oder Link, der Freund klickt drauf und ist drin. Kein Konto, keine Installation. Danach läuft alles von selbst: Countdown, Startpunkte, Runden, Ergebnis, Nochmal-Knopf.
-- **Gegen KI**: dasselbe 1 gegen 1 gegen einen Computer-Gegner (Leicht, Mittel, Schwer), ohne dass ein Freund online sein muss.
+- **Gegen KI**: dasselbe 1 gegen 1 gegen einen Computer-Gegner (Anfänger, Leicht, Mittel, Schwer), ohne dass ein Freund online sein muss.
 - **Training**: 5 Runden gegen Klappziele aus Stahl, danach eine Auswertung.
 
 Es läuft am PC (Maus und Tastatur) und auf dem Handy oder Tablet (Touch-Steuerung, quer halten).
@@ -29,7 +29,8 @@ Danach `http://localhost:5173` öffnen und auf **1 gegen 1**, **Gegen KI** oder 
 Regeln:
 
 - Host startet im Westen, Gast im Osten. Jeder hat seine eigene Kaufzone am Startpunkt. Vor beiden Startpunkten stehen Kisten als Deckung, damit niemand direkt durch die Lücke in der Mitte beschossen werden kann.
-- Pro Runde hat jeder so viele Leben wie eingestellt. Wer stirbt und noch Leben hat, ist nach 3 Sekunden am eigenen Startpunkt zurück (mit voller Gesundheit und eigener Ausrüstung).
+- Pro Runde hat jeder so viele Leben wie eingestellt. Wer stirbt und noch Leben hat, ist nach 4 Sekunden am eigenen Startpunkt zurück (mit voller Gesundheit, eigener Ausrüstung und wieder voller Munition).
+- **Kill-Cam und Gegner-Sicht:** Nach dem eigenen Tod sinkt der Blick kurz zu Boden, dann zeigt die **Kill-Cam** die letzten zwei Sekunden noch einmal durch die Augen des Gegners: mit seiner Waffe in der Hand, seinen Schüssen und Leuchtspuren und der eigenen Figur so, wie er sie gesehen hat (Kinobalken oben und unten). Danach sieht man bis zum Wiedereinstieg in der **Gegner-Sicht** live, was er gerade sieht. `Leertaste` oder ein Klick wechselt zwischen beiden (auf dem Handy der Feuer- oder Sprungknopf). Hat man keine Leben mehr, kann man dem Gegner bis zum Rundenende zuschauen, im Bombenmodus also auch beim Entschärfen.
 - **Spawn-Schutz:** 2 Sekunden nach dem Rundenstart und nach jedem Wiedereinstieg zählen keine Treffer (auch keine Granaten). Der Schutz endet sofort, wenn man selbst schießt, sticht oder wirft. Den eigenen Schutz zeigt ein Hinweis unten in der Mitte, ein geschützter Gegner schimmert bläulich und Treffer auf ihn werden blau markiert.
 - Die Runde gewinnt, wer dem anderen alle Leben nimmt. Läuft die Zeit ab, gewinnt, wer mehr Leben übrig hat, danach wer mehr Lebenspunkte hat.
 - Geld wie im Training: 800 $ zum Start, Prämie pro Abschuss, Siegprämie, Niederlagenbonus. Wer am Rundenende tot ist, verliert seine Ausrüstung.
@@ -40,7 +41,7 @@ Regeln:
 ### Bombenmodus
 
 - Die Rollen wechseln jede Runde: In ungeraden Runden greift der Host an, in geraden der Gast.
-- Jede Seite hat einen **Bombenplatz** in der Gasse neben dem eigenen Startpunkt (rot aufgemalt). Wer angreift, legt die Bombe auf dem Platz des anderen: im Kreis stehen und **E halten** (3,2 s, man steht dabei still). Eine Wegmarke zeigt, wo der Platz ist.
+- Jede Seite hat einen **Bombenplatz** in der Gasse ihrer Hälfte, nah an der Mitte vor dem Container (rot aufgemalt). Wer angreift, legt die Bombe auf dem Platz des anderen: im Kreis stehen und **E halten** (3,2 s, man steht dabei still). Eine Wegmarke zeigt, wo der Platz ist. Vom Startpunkt des Verteidigers sieht man den Platz nicht, der Weg dorthin ist für beide fast gleich lang (Verteidiger rund 29 m, Angreifer 33 m). Wer den Verteidiger erwischt, hat also Zeit zum Legen, bevor er wieder da ist.
 - Die gelegte Bombe tickt 35 Sekunden und piept immer schneller. Wer verteidigt, entschärft sie direkt an der Bombe mit **E halten** (5 s).
 - Die Runde gewinnt, wer angreift, wenn die Bombe explodiert oder der Verteidiger keine Leben mehr hat. Wer verteidigt, gewinnt beim Entschärfen, wenn die Zeit ohne gelegte Bombe abläuft oder der Angreifer vor dem Legen keine Leben mehr hat. Liegt die Bombe schon, tickt sie auch weiter, wenn der Angreifer ausgeschaltet ist.
 - Die Explosion ist bis etwa 10 m tödlich (auch für den, der sie gelegt hat). Wer dabei stirbt, verliert wie sonst am Rundenende seine Ausrüstung.
@@ -49,8 +50,8 @@ Regeln:
 ### Spezialleiste und Luftschlag
 
 - Die Leiste rechts über der Munition füllt sich mit Schaden am Gegner oder an Klappzielen, dazu 50 Punkte pro Abschuss (350 Punkte = voll). Sie bleibt über die Runden erhalten.
-- Ist sie voll, **X** drücken und das Ziel anschauen: ein Kreis zeigt, wo die Bomben fallen. **Linksklick** bestätigt, **Rechtsklick** oder **X** bricht ab. Beim Zielen steht man still.
-- Am Ziel steigt roter Rauch auf, alle hören eine Warnung. Nach 3,2 Sekunden fliegt ein Jet über den Hof, sechs Bomben schlagen nacheinander im Kreis ein. Wer rechtzeitig aus dem Kreis läuft, überlebt. Auch der eigene Luftschlag trifft einen selbst.
+- Ist sie voll, **X** drücken und das Ziel anschauen: ein Kreis zeigt, wohin der Jet feuert. **Linksklick** bestätigt, **Rechtsklick** oder **X** bricht ab. Beim Zielen steht man still.
+- Am Ziel steigt roter Rauch auf, alle hören eine Warnung. Der Warnkreis hat keinen Rand: in der Mitte ist er kräftig rot, nach außen immer blasser, genau so verteilt sich auch der Schaden. Nach 3,2 Sekunden kommt ein Jet im Sturzflug und feuert mit der **Bordkanone** („Drrrrrt“, 48 Granaten in 1,2 Sekunden). Die Einschläge wandern in Flugrichtung durch den Kreis, mit Leuchtspuren, Feuer und Sandfontänen. In der Mitte ist das fast immer tödlich, 3 m daneben kostet es im Schnitt gut 90 Lebenspunkte, am Rand kaum noch etwas. Deckung schützt. Wer rechtzeitig aus dem Kreis läuft, überlebt. Auch der eigene Luftschlag trifft einen selbst.
 - Ein Abschuss mit dem Luftschlag bringt 300 $, lädt die Leiste aber nicht wieder auf. Der Luftschlag geht im Training und im 1 gegen 1.
 
 ## Gegen KI
@@ -75,6 +76,8 @@ Die KI spielt nach denselben Regeln wie ein Freund im 1 gegen 1 (sie ist dabei d
 
 Auf dem Handy spielt die KI in jeder Stufe schwächer, weil Zielen mit dem Finger schwerer ist: 0,3 s längere Reaktion, anderthalbfacher Zielfehler, langsameres Drehen und Schießen, halb so oft Luftschläge. Ohne gespeicherte Wahl beginnt man dort bei den Anfängern.
 
+**Geheimnis (Easter Egg):** Wer die KI auf **Schwer** besiegt, bekommt ein Geschenk: eine **Regenbogen-Klinge** fürs Messer, deren Farben langsam wandern. Die Auswertung zeigt das Geschenk mit Regenbogen-Rahmen, das Messer hat den Skin sofort. In den Einstellungen erscheint danach die Zeile *Messer-Skin* (Standard oder Regenbogen). Im 1 gegen 1 sieht auch der Gegner die bunte Klinge, weil die Lobby den Skin mitschickt. Freigeschaltet ist er im Browser gespeichert (`feuer-frei-geschenke`).
+
 Gegen die KI hält die Pause das Spiel wirklich an. Technisch hängt die KI wie ein zweiter Spieler am Duell: Sie schickt und bekommt dieselben Nachrichten wie ein Gast, nur ohne Netz (`src/ai/`).
 
 ## Auf dem Handy
@@ -98,6 +101,7 @@ Technik:
 - **Treffer:** Der Schütze prüft den Treffer und meldet ihn, der Getroffene zieht sich die Lebenspunkte selbst ab (Weste und Helm zählen dabei). Granaten rechnet jeder für sich aus.
 - **Host:** bestimmt Rundenstart und Rundenende, Leben und Rundensiege.
 - **Bewegung des Gegners:** direkt 30, über den Server 12 Zustände pro Sekunde. Dazwischen wird mit etwa 0,1 s Verzögerung weich übergeblendet.
+- **Kill-Cam:** Jedes Spiel merkt sich die letzten 6 Sekunden: die Zustände des Gegners samt seinen Schüssen und die eigenen, so wie sie an ihn gingen. Die eigene Figur läuft in der Wiederholung um Ping plus seinen Puffer verzögert, also so, wie er sie auf seinem Bildschirm gesehen hat. Dafür muss nichts Zusätzliches übers Netz.
 - **Wiedereinstieg:** Jeder Tab merkt sich Lobby, Rolle und den eigenen Stand im `sessionStorage` (übersteht das Neuladen, nicht das Schließen des Tabs). Auch beim Host steht der Lobby-Code in der Adresse. Beim Verlassen der Seite meldet sich der Tab ab, zusätzlich per `fetch` mit `keepalive` über die REST-Schnittstelle von Supabase, damit die Abmeldung auch bei schnellem Neuladen ankommt. Wer zurückkommt, bekommt vom anderen den Stand der Partie (Runde, Phase, Zeit, Leben, Siege).
 - Beide Browser brauchen dieselbe Protokollversion (`PROTOCOL` in `src/net/net.js`). Nach einem Update also beide die Seite neu laden.
 - Zum Testen lässt sich ein Weg erzwingen: `?netz=server` oder `?netz=direkt` an die Adresse hängen.
@@ -158,9 +162,19 @@ Das Spiel geht beim Start in den Vollbildmodus. So fängt Chrome auch `Strg+W` a
 
 Dazu Schutzweste, Weste mit Helm und drei Granaten (Splitter, Blend, Rauch) für die zwei Extra-Slots. Mit einer Granate in der Hand zeigt die Bildmitte statt des Fadenkreuzes nur einen Punkt, der die Wurfrichtung markiert.
 
+**Munition** (Magazin + Ersatz, pro Leben): Die Hauptwaffen haben nur zwei Ersatzmagazine, wer viel schießt, muss zwischendurch zur Pistole greifen. Nach dem Wiedereinstieg und zu Beginn jeder Runde ist alles wieder voll.
+
+| Waffe | Munition |
+|---|---|
+| Falke, Wolf, Luchs | 30 + 60 |
+| Keiler | 8 + 16 |
+| Adler | 5 + 15 |
+| Natter | 20 + 120 |
+| Kobra | 7 + 35 |
+
 Beim Nachladen einer Waffe mit Magazin kippt die Waffe zur Seite, das leere Magazin fällt heraus und die linke Hand steckt ein neues ein. Die Keiler lädt weiter Patrone für Patrone.
 
-**Messer:** Im 1 gegen 1 hat Team Rot (Host) ein **Karambit**, Team Blau (Gast, auch die KI) ein **Butterflymesser**. Im Training entscheidet der Zufall. Beim Ziehen und beim Begutachten (`F`) dreht sich das Karambit einmal um den Zeigefinger, das Butterfly klappt auf: Klinge und zweite Griffhälfte schwingen über die Faust, dann klappt die Griffhälfte unten herum zurück. Ein Hieb bricht das sofort ab. Beide Messer haben dieselben Werte. In der Waffenleiste heißt es weiter „Messer“, welches es ist, steht über der Munitionsanzeige und im Kill-Feed.
+**Messer:** Im 1 gegen 1 hat Team Rot (Host) ein **Karambit**, Team Blau (Gast, auch die KI) ein **Butterflymesser**. Im Training entscheidet der Zufall. Beim Ziehen und beim Begutachten (`F`) dreht sich das Karambit einmal um den Zeigefinger, das Butterfly klappt auf: Klinge und zweite Griffhälfte schwingen über die Faust, dann klappt die Griffhälfte unten herum zurück. Ein Hieb bricht das sofort ab. Beide Messer haben dieselben Werte. In der Waffenleiste heißt es weiter „Messer“, welches es ist, steht über der Munitionsanzeige und im Kill-Feed. Wer das Geschenk hat (Sieg gegen die KI auf Schwer), trägt eine Regenbogen-Klinge.
 
 **Kill-Feed** oben rechts: Schütze, Waffen-Symbol (Kopfschüsse mit eigenem Zeichen), Opfer. Im 1 gegen 1 stehen die Namen in Teamfarben (Rot und Blau), eigene Abschüsse und der eigene Tod sind gelb umrandet.
 
@@ -182,11 +196,11 @@ Alle Werte (Waffen, Rückstoßmuster, Streuung, Preise, Rundenzeiten) stehen in 
 | Ordner / Datei | Zweck |
 |---|---|
 | `src/config.js` | Alle Spielwerte an einem Ort |
-| `src/game/` | Spielkern, Runden und Geld, Klappziele, 1 gegen 1 mit Bombenmodus (`duel.js`), der Gegner im eigenen Spiel (`remote.js`) und der Luftschlag (`airstrike.js`) |
+| `src/game/` | Spielkern, Runden und Geld, Klappziele, 1 gegen 1 mit Bombenmodus (`duel.js`), der Gegner im eigenen Spiel (`remote.js`), Kill-Cam und Gegner-Sicht (`killcam.js`) und der Luftschlag (`airstrike.js`) |
 | `src/net/` | Verbindung zwischen zwei Browsern (Trystero und Supabase Realtime), Tab-Speicher für den Wiedereinstieg |
 | `src/ai/` | KI-Gegner: Wegenetz (`nav.js`), Verhalten (`bot.js`) und die Verbindung zum Duell ohne Netz (`botnet.js`) |
 | `src/player/` | Bewegung wie in der Source-Engine (Beschleunigung, Reibung, Luftsteuerung, Ducken) |
-| `src/weapons/` | Inventar mit 5 Slots, Schießen, Rückstoß, Waffe in der Hand, Granaten |
+| `src/weapons/` | Inventar mit 5 Slots, Schießen, Rückstoß, Waffe in der Hand, Granaten, Messer-Skins (`skins.js`) |
 | `src/world/` | Arena, Himmel und Licht, Bombenplätze und Bombe (`bombsites.js`) |
 | `src/effects/` | Einschusslöcher, Funken, Staub, Leuchtspuren, Explosionen |
 | `src/engine/` | Grafik, Physik, Steuerung, Ton (alle Geräusche werden per WebAudio erzeugt) |

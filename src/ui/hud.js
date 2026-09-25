@@ -40,7 +40,10 @@ export class Hud {
       usebar: $('usebar'), usebarLabel: $('usebar-label'), usebarFill: $('usebar-fill'), useprompt: $('useprompt'),
       waypoint: $('waypoint'), waypointText: $('waypoint-text'), bombBadge: $('bomb-badge'),
       special: $('special'), specialFill: $('special-fill'), specialHint: $('special-hint'),
+      spectate: $('spectate'), specTag: $('spec-tag'), specWho: $('spec-who'), specHint: $('spec-hint'),
+      specLeft: $('spec-left'), killbars: $('killbars'),
     };
+    this.spectating = false;
     this.refreshKeys();
     this.chatOpen = false;
     this.chatT = 0;
@@ -132,7 +135,32 @@ export class Hud {
     }
   }
 
+  /**
+   * Kill-Cam und Gegner-Sicht: Schriftzug unten, in der Kill-Cam Kinobalken; null = aus.
+   * info: { view ('replay', 'live', 'death'), tag, who, hint, left }
+   */
+  spectate(info) {
+    const el = this.el;
+    const on = !!info;
+    if (this.spectating !== on) {
+      this.spectating = on;
+      el.root.classList.toggle('spectating', on);
+    }
+    this._show(el.killbars, on && info.view === 'replay');
+    this._show(el.spectate, on && !!(info.tag || info.hint || info.left));
+    if (!on) return;
+    el.spectate.classList.toggle('live', info.view === 'live');
+    this._show(el.specTag.parentElement, !!info.tag);
+    this._text(el.specTag, info.tag);
+    this._text(el.specWho, info.who);
+    this._text(el.specHint, info.hint);
+    this._text(el.specLeft, info.left);
+    this._show(el.specLeft, !!info.left);
+    this._show(el.specHint, !!info.hint);
+  }
+
   reset() {
+    this.spectate(null);
     this.el.roundEnd.hidden = true;
     for (const k of ['usebar', 'useprompt', 'waypoint', 'bombBadge', 'specialHint']) this.el[k].hidden = true;
     this.el.flash.style.opacity = 0;
@@ -425,16 +453,20 @@ export class Hud {
 
     // Fadenkreuz spreizt sich mit der echten Streuung
     const def = ws.active?.def;
-    const scoped = ws.scoped;
+    // Kill-Cam und Gegner-Sicht: sein Zielfernrohr, sonst ein ruhiges Fadenkreuz
+    const kc = g.killcam;
+    const spec = this.spectating;
+    const scoped = spec ? kc.scoped : ws.scoped;
     // Granate: nur ein Punkt in der Mitte, damit man sieht, wohin man wirft
-    const grenade = def?.anim === 'grenade';
+    const grenade = !spec && def?.anim === 'grenade';
     if (el.cross._dotOnly !== grenade) {
       el.cross._dotOnly = grenade;
       el.cross.classList.toggle('dot-only', grenade);
     }
-    const showCross = !!def && !scoped && (grenade || ws.ads < 0.5);
+    const showCross = spec ? kc.firstPerson && !scoped && kc.ads < 0.5 : !!def && !scoped && (grenade || ws.ads < 0.5);
     this._set(el.cross.style, 'display', showCross ? '' : 'none');
-    if (showCross && grenade) {
+    if (showCross && (grenade || spec)) {
+      if (spec) this._setVar(el.cross, '--gap', '6px');
       this._set(el.cross.style, 'opacity', '1');
     } else if (showCross) {
       const px = Math.tan(ws.spread / 1000) * (window.innerHeight / 2) / Math.tan((camera.fov * Math.PI) / 360);

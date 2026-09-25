@@ -52,7 +52,8 @@ export const DUEL = {
   roundTimeBase: 60,
   roundTimePerLife: 30,
   roundEndTime: 5,
-  respawnTime: 3,
+  // Wiedereinstieg nach dem Tod (bei mehreren Leben); in der Zeit laufen Kill-Cam und Gegner-Sicht
+  respawnTime: 4,
   // Spawn-Schutz nach Rundenstart und Wiedereinstieg, endet früher beim ersten eigenen Angriff
   spawnProtect: 2,
   // so lange wird auf einen Gegner ohne Verbindung gewartet (Neuladen, WLAN weg), dann gewinnt man kampflos
@@ -81,18 +82,22 @@ export const BOMB = {
 };
 
 // Spezialleiste: füllt sich mit Schaden an Gegner und Zielen (plus Bonus pro Abschuss).
-// Ist sie voll, gibt es einen Luftschlag (X): Ziel wählen, nach kurzer Warnung schlagen Bomben ein.
+// Ist sie voll, gibt es einen Luftschlag (X): Ziel wählen, nach kurzer Warnung feuert ein Jet mit
+// der Bordkanone in den roten Kreis. In der Mitte tödlich, am Rand kaum noch Schaden.
 export const SPECIAL = {
   charge: 350,
   killBonus: 50,
   maxRange: 90,
-  // Warnzeit bis zum ersten Einschlag: so lange hat man Zeit, aus dem roten Kreis zu laufen
+  // Warnzeit bis zu den ersten Einschlägen: so lange hat man Zeit, aus dem roten Kreis zu laufen
   delay: 3.2,
-  bombs: 6,
   radius: 6,
-  spacing: 0.2,
-  blastRadius: 5.5,
-  damage: 130,
+  // Feuerstoß: so viele Granaten in so vielen Sekunden, gestreut um die Mitte (Anteil des Radius)
+  rounds: 48,
+  burst: 1.2,
+  scatter: 0.42,
+  // jede Granate explodiert klein: Radius und Schaden direkt am Einschlag
+  blastRadius: 2.2,
+  damage: 48,
   armorPen: 0.6,
 };
 
@@ -119,6 +124,8 @@ export const ARMOR = {
 // Scharfschützengewehr am langsamsten), sprintOut = Sekunden nach dem Sprint, bis man schießen kann.
 // Zielen über Kimme und Korn (rechte Maustaste, "ads"): eye = Abstand Auge -> hinteres Visier,
 // zoom = Vergrößerung, time = Sekunden bis voll im Anschlag, speed/spread = Faktoren für Tempo und Streuung.
+// mag = Schuss pro Magazin, reserve = Ersatzmunition pro Leben: bei den Hauptwaffen knapp (zwei
+// Magazine), wer viel schießt, muss zwischendurch zur Pistole greifen.
 
 // Rückstoßmuster: [hoch, rechts] in Grad pro Schuss
 const WOLF_PATTERN = [
@@ -163,7 +170,7 @@ export const WEAPONS = {
   falke: {
     name: 'Falke', type: 'Maschinenpistole', slot: 'primary', price: 1250, reward: 300, model: 'falke',
     auto: true, rpm: 750, damage: 18, headMul: 2.4, armorPen: 0.6, rangeMod: 0.85,
-    mag: 30, reserve: 120, reload: 2.6, draw: 0.7, speed: 5.8, sprint: 7.6, sprintOut: 0.16,
+    mag: 30, reserve: 60, reload: 2.6, draw: 0.7, speed: 5.8, sprint: 7.6, sprintOut: 0.16,
     spread: { base: 9, move: 14, air: 55, fire: 5, recovery: 0.22 },
     recoil: { pattern: FALKE_PATTERN, up: 0.05, side: 0.3, decay: 12, viewKick: 0.5 },
     ads: { eye: 0.07, zoom: 1.2, time: 0.18, speed: 0.7, spread: 0.5 },
@@ -173,7 +180,7 @@ export const WEAPONS = {
   wolf: {
     name: 'Wolf', type: 'Sturmgewehr', slot: 'primary', price: 2700, reward: 150, model: 'wolf',
     auto: true, rpm: 600, damage: 25, headMul: 2.4, armorPen: 0.775, rangeMod: 0.98,
-    mag: 30, reserve: 90, reload: 2.45, draw: 0.9, speed: 5.5, sprint: 7.1, sprintOut: 0.2,
+    mag: 30, reserve: 60, reload: 2.45, draw: 0.9, speed: 5.5, sprint: 7.1, sprintOut: 0.2,
     spread: { base: 3.5, move: 45, air: 90, fire: 7, recovery: 0.3 },
     recoil: { pattern: WOLF_PATTERN, up: 0.05, side: 0.5, decay: 10, viewKick: 0.7 },
     ads: { eye: 0.13, zoom: 1.3, time: 0.24, speed: 0.6, spread: 0.4 },
@@ -183,7 +190,7 @@ export const WEAPONS = {
   keiler: {
     name: 'Keiler', type: 'Schrotflinte', slot: 'primary', price: 1050, reward: 450, model: 'keiler',
     auto: false, rpm: 68, damage: 26, pellets: 9, pelletSpread: 45, headMul: 2.0, armorPen: 0.5, rangeMod: 0.55,
-    mag: 8, reserve: 32, reloadStart: 0.35, reload: 0.5, shellReload: true, draw: 0.8, speed: 5.5, sprint: 7.1, sprintOut: 0.2,
+    mag: 8, reserve: 16, reloadStart: 0.35, reload: 0.5, shellReload: true, draw: 0.8, speed: 5.5, sprint: 7.1, sprintOut: 0.2,
     spread: { base: 5, move: 25, air: 70, fire: 0, recovery: 0.3 },
     recoil: { up: 4.5, side: 0.6, decay: 3, viewKick: 5.5 },
     ads: { eye: 0.16, zoom: 1.12, time: 0.2, speed: 0.75, spread: 0.8 },
@@ -193,7 +200,7 @@ export const WEAPONS = {
   luchs: {
     name: 'Luchs', type: 'Sturmgewehr mit Rotpunkt', slot: 'primary', price: 3100, reward: 150, model: 'luchs',
     auto: true, rpm: 666, damage: 23, headMul: 2.4, armorPen: 0.7, rangeMod: 0.97,
-    mag: 30, reserve: 90, reload: 3.0, draw: 0.9, speed: 5.5, sprint: 7.1, sprintOut: 0.2,
+    mag: 30, reserve: 60, reload: 3.0, draw: 0.9, speed: 5.5, sprint: 7.1, sprintOut: 0.2,
     spread: { base: 3, move: 40, air: 90, fire: 6, recovery: 0.28 },
     recoil: { pattern: LUCHS_PATTERN, up: 0.04, side: 0.4, decay: 11, viewKick: 0.6 },
     ads: { eye: 0.1, zoom: 1.45, time: 0.22, speed: 0.6, spread: 0.35 },
@@ -203,7 +210,7 @@ export const WEAPONS = {
   adler: {
     name: 'Adler', type: 'Scharfschützengewehr', slot: 'primary', price: 4750, reward: 50, model: 'adler',
     auto: false, rpm: 41, damage: 100, headMul: 2.4, armorPen: 0.975, rangeMod: 0.99,
-    mag: 5, reserve: 30, reload: 3.6, draw: 1.1, speed: 5.0, sprint: 6.3, sprintOut: 0.3,
+    mag: 5, reserve: 15, reload: 3.6, draw: 1.1, speed: 5.0, sprint: 6.3, sprintOut: 0.3,
     spread: { base: 70, scoped: 0.6, move: 90, air: 150, fire: 0, recovery: 0.3 },
     recoil: { up: 2.0, side: 0.2, decay: 3, viewKick: 4.5 },
     // eine Zoomstufe, nur solange die rechte Maustaste gehalten wird
