@@ -1,33 +1,61 @@
 // Tastatur, Maus und Pointer Lock, auf dem Handy dazu die Touch-Steuerung (touch.js).
-// Aktionen statt Tastencodes, damit man später umbelegen kann.
-const BINDINGS = {
-  KeyW: 'forward', KeyS: 'back', KeyA: 'left', KeyD: 'right',
-  Space: 'jump', ControlLeft: 'crouch', KeyC: 'crouch', ShiftLeft: 'sprint', AltLeft: 'walk',
-  KeyR: 'reload', KeyQ: 'lastWeapon', KeyB: 'buy', KeyF: 'inspect', Tab: 'scores', KeyT: 'chat',
-  KeyE: 'use', KeyX: 'special',
-  Digit1: 'slot1', Digit2: 'slot2', Digit3: 'slot3', Digit4: 'slot4', Digit5: 'slot5', Digit6: 'slot6',
-};
+// Aktionen statt Tastencodes: jede Aktion hat bis zu zwei Tasten, die man in der Steuerung
+// selbst belegen kann (auch die Maustasten 3 bis 5). Schießen, Zielen, Mausrad und Esc sind fest.
+export const ACTIONS = [
+  { id: 'forward', label: 'Vorwärts', keys: ['KeyW'] },
+  { id: 'back', label: 'Rückwärts', keys: ['KeyS'] },
+  { id: 'left', label: 'Links', keys: ['KeyA'] },
+  { id: 'right', label: 'Rechts', keys: ['KeyD'] },
+  { id: 'jump', label: 'Springen', keys: ['Space'] },
+  { id: 'crouch', label: 'Ducken (genauer, leiser)', keys: ['ControlLeft', 'KeyC'] },
+  { id: 'sprint', label: 'Sprinten (nur vorwärts)', keys: ['ShiftLeft'] },
+  { id: 'walk', label: 'Schleichen (lautlos, genauer)', keys: ['AltLeft'] },
+  { id: 'reload', label: 'Nachladen', keys: ['KeyR'] },
+  { id: 'slot1', label: 'Hauptwaffe', keys: ['Digit1'] },
+  { id: 'slot2', label: 'Pistole', keys: ['Digit2'] },
+  { id: 'slot3', label: 'Messer', keys: ['Digit3'] },
+  { id: 'slot4', label: 'Extra 1 (Granate)', keys: ['Digit4'] },
+  { id: 'slot5', label: 'Extra 2 (Granate)', keys: ['Digit5'] },
+  { id: 'lastWeapon', label: 'Letzte Waffe', keys: ['KeyQ'] },
+  { id: 'buy', label: 'Kaufmenü (im Spawn, in der Kaufzeit)', keys: ['KeyB'] },
+  { id: 'use', label: 'Bombe legen / entschärfen (halten)', keys: ['KeyE'] },
+  { id: 'special', label: 'Luftschlag (Spezialleiste voll)', keys: ['KeyX'] },
+  { id: 'inspect', label: 'Waffe begutachten', keys: ['KeyF'] },
+  { id: 'scores', label: 'Statistik (halten)', keys: ['Tab'] },
+  { id: 'chat', label: 'Schnellnachrichten öffnen (1 gegen 1)', keys: ['KeyT'] },
+  { id: 'slot6', label: '6. Schnellnachricht (bei offener Liste)', keys: ['Digit6'] },
+];
+export const DEFAULT_KEYS = Object.fromEntries(ACTIONS.map((a) => [a.id, [...a.keys]]));
 
-/** Tasten, die das Spiel selbst braucht (nicht für den Notizblock belegbar) */
-export const RESERVED_KEYS = new Set([...Object.keys(BINDINGS), 'Escape']);
+// Maustasten, die man belegen kann (0 = links und 2 = rechts sind Schießen und Zielen)
+const MOUSE_CODES = { 1: 'Mouse3', 3: 'Mouse4', 4: 'Mouse5' };
 
 // Beschriftung für die deutsche Tastatur (KeyboardEvent.code folgt der US-Belegung)
 const KEY_NAMES = {
   Backquote: '^', Minus: 'ß', Equal: '´', BracketLeft: 'Ü', BracketRight: '+', Semicolon: 'Ö',
-  Quote: 'Ä', Backslash: '#', IntlBackslash: '<', Comma: ',', Period: '.', Slash: '-',
+  Quote: 'Ä', Backslash: '#', IntlBackslash: '<', Comma: ',', Period: '.', Slash: '-', KeyZ: 'Y', KeyY: 'Z',
   Space: 'Leertaste', Enter: 'Enter', Backspace: 'Rücktaste', CapsLock: 'Feststell', Tab: 'Tab',
   ShiftLeft: 'Shift', ShiftRight: 'Shift rechts', ControlLeft: 'Strg', ControlRight: 'Strg rechts',
   AltLeft: 'Alt', AltRight: 'Alt Gr', Insert: 'Einfg', Delete: 'Entf', Home: 'Pos1', End: 'Ende',
   PageUp: 'Bild auf', PageDown: 'Bild ab', ArrowUp: 'Pfeil hoch', ArrowDown: 'Pfeil runter',
   ArrowLeft: 'Pfeil links', ArrowRight: 'Pfeil rechts', Pause: 'Pause', ScrollLock: 'Rollen',
+  Mouse3: 'Maus 3', Mouse4: 'Maus 4', Mouse5: 'Maus 5',
 };
+
+// echte Beschriftung der Tastatur, falls der Browser sie kennt (Chrome, Edge)
+let layoutMap = null;
+navigator.keyboard?.getLayoutMap?.().then((m) => { layoutMap = m; }).catch(() => {});
 
 export function keyLabel(code) {
   if (!code) return '–';
+  const ch = layoutMap?.get(code);
+  // groß schreiben, nur das ß nicht (daraus würde sonst "SS")
+  if (ch && ch.trim() && !code.startsWith('Numpad')) return ch === 'ß' ? ch : ch.toUpperCase();
+  if (KEY_NAMES[code]) return KEY_NAMES[code];
   if (code.startsWith('Key')) return code.slice(3);
   if (code.startsWith('Digit')) return code.slice(5);
   if (code.startsWith('Numpad')) return 'Num ' + code.slice(6);
-  return KEY_NAMES[code] || code;
+  return code;
 }
 
 export class Input {
@@ -58,6 +86,8 @@ export class Input {
     this.bossKey = null;
     this.onBossKey = null;
     this.capture = null;
+    // Belegung: Aktion -> Tasten und umgekehrt
+    this.setKeys(null);
 
     document.addEventListener('keydown', (e) => this._key(e, true));
     document.addEventListener('keyup', (e) => this._key(e, false));
@@ -69,13 +99,32 @@ export class Input {
       this.mouseY += e.movementY;
     });
     document.addEventListener('mousedown', (e) => {
+      const code = MOUSE_CODES[e.button];
+      // Umbelegen: Maustaste 3 bis 5 als neue Taste übernehmen
+      if (code && this.capture) {
+        e.preventDefault();
+        const cb = this.capture;
+        this.capture = null;
+        cb(code);
+        return;
+      }
       if (!this.locked) return;
       if (e.button === 0) { this.fire = true; this.firePressed = true; }
       if (e.button === 2) { this.alt = true; this.altPressed = true; }
+      if (code) {
+        e.preventDefault();
+        this._press(code, true);
+      }
     });
     document.addEventListener('mouseup', (e) => {
       if (e.button === 0) { if (this.fire) this.fireReleased = true; this.fire = false; }
       if (e.button === 2) { if (this.alt) this.altReleased = true; this.alt = false; }
+      const code = MOUSE_CODES[e.button];
+      if (code) {
+        // Seitentasten würden sonst im Browser zurück- oder vorblättern
+        if (this.enabled) e.preventDefault();
+        this._press(code, false);
+      }
     });
     document.addEventListener('wheel', (e) => {
       if (this.locked) this.wheel += Math.sign(e.deltaY);
@@ -106,15 +155,41 @@ export class Input {
       this.onEscape?.();
       return;
     }
-    const action = BINDINGS[e.code];
+    if (this.bindings[e.code] && this.enabled) e.preventDefault();
+    this._press(e.code, isDown);
+  }
+
+  _press(code, isDown) {
+    const action = this.bindings[code];
     if (!action) return;
-    if (this.enabled) e.preventDefault();
     if (isDown) {
       if (!this.down.has(action)) this.pressed.add(action);
       this.down.add(action);
     } else {
       this.down.delete(action);
     }
+  }
+
+  /** Belegung setzen (Aktion -> bis zu zwei Tasten); fehlende Aktionen bekommen ihre Standardtasten */
+  setKeys(keys) {
+    this.keys = {};
+    for (const a of ACTIONS) {
+      const k = keys?.[a.id];
+      this.keys[a.id] = Array.isArray(k) ? k.filter((c) => typeof c === 'string').slice(0, 2) : [...a.keys];
+    }
+    this.bindings = {};
+    for (const [action, codes] of Object.entries(this.keys)) for (const c of codes) this.bindings[c] = action;
+    this.down.clear();
+  }
+
+  /** Beschriftung der (ersten) Taste einer Aktion, z. B. für Hinweise im Spiel */
+  label(action) {
+    return keyLabel(this.keys[action]?.[0]);
+  }
+
+  /** Taste gehört schon zum Spiel (Aktion oder Esc) */
+  isReserved(code) {
+    return code === 'Escape' || !!this.bindings[code];
   }
 
   releaseAll() {

@@ -29,6 +29,8 @@ const DEFAULTS = {
   // Touch-Steuerung: 'auto' (an auf Handy und Tablet), 'an' oder 'aus'; Empfindlichkeit beim Wischen
   touch: 'auto',
   touchSens: 1,
+  // eigene Tastenbelegung (Aktion -> Tasten), null = Standard
+  keys: null,
   // Taste links neben der 1 (^): wechselt sofort zu einem weißen Notizblatt
   bossKey: 'Backquote',
 };
@@ -51,6 +53,7 @@ export function loadSettings() {
   if (!RENDER_SCALES.includes(s.renderScale)) s.renderScale = DEFAULTS.renderScale;
   if (!['auto', 'an', 'aus'].includes(s.touch)) s.touch = DEFAULTS.touch;
   if (!(s.touchSens >= 0.3 && s.touchSens <= 2.5)) s.touchSens = DEFAULTS.touchSens;
+  if (s.keys !== null && (typeof s.keys !== 'object' || Array.isArray(s.keys))) s.keys = null;
   return s;
 }
 

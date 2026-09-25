@@ -104,6 +104,8 @@ Technik:
 
 ## Steuerung
 
+Die Tabelle zeigt die Standardbelegung. **Eigene Tastenbelegung:** Unter *Steuerung* (im Hauptmenü und in der Pause) auf eine Taste klicken und die neue drücken. Das geht auch mit den Maustasten 3 bis 5 (Mitte und Seitentasten). Jede Aktion kann zwei Tasten haben (mit **+** kommt die zweite dazu). `Entf` löscht eine Belegung, `Esc` bricht ab. Ist eine Taste schon woanders belegt, wird sie dort frei (mit Hinweis). **Standard wiederherstellen** setzt alles zurück. Fest sind nur Schießen (Linksklick), Zielen (Rechtsklick), Waffenwechsel (Mausrad) und Pause (`Esc`). Die Belegung wird im Browser gespeichert, und alle Hinweise im Spiel (Kaufmenü, Bombe, Luftschlag, Schnellnachrichten) zeigen die eigenen Tasten.
+
 | Taste | Aktion |
 |---|---|
 | `W` `A` `S` `D` | Laufen |

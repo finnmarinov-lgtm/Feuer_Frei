@@ -217,8 +217,8 @@ export class Game {
   /** Hinweistexte passend zur Steuerung (Tastatur oder Touchscreen) */
   hint(what) {
     const touch = this.input.touch;
-    if (what === 'buy') return touch ? 'tippe auf „Kaufen“' : 'mit B öffnest du das Kaufmenü';
-    if (what === 'use') return touch ? 'Bomben-Knopf halten' : 'E halten';
+    if (what === 'buy') return touch ? 'tippe auf „Kaufen“' : `mit ${this.input.label('buy')} öffnest du das Kaufmenü`;
+    if (what === 'use') return touch ? 'Bomben-Knopf halten' : `${this.input.label('use')} halten`;
     return '';
   }
 

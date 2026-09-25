@@ -5,8 +5,8 @@ import { netText } from './hud.js';
 const NAME_KEY = 'feuer-frei-name';
 const COUNTDOWN = 5;
 const MODE_INFO = {
-  kampf: 'Wer dem anderen alle Leben nimmt, gewinnt die Runde.',
-  bombe: 'Die Rollen wechseln jede Runde: Einer legt die Bombe auf dem Platz des anderen (E halten), der andere verteidigt und entschärft sie.',
+  kampf: () => 'Wer dem anderen alle Leben nimmt, gewinnt die Runde.',
+  bombe: (use) => `Die Rollen wechseln jede Runde: Einer legt die Bombe auf dem Platz des anderen (${use} halten), der andere verteidigt und entschärft sie.`,
 };
 const $ = (id) => document.getElementById(id);
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -19,10 +19,12 @@ function cleanName(s) {
 // läuft ein Countdown und das Spiel startet von selbst. Wer die Seite neu lädt, kommt mit
 // derselben Rolle zurück, bei einem laufenden Duell auch zurück ins Spiel (rejoin).
 export class Lobby {
-  constructor({ show, onStart, netMode = null }) {
+  constructor({ show, onStart, netMode = null, keyName = () => 'E' }) {
     this.show = show;
     this.onStart = onStart;
     this.netMode = netMode;
+    // Beschriftung der eigenen Taste für eine Aktion (Tastenbelegung)
+    this.keyName = keyName;
     this.net = null;
     this.role = null;
     this.rejoin = null;
@@ -346,7 +348,7 @@ export class Lobby {
       seg.classList.toggle('locked', !host);
       for (const b of seg.children) b.classList.toggle('on', b.dataset.v === String(this.opts[key] ?? 'kampf'));
     }
-    $('lobby-mode-info').textContent = MODE_INFO[this.opts.mode] || MODE_INFO.kampf;
+    $('lobby-mode-info').textContent = (MODE_INFO[this.opts.mode] || MODE_INFO.kampf)(this.keyName('use'));
     const me = `${escapeHtml(this.name)}<small>${host ? 'Host · Westen' : 'Gast · Osten'}</small>`;
     const partner = net.partner
       ? `${escapeHtml(this.partnerName)}<small>${host ? 'Gast · Osten' : 'Host · Westen'}</small>`

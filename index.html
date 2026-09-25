@@ -240,27 +240,11 @@
 
   <div id="controls" class="screen dim" hidden>
     <h1>Steuerung</h1>
-    <table class="keys">
-      <tr><td><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></td><td>Laufen</td></tr>
-      <tr><td><kbd>Maus</kbd></td><td>Umsehen</td></tr>
-      <tr><td><kbd>Linksklick</kbd></td><td>Schießen / Messerhieb / Granate weit werfen</td></tr>
-      <tr><td><kbd>Rechtsklick</kbd></td><td>Zielen über Kimme und Korn (langsamer, genauer) / Zielfernrohr / Messerstich / Granate kurz werfen</td></tr>
-      <tr><td><kbd>Leertaste</kbd></td><td>Springen</td></tr>
-      <tr><td><kbd>Strg</kbd> oder <kbd>C</kbd></td><td>Ducken (genauer, leiser)</td></tr>
-      <tr><td><kbd>Shift</kbd></td><td>Sprinten (nur vorwärts, ohne Schießen; mit dem Messer am schnellsten, mit dem Scharfschützengewehr am langsamsten)</td></tr>
-      <tr><td><kbd>Alt</kbd></td><td>Schleichen (lautlos, genauer)</td></tr>
-      <tr><td><kbd>R</kbd></td><td>Nachladen</td></tr>
-      <tr><td><kbd>1</kbd> – <kbd>5</kbd></td><td>Hauptwaffe, Pistole, Messer, Extra 1, Extra 2</td></tr>
-      <tr><td><kbd>Q</kbd> · <kbd>Mausrad</kbd></td><td>Letzte Waffe · Waffe wechseln</td></tr>
-      <tr><td><kbd>B</kbd></td><td>Kaufmenü (im Spawn, in der Kaufzeit)</td></tr>
-      <tr><td><kbd>F</kbd></td><td>Waffe begutachten</td></tr>
-      <tr><td><kbd>Tab</kbd></td><td>Statistik</td></tr>
-      <tr><td><kbd>T</kbd>, dann <kbd>1</kbd> – <kbd>6</kbd></td><td>Schnellnachricht an den Gegner (im 1 gegen 1)</td></tr>
-      <tr><td><kbd>E</kbd> halten</td><td>Bombe legen bzw. entschärfen (Bombenmodus)</td></tr>
-      <tr><td><kbd>X</kbd></td><td>Luftschlag, wenn die Spezialleiste voll ist: Ziel anschauen, Linksklick</td></tr>
-      <tr><td><kbd>Esc</kbd></td><td>Pause</td></tr>
-      <tr><td><kbd id="help-bosskey">^</kbd></td><td>Notizblock: sofort weißes Blatt, Spiel pausiert, Ton aus (Taste in den Einstellungen änderbar)</td></tr>
-    </table>
+    <div class="hint keys-help">Zum Ändern auf eine Taste klicken und die neue drücken (auch Maustaste 3 bis 5).
+      <kbd>Entf</kbd> löscht die Belegung, <kbd>Esc</kbd> bricht ab. Mit <b>+</b> kommt eine zweite Taste dazu.</div>
+    <div class="keys-note" id="keys-note"></div>
+    <!-- wird aus der Belegung erzeugt (main.js) -->
+    <table class="keys" id="keys-table"></table>
     <div class="touch-help">
       <h3>Auf dem Handy</h3>
       <p>Linker Daumen: Stick zum Laufen (ganz nach vorne schieben = Sprinten). Rechter Daumen: wischen zum Umsehen.
@@ -268,7 +252,10 @@
         Pfeile: springen und ducken. Unten tippst du die Waffe an. Flugzeug: Luftschlag, wenn der Ring voll ist.</p>
     </div>
     <p class="tip">Tipp wie in CS: Im Stehen treffen die Waffen am besten. Kurz vor dem Schuss stoppen, und bei langen Salven die Maus nach unten ziehen.</p>
-    <div class="buttons"><button class="primary" id="btn-controls-back">Zurück</button></div>
+    <div class="buttons">
+      <button class="primary" id="btn-controls-back">Zurück</button>
+      <button id="btn-keys-reset">Standard wiederherstellen</button>
+    </div>
   </div>
 
   <div id="results" class="screen dim" hidden>

@@ -41,8 +41,7 @@ export class Hud {
       waypoint: $('waypoint'), waypointText: $('waypoint-text'), bombBadge: $('bomb-badge'),
       special: $('special'), specialFill: $('special-fill'), specialHint: $('special-hint'),
     };
-    this.el.chatMenu.innerHTML = '<div class="head">Schnellnachricht</div>' +
-      QUICK_CHAT.map((t, i) => `<div data-chat="${i}"><kbd>${i + 1}</kbd>${escapeHtml(t)}</div>`).join('');
+    this.refreshKeys();
     this.chatOpen = false;
     this.chatT = 0;
     this.chats = [];
@@ -65,6 +64,19 @@ export class Hud {
 
   show(on) {
     this.el.root.hidden = !on;
+  }
+
+  /** Tastenhinweise an die eigene Tastenbelegung anpassen (nach dem Umbelegen erneut aufrufen) */
+  refreshKeys() {
+    const input = this.g.input;
+    const key = (a) => escapeHtml(input.label(a));
+    this.el.buyhint.querySelector('kbd').textContent = input.label('buy');
+    this.el.special.querySelector('kbd').textContent = input.label('special');
+    this.el.chatMenu.innerHTML = '<div class="head">Schnellnachricht</div>' +
+      QUICK_CHAT.map((t, i) => `<div data-chat="${i}"><kbd>${key('slot' + (i + 1))}</kbd>${escapeHtml(t)}</div>`).join('');
+    // dynamische Hinweise beim nächsten Anzeigen neu aufbauen
+    this.el.useprompt._html = null;
+    this.el.specialHint._touch = null;
   }
 
   /** 'training' oder 'duel': Punktestand, Leben und Verbindung nur im Duell */
@@ -213,7 +225,7 @@ export class Hud {
   specialReady() {
     this.message('Luftschlag bereit!', this.g.input.touch
       ? 'Tippe auf den Luftschlag-Knopf und wähle das Ziel'
-      : 'X drücken, Ziel anschauen, Linksklick', 2.6);
+      : `${this.g.input.label('special')} drücken, Ziel anschauen, Linksklick`, 2.6);
   }
 
   message(title, sub, duration = 2.5) {
@@ -315,7 +327,7 @@ export class Hud {
     this._show(el.useprompt, !!action);
     if (action) {
       const what = action === 'plant' ? 'Bombe legen' : 'Bombe entschärfen';
-      const html = g.input.touch ? `Knopf halten: ${what}` : `<kbd>E</kbd> halten: ${what}`;
+      const html = g.input.touch ? `Knopf halten: ${what}` : `<kbd>${escapeHtml(g.input.label('use'))}</kbd> halten: ${what}`;
       if (el.useprompt._html !== html) {
         el.useprompt._html = html;
         el.useprompt.innerHTML = html;
@@ -371,7 +383,7 @@ export class Hud {
       el.specialHint._touch = touch;
       el.specialHint.innerHTML = touch
         ? 'Luftschlag: Ziel anschauen · roter Knopf bestätigt · Flugzeug bricht ab'
-        : 'Luftschlag: Ziel anschauen · <kbd>Linksklick</kbd> bestätigen · <kbd>Rechtsklick</kbd> oder <kbd>X</kbd> abbrechen';
+        : `Luftschlag: Ziel anschauen · <kbd>Linksklick</kbd> bestätigen · <kbd>Rechtsklick</kbd> oder <kbd>${escapeHtml(this.g.input.label('special'))}</kbd> abbrechen`;
     }
   }
 

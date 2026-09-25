@@ -1,7 +1,7 @@
 import { Renderer } from './engine/renderer.js';
 import { Physics } from './engine/physics.js';
 import { loadAssets } from './engine/assets.js';
-import { Input, RESERVED_KEYS, keyLabel } from './engine/input.js';
+import { ACTIONS, Input, keyLabel } from './engine/input.js';
 import { Audio } from './engine/audio.js';
 import { Game } from './game/game.js';
 import { Lobby } from './ui/lobby.js';
@@ -41,6 +41,7 @@ async function boot() {
   text.textContent = 'Baue Arena …';
   await nextFrame();
   const input = new Input(renderer.canvas);
+  input.setKeys(settings.keys);
   const audio = new Audio();
   audio.setVolume(settings.volume);
   const game = new Game({ renderer, physics, assets, input, audio, settings });
@@ -154,6 +155,7 @@ function setupMenus(game, input, audio) {
     show,
     onStart: startDuel,
     netMode: new URLSearchParams(location.search).get('netz'),
+    keyName: (action) => input.label(action),
   });
 
   // ---------- Gegen KI: Einstellungen merken, dann wie ein Duell starten (die KI ist der Gast) ----------
@@ -287,9 +289,108 @@ function setupMenus(game, input, audio) {
     syncBossKey();
     show(settingsBack);
   });
-  $('btn-controls').addEventListener('click', () => { controlsBack = 'menu'; show('controls'); });
-  $('btn-controls2').addEventListener('click', () => { controlsBack = 'pause'; show('controls'); });
-  $('btn-controls-back').addEventListener('click', () => show(controlsBack));
+  $('btn-controls').addEventListener('click', () => { controlsBack = 'menu'; renderKeys(); show('controls'); });
+  $('btn-controls2').addEventListener('click', () => { controlsBack = 'pause'; renderKeys(); show('controls'); });
+  $('btn-controls-back').addEventListener('click', () => {
+    stopBinding();
+    show(controlsBack);
+  });
+
+  // ---------- Tastenbelegung (Steuerung) ----------
+  // feste Zeilen oben und unten, dazwischen alle Aktionen mit bis zu zwei Tasten zum Anklicken
+  const FIXED_TOP = [
+    ['Maus', 'Umsehen'],
+    ['Linksklick', 'Schießen / Messerhieb / Granate weit werfen'],
+    ['Rechtsklick', 'Zielen (Kimme und Korn, Zielfernrohr) / Messerstich / Granate kurz werfen'],
+    ['Mausrad', 'Waffe wechseln'],
+  ];
+  let binding = null;
+
+  function renderKeys(note = '') {
+    const rows = FIXED_TOP.map(([k, t]) => `<tr class="fixed"><td><kbd>${k}</kbd></td><td>${t}</td></tr>`);
+    for (const a of ACTIONS) {
+      const codes = input.keys[a.id];
+      const btn = (slot) => {
+        const code = codes[slot];
+        const waiting = binding?.action === a.id && binding.slot === slot;
+        const text = waiting ? 'Taste drücken …' : code ? escapeHtml(keyLabel(code)) : slot === 0 ? '–' : '+';
+        const cls = ['bind', waiting ? 'waiting' : '', code ? '' : 'empty'].join(' ');
+        const title = code ? 'Klicken zum Ändern' : slot === 0 ? 'Klicken zum Belegen' : 'Zweite Taste hinzufügen';
+        return `<button class="${cls}" data-action="${a.id}" data-slot="${slot}" title="${title}">${text}</button>`;
+      };
+      rows.push(`<tr><td>${btn(0)}${codes[0] ? btn(1) : ''}</td><td>${a.label}</td></tr>`);
+    }
+    rows.push('<tr class="fixed"><td><kbd>Esc</kbd></td><td>Pause</td></tr>');
+    rows.push(`<tr class="fixed"><td><kbd id="help-bosskey">${escapeHtml(keyLabel(settings.bossKey))}</kbd></td>`
+      + '<td>Notizblock: sofort weißes Blatt, Spiel pausiert, Ton aus (Taste in den Einstellungen)</td></tr>');
+    $('keys-table').innerHTML = rows.join('');
+    $('keys-note').textContent = note;
+  }
+
+  function stopBinding() {
+    if (binding) input.capture = null;
+    binding = null;
+  }
+
+  /** Hinweise im Spiel (Kaufmenü, Luftschlag, Schnellnachrichten …) an die Belegung anpassen */
+  function refreshKeyHints() {
+    game.hud.refreshKeys();
+    document.querySelector('.buy-foot kbd').textContent = input.label('buy');
+    $('buy-close').title = `Schließen (${input.label('buy')})`;
+  }
+
+  $('keys-table').addEventListener('click', (e) => {
+    const b = e.target.closest('.bind');
+    if (!b) return;
+    binding = { action: b.dataset.action, slot: Number(b.dataset.slot) };
+    renderKeys();
+    input.capture = (code) => assignKey(code);
+  });
+
+  function assignKey(code) {
+    const { action, slot } = binding;
+    binding = null;
+    const name = (id) => ACTIONS.find((a) => a.id === id).label;
+    if (code === 'Escape') {
+      renderKeys();
+      return;
+    }
+    if (code === settings.bossKey) {
+      renderKeys(`${keyLabel(code)} ist die Notizblock-Taste. Bitte eine andere wählen.`);
+      return;
+    }
+    const keys = Object.fromEntries(Object.entries(input.keys).map(([k, v]) => [k, [...v]]));
+    let note = '';
+    if (code === 'Delete') {
+      keys[action].splice(slot, 1);
+      if (!keys[action].length) note = `„${name(action)}“ hat jetzt keine Taste.`;
+    } else {
+      // schon woanders belegt: dort freigeben (in derselben Aktion einfach tauschen)
+      for (const [other, codes] of Object.entries(keys)) {
+        const i = codes.indexOf(code);
+        if (i < 0 || (other === action && i === slot)) continue;
+        codes.splice(i, 1);
+        if (other !== action) note = `${keyLabel(code)} war vorher bei „${name(other)}“ – dort ist sie jetzt frei.`;
+      }
+      if (slot < keys[action].length) keys[action][slot] = code;
+      else keys[action].push(code);
+    }
+    input.setKeys(keys);
+    settings.keys = input.keys;
+    saveSettings(settings);
+    refreshKeyHints();
+    renderKeys(note);
+  }
+
+  $('btn-keys-reset').addEventListener('click', () => {
+    stopBinding();
+    input.setKeys(null);
+    settings.keys = null;
+    saveSettings(settings);
+    refreshKeyHints();
+    renderKeys('Alle Tasten sind wieder wie am Anfang.');
+  });
+  refreshKeyHints();
 
   // Einstellungen
   const bind = (id, key, fmt, parse = Number) => {
@@ -338,7 +439,8 @@ function setupMenus(game, input, audio) {
   function syncBossKey() {
     bossBtn.textContent = keyLabel(settings.bossKey);
     bossBtn.classList.remove('waiting');
-    $('help-bosskey').textContent = keyLabel(settings.bossKey);
+    const help = $('help-bosskey');
+    if (help) help.textContent = keyLabel(settings.bossKey);
     $('bosskey-hint').textContent = '';
   }
 
@@ -349,7 +451,7 @@ function setupMenus(game, input, audio) {
     input.capture = (code) => {
       syncBossKey();
       if (code === 'Escape') return;
-      if (RESERVED_KEYS.has(code)) {
+      if (input.isReserved(code)) {
         $('bosskey-hint').textContent = `${keyLabel(code)} braucht das Spiel selbst, bitte eine andere Taste wählen.`;
         return;
       }
