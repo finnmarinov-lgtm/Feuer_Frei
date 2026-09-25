@@ -7,6 +7,9 @@ const DUCK_DELTA = MOVE.standHeight - MOVE.crouchHeight;
 // Bewegung stößt an Welt, Rampen und den Gegner; Granaten des Gegners prallen vom Körper ab
 const PLAYER_GROUPS = groups(GROUP.PLAYER, GROUP.WORLD | GROUP.CLIP | GROUP.OTHER);
 const BODY_GROUPS = groups(GROUP.PLAYER, GROUP.WORLD | GROUP.CLIP | GROUP.OTHER | GROUP.GRENADE);
+// KI-Gegner: gehört zur Gruppe des Gegners, stößt an Welt und Spieler (nicht an die eigene Figur)
+const BOT_MOVE_GROUPS = groups(GROUP.OTHER, GROUP.WORLD | GROUP.CLIP | GROUP.PLAYER);
+const BOT_BODY_GROUPS = groups(GROUP.OTHER, GROUP.WORLD | GROUP.CLIP | GROUP.PLAYER | GROUP.GRENADE);
 const DOWN = { x: 0, y: -1, z: 0 };
 
 const _wish = new THREE.Vector3();
@@ -15,15 +18,17 @@ const _right = new THREE.Vector3();
 
 // Bewegung nach dem Vorbild der Source-Engine: Beschleunigung, Reibung, Luftsteuerung.
 export class Player {
-  constructor(physics, audio) {
+  /** opts.bot: Körper eines KI-Gegners (andere Kollisionsgruppe) */
+  constructor(physics, audio, opts = {}) {
     this.physics = physics;
     this.audio = audio;
     const R = physics.R;
     this.radius = MOVE.radius;
     this.halfStand = (MOVE.standHeight - 2 * this.radius) / 2;
     this.halfCrouch = (MOVE.crouchHeight - 2 * this.radius) / 2;
+    this.moveGroups = opts.bot ? BOT_MOVE_GROUPS : PLAYER_GROUPS;
     this.collider = physics.world.createCollider(
-      R.ColliderDesc.capsule(this.halfStand, this.radius).setCollisionGroups(BODY_GROUPS),
+      R.ColliderDesc.capsule(this.halfStand, this.radius).setCollisionGroups(opts.bot ? BOT_BODY_GROUPS : BODY_GROUPS),
     );
     const c = physics.world.createCharacterController(0.02);
     c.disableAutostep();
@@ -274,13 +279,19 @@ export class Player {
   }
 
   _move(x, y, z) {
-    this.controller.computeColliderMovement(this.collider, { x, y, z }, undefined, PLAYER_GROUPS);
+    this.controller.computeColliderMovement(this.collider, { x, y, z }, undefined, this.moveGroups);
     const m = this.controller.computedMovement();
     this.feet.x += m.x;
     this.feet.y += m.y;
     this.feet.z += m.z;
     this._syncCollider();
     return { x: m.x, y: m.y, z: m.z };
+  }
+
+  /** Körper aus der Physik nehmen (KI-Gegner wird nicht mehr gebraucht) */
+  dispose() {
+    this.physics.world.removeCharacterController(this.controller);
+    this.physics.world.removeCollider(this.collider, false);
   }
 
   // Weste schützt den Körper, den Kopf nur mit Helm, die Beine nie (wie in CS)

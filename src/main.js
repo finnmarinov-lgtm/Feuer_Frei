@@ -5,13 +5,21 @@ import { Input, RESERVED_KEYS, keyLabel } from './engine/input.js';
 import { Audio } from './engine/audio.js';
 import { Game } from './game/game.js';
 import { Lobby } from './ui/lobby.js';
+import { TouchControls, wantsTouch } from './ui/touch.js';
+import { BotNet } from './ai/botnet.js';
 import { parseCode } from './net/net.js';
 import { session, setUrlLobby } from './net/session.js';
 import { loadSettings, saveSettings } from './settings.js';
 import { TRAINING } from './config.js';
 
 const $ = (id) => document.getElementById(id);
-const SCREENS = ['loading', 'menu', 'lobby', 'pause', 'settings', 'controls', 'results', 'click-resume'];
+const SCREENS = ['loading', 'menu', 'lobby', 'bots', 'pause', 'settings', 'controls', 'results', 'click-resume'];
+const BOT_KEY = 'feuer-frei-ki';
+const BOT_INFO = {
+  leicht: 'Reagiert langsam, trifft selten und läuft beim Schießen herum. Gut zum Reinkommen.',
+  mittel: 'Solider Gegner: bleibt zum Schießen stehen, hört deine Schritte, fordert Luftschläge an.',
+  schwer: 'Reagiert blitzschnell, trifft oft den Kopf und spielt die Bombe klug.',
+};
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const fmtMoney = (v) => `${Math.round(v).toLocaleString('de-DE')} $`;
 const fmtTime = (s) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
@@ -40,16 +48,18 @@ async function boot() {
   await game.warmup();
   window.addEventListener('resize', () => game.onResize());
 
+  const { lobby, touch } = setupMenus(game, input, audio);
+
   let last = performance.now();
   const loop = (now) => {
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
     game.frame(dt);
+    touch.update();
     requestAnimationFrame(loop);
   };
   requestAnimationFrame(loop);
 
-  const lobby = setupMenus(game, input, audio);
   show('menu');
   // Einladungslink (…?lobby=CODE): gleich der Lobby beitreten
   const params = new URLSearchParams(location.search);
@@ -58,6 +68,7 @@ async function boot() {
   if (import.meta.env.DEV) {
     window.__game = game;
     window.__lobby = lobby;
+    window.__touch = touch;
   }
 }
 
@@ -76,12 +87,21 @@ function setupMenus(game, input, audio) {
   function enterFullscreen() {
     if (!settings.fullscreen || document.fullscreenElement || !document.documentElement.requestFullscreen) return;
     document.documentElement.requestFullscreen({ navigationUI: 'hide' })
-      // Im Vollbild fängt Chrome damit auch Strg+W ab (Ducken + Vorwärts)
-      .then(() => navigator.keyboard?.lock?.())
+      // Im Vollbild fängt Chrome damit auch Strg+W ab (Ducken + Vorwärts); auf dem Handy quer
+      .then(() => (input.touch ? screen.orientation?.lock?.('landscape') : navigator.keyboard?.lock?.()))
       .catch(() => {});
   }
 
   async function lockOrAsk() {
+    // Touchscreen: kein Mauszeiger zum Fangen, es geht einfach weiter
+    if (input.touch) {
+      if (pendingResume) {
+        pendingResume = false;
+        game.state = 'playing';
+      }
+      if (game.state === 'playing') show(null);
+      return;
+    }
     await input.lock();
     if (document.pointerLockElement !== input.canvas) {
       $('click-title').textContent = 'Klicken zum Weiterspielen';
@@ -92,8 +112,9 @@ function setupMenus(game, input, audio) {
 
   function syncPauseTexts() {
     const duel = game.mode === 'duel';
-    $('pause-note').hidden = !duel;
-    $('btn-quit').textContent = duel ? 'Duell verlassen' : 'Training beenden';
+    const online = duel && game.match.online;
+    $('pause-note').hidden = !online;
+    $('btn-quit').textContent = online ? 'Duell verlassen' : duel ? 'Spiel beenden' : 'Training beenden';
   }
 
   async function start() {
@@ -119,8 +140,9 @@ function setupMenus(game, input, audio) {
     const m = game.match;
     const tap = input.touch ? 'Tippen' : 'Klicken';
     $('click-title').textContent = opts.resume ? `Zurück im Duell – ${tap} zum Weiterspielen` : `${tap} zum Spielen`;
-    let hint = `1 gegen 1 gegen ${opts.theirName} · Kaufzeit läuft, mit B öffnest du das Kaufmenü`;
-    if (m.bombMode) hint = `Bombenmodus gegen ${opts.theirName} · Runde 1: ${m.attacking ? 'Du greifst an und legst die Bombe' : 'Du verteidigst deinen Bombenplatz'}`;
+    const who = net.bot ? `${opts.theirName} · ${net.levelName}` : opts.theirName;
+    let hint = `1 gegen 1 gegen ${who} · Kaufzeit läuft, ${game.hint('buy')}`;
+    if (m.bombMode) hint = `Bombenmodus gegen ${who} · Runde 1: ${m.attacking ? 'Du greifst an und legst die Bombe' : 'Du verteidigst deinen Bombenplatz'}`;
     if (opts.resume) hint = `Runde ${m.round} gegen ${opts.theirName}`;
     $('click-hint').textContent = hint;
     show('click-resume');
@@ -131,6 +153,54 @@ function setupMenus(game, input, audio) {
     show,
     onStart: startDuel,
     netMode: new URLSearchParams(location.search).get('netz'),
+  });
+
+  // ---------- Gegen KI: Einstellungen merken, dann wie ein Duell starten (die KI ist der Gast) ----------
+  let botOpts = { level: 'mittel', mode: 'kampf', lives: 3, wins: 2 };
+  try {
+    botOpts = { ...botOpts, ...JSON.parse(localStorage.getItem(BOT_KEY) || '{}') };
+  } catch {
+    // ohne Speicher gelten die Standardwerte
+  }
+  function renderBotOpts() {
+    for (const seg of document.querySelectorAll('#bot-opts .seg')) {
+      for (const b of seg.children) b.classList.toggle('on', b.dataset.v === String(botOpts[seg.dataset.opt]));
+    }
+    $('bot-level-info').textContent = BOT_INFO[botOpts.level] || '';
+  }
+  for (const seg of document.querySelectorAll('#bot-opts .seg')) {
+    seg.addEventListener('click', (e) => {
+      const raw = e.target.dataset?.v;
+      if (!raw) return;
+      const key = seg.dataset.opt;
+      botOpts = { ...botOpts, [key]: key === 'lives' || key === 'wins' ? Number(raw) : raw };
+      try {
+        localStorage.setItem(BOT_KEY, JSON.stringify(botOpts));
+      } catch {
+        // egal
+      }
+      renderBotOpts();
+    });
+  }
+  $('btn-bots').addEventListener('click', () => {
+    renderBotOpts();
+    show('bots');
+  });
+  $('btn-bot-back').addEventListener('click', () => show('menu'));
+  $('btn-bot-start').addEventListener('click', () => {
+    const net = new BotNet(game, botOpts.level);
+    enterFullscreen();
+    startDuel(net, {
+      role: 'host', lives: botOpts.lives, wins: botOpts.wins, mode: botOpts.mode,
+      myName: lobby.name, theirName: net.name, resume: null, saved: null,
+    });
+  });
+
+  // Handy: Stick und Knöpfe; Pause über den Knopf oder wenn die App in den Hintergrund geht
+  const touch = new TouchControls(game, { onPause: () => pause() });
+  touch.setEnabled(wantsTouch(settings));
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && input.touch) pause();
   });
 
   function pause() {
@@ -245,7 +315,10 @@ function setupMenus(game, input, audio) {
     bind('set-adstoggle', 'adsToggle', () => ''),
     bind('set-fullscreen', 'fullscreen', () => ''),
     bind('set-fps', 'showFps', () => ''),
+    bind('set-touch', 'touch', (v) => v, String),
+    bind('set-touchsens', 'touchSens', (v) => v.toFixed(2)),
   ];
+  $('set-touch').addEventListener('input', () => touch.setEnabled(wantsTouch(settings)));
   function openSettings() {
     for (const s of syncs) s();
     syncBossKey();
@@ -417,7 +490,7 @@ function setupMenus(game, input, audio) {
         `<td>${x.kills} / ${x.targets}</td><td>${x.heads}</td><td>${fmtTime(x.time)}</td><td>+${fmtMoney(x.bonus + x.reward)}</td></tr>`).join('');
     show('results');
   };
-  return lobby;
+  return { lobby, touch };
 }
 
 boot().catch((err) => {

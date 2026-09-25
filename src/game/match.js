@@ -110,7 +110,7 @@ export class Match {
     const n = TRAINING.targets[Math.min(this.round - 1, TRAINING.targets.length - 1)];
     this.pendingSpots = shuffle([...g.arena.targetSpots]).slice(0, n);
     this.pendingMoving = TRAINING.moving[Math.min(this.round - 1, TRAINING.moving.length - 1)];
-    g.hud.message(`Runde ${this.round} von ${TRAINING.rounds}`, 'Kaufzeit – mit B öffnest du das Kaufmenü', 3);
+    g.hud.message(`Runde ${this.round} von ${TRAINING.rounds}`, `Kaufzeit – ${g.hint('buy')}`, 3);
     g.hud.onWeaponChange();
     this.lastBeep = Math.ceil(this.timer);
   }

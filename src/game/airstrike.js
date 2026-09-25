@@ -284,6 +284,7 @@ export class Airstrikes {
       const dmg = SPECIAL.damage * Math.pow(1 - d / r, 1.4);
       if (dmg >= 1) g.damagePlayer(dmg, { armorPen: SPECIAL.armorPen, from: _a, byOpponent: !s.mine, weapon: 'luftschlag' });
     }
+    g.onBlast?.(_a, r, SPECIAL.damage, SPECIAL.armorPen, 1.4, s.mine ? 'host' : 'guest', 'luftschlag', true);
     g.shake(Math.max(0, 1 - d / 26));
   }
 

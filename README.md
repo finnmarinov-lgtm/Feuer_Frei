@@ -2,10 +2,13 @@
 
 3D-Shooter im Browser im Stil von CS: Hauptwaffe, Pistole, Messer und zwei Extra-Slots für Granaten, dazu ein Kaufmenü mit Budget zu Beginn jeder Runde. Gebaut mit Three.js, Physik mit Rapier.
 
-Zwei Spielarten:
+Drei Spielarten:
 
 - **1 gegen 1** über eine Lobby: einer erstellt sie und schickt Code oder Link, der Freund klickt drauf und ist drin. Kein Konto, keine Installation. Danach läuft alles von selbst: Countdown, Startpunkte, Runden, Ergebnis, Nochmal-Knopf.
+- **Gegen KI**: dasselbe 1 gegen 1 gegen einen Computer-Gegner (Leicht, Mittel, Schwer), ohne dass ein Freund online sein muss.
 - **Training**: 5 Runden gegen Klappziele aus Stahl, danach eine Auswertung.
+
+Es läuft am PC (Maus und Tastatur) und auf dem Handy oder Tablet (Touch-Steuerung, quer halten).
 
 ## Starten
 
@@ -14,7 +17,7 @@ npm install
 npm run dev
 ```
 
-Danach `http://localhost:5173` öffnen und auf **1 gegen 1** oder **Training** klicken.
+Danach `http://localhost:5173` öffnen und auf **1 gegen 1**, **Gegen KI** oder **Training** klicken.
 
 ## 1 gegen 1
 
@@ -49,6 +52,42 @@ Regeln:
 - Ist sie voll, **X** drücken und das Ziel anschauen: ein Kreis zeigt, wo die Bomben fallen. **Linksklick** bestätigt, **Rechtsklick** oder **X** bricht ab. Beim Zielen steht man still.
 - Am Ziel steigt roter Rauch auf, alle hören eine Warnung. Nach 3,2 Sekunden fliegt ein Jet über den Hof, sechs Bomben schlagen nacheinander im Kreis ein. Wer rechtzeitig aus dem Kreis läuft, überlebt. Auch der eigene Luftschlag trifft einen selbst.
 - Ein Abschuss mit dem Luftschlag bringt 300 $, lädt die Leiste aber nicht wieder auf. Der Luftschlag geht im Training und im 1 gegen 1.
+
+## Gegen KI
+
+**Gegen KI** im Hauptmenü: Schwierigkeit, Modus (Kampf oder Bombe), Leben und Rundensiege wählen, dann **Los geht’s**. Die Einstellungen merkt sich das Spiel.
+
+Die KI spielt nach denselben Regeln wie ein Freund im 1 gegen 1 (sie ist dabei der Gast im Osten):
+
+- Sie kauft in der Kaufzeit mit ihrem eigenen Geld (Gewehr, MP oder Schrotflinte, Weste, mit viel Geld auch Helm) und verliert ihre Waffen, wenn sie am Rundenende tot ist.
+- Sie läuft über ein Wegenetz um Wände und Kisten herum und nimmt jede Runde einen anderen Weg (Gassen oben und unten, Tunnel, am Gebäude vorbei).
+- Sie sieht nur, was in ihrem Blickfeld und nicht hinter Wänden oder im Rauch liegt, hört rennende Schritte und Schüsse und dreht sich um, wenn sie getroffen wird. Blendgranaten blenden auch sie.
+- Sie zielt mit Reaktionszeit und Zielfehler, schießt Feuerstöße, lädt nach, wechselt im Notfall zur Pistole und fordert mit voller Spezialleiste Luftschläge an. Aus Luftschlag-Kreisen und von der Bombe kurz vor der Explosion läuft sie weg.
+- Im Kampf-Modus zieht sie sich nach einem Abschuss ein paar Sekunden zurück und sucht dich nicht direkt an deinem Startpunkt. Solange du Spawn-Schutz hast, schießt sie nicht (außer auf Leicht).
+- Im Bombenmodus legt sie die Bombe auf deinem Platz und bewacht sie, oder sie hält ihren eigenen Platz und entschärft deine Bombe.
+
+| Stufe | Reaktion | Zielfehler | Besonderheiten |
+|---|---|---|---|
+| Leicht | 0,75 s | groß | läuft beim Schießen herum, selten Kopfschüsse |
+| Mittel | 0,4 s | mittel | bleibt zum Schießen stehen, hört Schritte weiter |
+| Schwer | 0,25 s | klein | dreht sich schnell, oft Kopfschüsse, duckt sich bei langen Salven |
+
+Gegen die KI hält die Pause das Spiel wirklich an. Technisch hängt die KI wie ein zweiter Spieler am Duell: Sie schickt und bekommt dieselben Nachrichten wie ein Gast, nur ohne Netz (`src/ai/`).
+
+## Auf dem Handy
+
+Auf Handy und Tablet schaltet sich die Touch-Steuerung von selbst ein (in den Einstellungen: Automatisch, An oder Aus; zum Testen am PC `?touch=1` an die Adresse hängen). Das Spiel läuft im Querformat, im Hochformat erscheint ein Hinweis zum Drehen.
+
+- **Linker Daumen:** Stick zum Laufen. Er erscheint dort, wo man hintippt. Ganz nach vorne über den Rand schieben = Sprinten, halb gedrückt = langsam und leise.
+- **Rechter Daumen:** wischen zum Umsehen (Empfindlichkeit in den Einstellungen).
+- **Roter Knopf:** schießen. Beim Halten kann man weiter wischen und nachzielen.
+- **Kreis:** Zielen an und aus. Beim Messer ist das der Stich, bei Granaten der kurze Wurf.
+- **Pfeile:** springen und ducken (Ducken schaltet um). Der runde Pfeil lädt nach.
+- **Waffenleiste unten:** Waffe antippen. **Kaufen** (oben links) in der Kaufzeit, **Sprechblase** für Schnellnachrichten, oben rechts Statistik und Pause.
+- **Flugzeug:** Luftschlag. Der Ring zeigt die Spezialleiste, der rote Knopf bestätigt das Ziel.
+- **Bombe legen / Entschärfen:** Der Knopf erscheint auf dem Bombenplatz bzw. an der Bombe und wird gehalten.
+
+Beim Start geht das Spiel in den Vollbildmodus und sperrt das Querformat, soweit der Browser das erlaubt (Android ja, iPhone nicht). Wechselt man die App, pausiert das Spiel.
 
 Technik:
 
@@ -136,12 +175,13 @@ Alle Werte (Waffen, Rückstoßmuster, Streuung, Preise, Rundenzeiten) stehen in 
 | `src/config.js` | Alle Spielwerte an einem Ort |
 | `src/game/` | Spielkern, Runden und Geld, Klappziele, 1 gegen 1 mit Bombenmodus (`duel.js`), der Gegner im eigenen Spiel (`remote.js`) und der Luftschlag (`airstrike.js`) |
 | `src/net/` | Verbindung zwischen zwei Browsern (Trystero und Supabase Realtime), Tab-Speicher für den Wiedereinstieg |
+| `src/ai/` | KI-Gegner: Wegenetz (`nav.js`), Verhalten (`bot.js`) und die Verbindung zum Duell ohne Netz (`botnet.js`) |
 | `src/player/` | Bewegung wie in der Source-Engine (Beschleunigung, Reibung, Luftsteuerung, Ducken) |
 | `src/weapons/` | Inventar mit 5 Slots, Schießen, Rückstoß, Waffe in der Hand, Granaten |
 | `src/world/` | Arena, Himmel und Licht, Bombenplätze und Bombe (`bombsites.js`) |
 | `src/effects/` | Einschusslöcher, Funken, Staub, Leuchtspuren, Explosionen |
 | `src/engine/` | Grafik, Physik, Steuerung, Ton (alle Geräusche werden per WebAudio erzeugt) |
-| `src/ui/` | HUD, Kaufmenü und Lobby |
+| `src/ui/` | HUD, Kaufmenü, Lobby und Touch-Steuerung (`touch.js`) |
 | `blender/` | Python-Skripte, die alle eigenen 3D-Modelle in Blender bauen |
 | `scripts/` | Laden der Poly-Haven-Dateien und Aufruf von Blender |
 | `public/assets/` | Fertige Modelle, Texturen und Himmel, die das Spiel lädt |

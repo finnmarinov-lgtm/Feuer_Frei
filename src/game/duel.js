@@ -84,6 +84,11 @@ export class Duel extends Match {
     this.remoteKeyT = 0;
   }
 
+  /** gegen einen Menschen übers Netz (sonst gegen die KI im eigenen Browser) */
+  get online() {
+    return !this.net.bot;
+  }
+
   get roundTime() {
     if (this.bombMode) return BOMB.roundTimeBase + BOMB.roundTimePerLife * this.cfg.lives;
     return DUEL.roundTimeBase + DUEL.roundTimePerLife * this.cfg.lives;
@@ -247,11 +252,11 @@ export class Duel extends Match {
     if (this.bombMode) {
       g.hud.message(
         this.attacking ? `Runde ${r} · Du greifst an` : `Runde ${r} · Du verteidigst`,
-        this.attacking ? 'Leg die Bombe auf dem Platz des Gegners · B: Kaufmenü' : 'Halte deinen Bombenplatz · B: Kaufmenü',
+        `${this.attacking ? 'Leg die Bombe auf dem Platz des Gegners' : 'Halte deinen Bombenplatz'} · Kaufzeit: ${g.hint('buy')}`,
         3.5,
       );
     } else {
-      g.hud.message(`Runde ${r}`, 'Kaufzeit – mit B öffnest du das Kaufmenü', 3);
+      g.hud.message(`Runde ${r}`, `Kaufzeit – ${g.hint('buy')}`, 3);
     }
     g.hud.onWeaponChange();
     g.hud.onMoney(0);
@@ -269,7 +274,7 @@ export class Duel extends Match {
     const lives = this.cfg.lives > 1 ? ` · ${this.cfg.lives} Leben` : '';
     if (this.bombMode) {
       g.hud.message('Los!', this.attacking
-        ? `Leg die Bombe auf dem roten Platz (E halten)${lives}`
+        ? `Leg die Bombe auf dem roten Platz (${g.hint('use')})${lives}`
         : `${this.names[this.them]} greift an · verteidige deinen Platz${lives}`, 2.2);
     } else {
       g.hud.message('Los!', `${this.names[this.them]} kommt von der anderen Seite${lives}`, 1.8);
@@ -284,7 +289,7 @@ export class Duel extends Match {
     g.audio.play('bombPlanted');
     const mine = this.attacking;
     g.hud.message(mine ? 'Bombe gelegt!' : 'Die Bombe wurde gelegt!',
-      mine ? `Verteidige sie ${BOMB.timer} Sekunden lang` : `Entschärfe sie: hingehen und E halten (${BOMB.defuseTime} s)`, 2.5);
+      mine ? `Verteidige sie ${BOMB.timer} Sekunden lang` : `Entschärfe sie: hingehen und ${g.hint('use')} (${BOMB.defuseTime} s)`, 2.5);
   }
 
   /** pro Simulationsschritt: Restzeit der Bombe, eigenes Legen und Entschärfen */
@@ -373,6 +378,8 @@ export class Duel extends Match {
       g.effects.explosion(_p.set(pos.x + Math.cos(a) * 2.5, pos.y + 1 + Math.random() * 2, pos.z + Math.sin(a) * 2.5), null, 1.6);
     }
     g.audio.play('bombExplode', { position: pos });
+    // KI-Gegner (läuft im selben Browser): Schaden ohne Deckung, wie beim Menschen
+    g.onBlast?.(pos, BOMB.blastRadius, BOMB.blastDamage, 0.85, 2, this.attacker, 'bombe', false);
     const p = g.player;
     _p.copy(p.feet).y += 1;
     const d = _p.distanceTo(pos);
@@ -954,6 +961,7 @@ export class Duel extends Match {
 
   // eigener Stand für den Wiedereinstieg (im Tab, übersteht das Neuladen)
   _save() {
+    if (!this.online) return;
     const g = this.g;
     const p = g.player;
     const inv = g.weapons.inv;

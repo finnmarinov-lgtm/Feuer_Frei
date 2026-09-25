@@ -159,6 +159,8 @@ export class Game {
   startDuel(net, opts) {
     this._setMode('duel');
     this.remote.setActive(true, opts.role === 'host' ? 'guest' : 'host');
+    // gegen die KI hat ihr eigener Körper die Kollision, die Figur zeigt ihn nur an
+    this.remote.solid = !net.bot;
     this.match = new Duel(this, net, opts);
     this.grenades.clear();
     this.airstrikes.clear();
@@ -195,6 +197,14 @@ export class Game {
     this.match.phase = 'idle';
     this.match = this.training;
     this._setMode('training');
+  }
+
+  /** Hinweistexte passend zur Steuerung (Tastatur oder Touchscreen) */
+  hint(what) {
+    const touch = this.input.touch;
+    if (what === 'buy') return touch ? 'tippe auf „Kaufen“' : 'mit B öffnest du das Kaufmenü';
+    if (what === 'use') return touch ? 'Bomben-Knopf halten' : 'E halten';
+    return '';
   }
 
   onMatchOver(summary) {
@@ -274,6 +284,8 @@ export class Game {
   tick(dt) {
     this.time += dt;
     this.match.tick(dt);
+    // Spiel gegen die KI: sie rechnet im selben Takt mit
+    this.match.net?.tick?.(dt);
     // beim Legen, Entschärfen und Zielen für den Luftschlag steht man still
     this.player.busy = this.match.busy || this.airstrikes.targeting;
     this.player.tick(dt, this.input);
@@ -323,9 +335,11 @@ export class Game {
 
   frame(dt) {
     const duel = this.mode === 'duel';
-    // hinter dem Notizblock nichts zeichnen (spart Strom und bleibt unauffällig);
-    // ein Duell läuft dabei weiter, sonst hält es auch beim Gegner an
-    if (this.renderPaused && !duel) return;
+    // ein Duell übers Netz läuft in der Pause weiter (sonst hielte es auch beim Gegner an),
+    // gegen die KI hält es wirklich an
+    const online = duel && this.match.online;
+    // hinter dem Notizblock nichts zeichnen (spart Strom und bleibt unauffällig)
+    if (this.renderPaused && !online) return;
     if (window.innerWidth !== this._w || window.innerHeight !== this._h) {
       this._w = window.innerWidth;
       this._h = window.innerHeight;
@@ -334,8 +348,8 @@ export class Game {
     const input = this.input;
     let mouse = { x: 0, y: 0 };
     const playing = this.state === 'playing' && !this.renderPaused;
-    // im Duell läuft die Welt auch in der Pause weiter, man steht dann nur still
-    const simulate = this.state === 'playing' || (duel && this.state === 'paused');
+    // im Duell übers Netz läuft die Welt auch in der Pause weiter, man steht dann nur still
+    const simulate = this.state === 'playing' || (online && this.state === 'paused');
     if (playing) {
       if (input.consume('buy')) {
         if (this.buyMenu.open) this.closeBuyMenu();

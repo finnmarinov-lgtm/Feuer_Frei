@@ -7,6 +7,7 @@ const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt
 
 /** Verbindungsart und Ping als kurzer Text */
 export function netText(net) {
+  if (net.bot) return `KI-Gegner · ${net.levelName}`;
   if (net.lost) return 'Verbindung unterbrochen …';
   const ms = net.ping ? ` · ${Math.round(net.ping)} ms` : '';
   if (net.mode === 'direkt') return `Direkt verbunden${ms}`;
@@ -40,7 +41,7 @@ export class Hud {
       special: $('special'), specialFill: $('special-fill'), specialHint: $('special-hint'),
     };
     this.el.chatMenu.innerHTML = '<div class="head">Schnellnachricht</div>' +
-      QUICK_CHAT.map((t, i) => `<div><kbd>${i + 1}</kbd>${escapeHtml(t)}</div>`).join('');
+      QUICK_CHAT.map((t, i) => `<div data-chat="${i}"><kbd>${i + 1}</kbd>${escapeHtml(t)}</div>`).join('');
     this.chatOpen = false;
     this.chatT = 0;
     this.chats = [];
@@ -355,7 +356,15 @@ export class Hud {
       el.special._ready = ready;
       el.special.classList.toggle('ready', ready);
     }
-    this._show(el.specialHint, this.g.airstrikes.targeting);
+    const targeting = this.g.airstrikes.targeting;
+    this._show(el.specialHint, targeting);
+    const touch = this.g.input.touch;
+    if (targeting && el.specialHint._touch !== touch) {
+      el.specialHint._touch = touch;
+      el.specialHint.innerHTML = touch
+        ? 'Luftschlag: Ziel anschauen · roter Knopf bestätigt · Flugzeug bricht ab'
+        : 'Luftschlag: Ziel anschauen · <kbd>Linksklick</kbd> bestätigen · <kbd>Rechtsklick</kbd> oder <kbd>X</kbd> abbrechen';
+    }
   }
 
   update(dt, camera, fps) {

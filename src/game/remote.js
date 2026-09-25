@@ -324,7 +324,8 @@ export class RemotePlayer {
       return;
     }
     const net = this.g.match.net;
-    if (!this._sample(net?.mode === 'server' ? 170 : 90)) return;
+    // Puffer gegen Ruckeln im Netz; die KI schickt 60 Zustände pro Sekunde ohne Verzögerung
+    if (!this._sample(net?.mode === 'server' ? 170 : net?.mode === 'bot' ? 35 : 90)) return;
     const s = this.state;
     const aliveFlag = (s.f & FLAG.ALIVE) !== 0;
     // falls die Todesmeldung unterwegs verloren ging, reicht auch der Zustand
@@ -380,8 +381,8 @@ export class RemotePlayer {
     this.flash.visible = this.flashT > 0;
     this._protectGlow(dt);
 
-    // Körper für die Kollision mitführen (geduckt niedriger)
-    const on = !this.dead;
+    // Körper für die Kollision mitführen (geduckt niedriger); gegen die KI hat ihr eigener Körper die Kollision
+    const on = !this.dead && this.solid !== false;
     if (this.collider.isEnabled() !== on) this.collider.setEnabled(on);
     const half = s.duck > 0.5 ? this.halfCrouch : this.halfStand;
     if (half !== this.colliderHalf) {

@@ -256,6 +256,8 @@ export class Grenades {
       const dmg = cfg.damage * Math.pow(1 - d / cfg.radius, 1.5);
       if (dmg >= 1) g.damagePlayer(dmg, { armorPen: cfg.armorPen, from: pos, byOpponent: remote, weapon: 'he' });
     }
+    // KI-Gegner: sein Spiel läuft im selben Browser mit
+    g.onBlast?.(_a, cfg.radius, cfg.damage, cfg.armorPen, 1.5, remote ? 'guest' : 'host', 'he', true);
     g.shake(Math.max(0, 1 - d / 22));
   }
 
@@ -264,6 +266,7 @@ export class Grenades {
     const cfg = GRENADES.flash;
     g.audio.play('flashbang', { position: pos });
     g.effects.flashBurst(pos);
+    g.onFlash?.(pos);
     const eye = g.player.eyePosition(_a);
     const to = _b.subVectors(pos, eye);
     const d = to.length();

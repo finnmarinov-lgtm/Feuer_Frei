@@ -2,7 +2,10 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#0d0f12">
   <title>Feuer Frei</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -69,6 +72,25 @@
     <div id="flash"></div>
   </div>
 
+  <!-- Touch-Steuerung (Handy): Stick links, Wischen rechts, Knöpfe -->
+  <div id="touch" hidden>
+    <div id="t-look"></div>
+    <div id="t-move"><div id="t-stick"><i id="t-knob"></i></div></div>
+    <button class="t-btn t-fire" data-hold="fire" aria-label="Schießen"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2.5v5M12 16.5v5M2.5 12h5M16.5 12h5" stroke="currentColor" stroke-width="2"/></svg></button>
+    <button class="t-btn t-aim" data-hold="alt" aria-label="Zielen"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2.6"/></svg></button>
+    <button class="t-btn t-jump" data-hold="jump" aria-label="Springen"><svg viewBox="0 0 24 24"><path d="M12 4l7 8h-4.5v8h-5v-8H5z"/></svg></button>
+    <button class="t-btn t-crouch" id="t-crouch" aria-label="Ducken"><svg viewBox="0 0 24 24"><path d="M12 20l-7-8h4.5V4h5v8H19z"/></svg></button>
+    <button class="t-btn t-reload" data-tap="reload" aria-label="Nachladen"><svg viewBox="0 0 24 24"><path d="M17.7 6.3A8 8 0 1 0 20 12h-2.3a5.7 5.7 0 1 1-1.7-4l-3 3h7V4z"/></svg></button>
+    <button class="t-btn t-special" id="t-special" data-tap="special" aria-label="Luftschlag"><svg viewBox="0 0 24 24"><path d="M12 2c.8 0 1.4.7 1.4 1.6V9l7.6 4.6v2.1l-7.6-2.2v4.9l2.2 1.6V22L12 21l-3.6 1v-2l2.2-1.6v-4.9L3 15.7v-2.1L10.6 9V3.6C10.6 2.7 11.2 2 12 2z"/></svg></button>
+    <button class="t-btn t-use" id="t-use" data-hold="use" hidden>Bombe legen</button>
+    <button class="t-btn t-buy" id="t-buy" data-tap="buy" hidden>Kaufen</button>
+    <button class="t-btn t-chat" id="t-chat" data-tap="chat" hidden aria-label="Schnellnachricht"><svg viewBox="0 0 24 24"><path d="M4 4h16v11H9l-5 4z"/></svg></button>
+    <button class="t-btn t-scores" data-hold="scores" aria-label="Statistik"><svg viewBox="0 0 24 24"><path d="M5 6.5h14M5 12h14M5 17.5h14" stroke="currentColor" stroke-width="2.4" fill="none"/></svg></button>
+    <button class="t-btn t-pause" data-tap="pause" aria-label="Pause"><svg viewBox="0 0 24 24"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg></button>
+    <div id="t-slots"></div>
+  </div>
+  <div id="rotate-hint" hidden><div class="phone"></div><b>Bitte dreh dein Handy quer</b><span>Das Spiel läuft im Querformat.</span></div>
+
   <!-- Kaufmenü -->
   <div id="buymenu" hidden>
     <div class="buy-head">
@@ -90,9 +112,10 @@
 
   <div id="menu" class="screen" hidden>
     <div class="logo">FEUER <span>FREI</span></div>
-    <div class="tagline">Training gegen Klappziele oder 1 gegen 1 mit einem Freund</div>
+    <div class="tagline">1 gegen 1 mit einem Freund, gegen die KI oder Training</div>
     <div class="buttons">
       <button class="primary" id="btn-duel">1 gegen 1</button>
+      <button id="btn-bots">Gegen KI</button>
       <button id="btn-start">Training</button>
       <button id="btn-settings">Einstellungen</button>
       <button id="btn-controls">Steuerung</button>
@@ -137,6 +160,22 @@
       <div class="net" id="lobby-net"></div>
     </div>
     <div class="buttons"><button id="btn-lobby-back">Zurück</button></div>
+  </div>
+
+  <div id="bots" class="screen dim" hidden>
+    <h1>Gegen KI</h1>
+    <div class="hint">Ein Computer-Gegner spielt nach denselben Regeln wie ein Freund im 1 gegen 1.</div>
+    <div class="opts" id="bot-opts">
+      <div class="opt">Schwierigkeit <div class="seg" data-opt="level"><button data-v="leicht">Leicht</button><button data-v="mittel">Mittel</button><button data-v="schwer">Schwer</button></div>
+        <small id="bot-level-info"></small></div>
+      <div class="opt">Modus <div class="seg" data-opt="mode"><button data-v="kampf">Kampf</button><button data-v="bombe">Bombe</button></div></div>
+      <div class="opt">Leben pro Runde <div class="seg" data-opt="lives"><button data-v="1">1</button><button data-v="3">3</button></div></div>
+      <div class="opt">Gewonnen hat, wer zuerst <div class="seg" data-opt="wins"><button data-v="2">2</button><button data-v="3">3</button><button data-v="5">5</button></div> Runden gewinnt</div>
+    </div>
+    <div class="buttons">
+      <button class="primary" id="btn-bot-start">Los geht’s</button>
+      <button id="btn-bot-back">Zurück</button>
+    </div>
   </div>
 
   <div id="pause" class="screen dim" hidden>
@@ -184,6 +223,14 @@
         <button type="button" id="set-bosskey">^</button>
       </label>
       <div class="hint" id="bosskey-hint"></div>
+      <label><span>Touch-Steuerung <small>(Handy und Tablet)</small></span>
+        <select id="set-touch">
+          <option value="auto">Automatisch</option>
+          <option value="an">An</option>
+          <option value="aus">Aus</option>
+        </select>
+      </label>
+      <label><span>Touch-Empfindlichkeit <small>(Umsehen per Wischen)</small></span><input type="range" id="set-touchsens" min="0.3" max="2.5" step="0.05"><output id="out-touchsens"></output></label>
       <label class="check"><input type="checkbox" id="set-adstoggle"> Zielen per Klick umschalten (statt Taste halten)</label>
       <label class="check"><input type="checkbox" id="set-fullscreen"> Vollbild beim Start (schützt Strg+W)</label>
       <label class="check"><input type="checkbox" id="set-fps"> Bilder pro Sekunde anzeigen</label>
@@ -214,6 +261,12 @@
       <tr><td><kbd>Esc</kbd></td><td>Pause</td></tr>
       <tr><td><kbd id="help-bosskey">^</kbd></td><td>Notizblock: sofort weißes Blatt, Spiel pausiert, Ton aus (Taste in den Einstellungen änderbar)</td></tr>
     </table>
+    <div class="touch-help">
+      <h3>Auf dem Handy</h3>
+      <p>Linker Daumen: Stick zum Laufen (ganz nach vorne schieben = Sprinten). Rechter Daumen: wischen zum Umsehen.
+        Roter Knopf: schießen, beim Halten weiter wischen und zielen. Kreis-Knopf: Zielen an/aus.
+        Pfeile: springen und ducken. Unten tippst du die Waffe an. Flugzeug: Luftschlag, wenn der Ring voll ist.</p>
+    </div>
     <p class="tip">Tipp wie in CS: Im Stehen treffen die Waffen am besten. Kurz vor dem Schuss stoppen, und bei langen Salven die Maus nach unten ziehen.</p>
     <div class="buttons"><button class="primary" id="btn-controls-back">Zurück</button></div>
   </div>
