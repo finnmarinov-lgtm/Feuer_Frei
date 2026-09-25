@@ -3,6 +3,7 @@ import { BOMB, QUICK_CHAT, SLOT_KEYS, SPECIAL } from '../config.js';
 import { HEADSHOT_ICON, weaponIcon } from './icons.js';
 import { LOCKER, isDone, nextTaskFor, onProgress, stat, TASKS } from '../game/cosmetics.js';
 import { FINISHES } from '../weapons/finishes.js';
+import { MAP } from '../world/map.js';
 
 const TARGET_NAME = Object.fromEntries(LOCKER.map((l) => [l.id, l.name]));
 const skinName = (t) => `${TARGET_NAME[t.reward[0]]} · ${FINISHES[t.reward[1]].name}`;
@@ -479,6 +480,8 @@ export class Hud {
   // Spezialleiste (Luftschlag) und Hinweis beim Zielen
   _special(m) {
     const el = this.el;
+    // auf Karten ohne Luftschlag (Lagerhalle) keine Leiste
+    this._show(el.special, !!MAP.airstrike);
     const k = Math.min(1, m.special / SPECIAL.charge);
     this._set(el.specialFill.style, 'width', `${(k * 100).toFixed(1)}%`);
     const ready = k >= 1;

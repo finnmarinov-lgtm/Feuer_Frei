@@ -727,6 +727,22 @@ export class Viewmodel {
     this.onMagDrop?.();
   }
 
+  /**
+   * Herausfallende Magazine und Hülsen sofort weg. Nötig, wenn die Waffe nicht mehr bewegt wird
+   * (Menü): sonst blieben sie mitten im Flug vor der Kamera hängen.
+   */
+  clearDrops() {
+    for (const m of Object.values(this.models)) {
+      if (!m.reload) continue;
+      m.reload.life = 0;
+      m.reload.drop.visible = false;
+    }
+    for (const c of [...this.casings, ...this.shells]) {
+      c.life = 0;
+      c.mesh.visible = false;
+    }
+  }
+
   _flyDrops(dt) {
     for (const m of Object.values(this.models)) {
       const rl = m.reload;

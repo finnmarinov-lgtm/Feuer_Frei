@@ -86,6 +86,7 @@ function hofLayout({ B, mirror, wall, cap }) {
 const HOF = {
   id: 'hof',
   name: 'Hof',
+  airstrike: true,
   desc: 'Sandiger Innenhof: zwei Gassen, Tunnel durch das Haus in der Mitte, Balkon.',
   ground: 'ground',
   spawns: spawns(26.5),
@@ -152,26 +153,28 @@ function halleLayout({ B, mirror, cap }) {
   mirror(-31, -30, 0, 6, -20, 20, 'concrete');
   cap(-31, -17.3, 20, 21, 6, mirror);
   cap(-31, -17.3, -21, -20, 6, mirror);
-  cap(-31, -30, -20, 20, 6, mirror);
+  cap(-31, -30, -19.8, 19.8, 6, mirror);
   // Sockel aus Beton an den Hallenwänden (innen)
-  B(-16.7, 16.7, 0, 1.1, 19.85, 20, 'concrete');
-  B(-16.7, 16.7, 0, 1.1, -20, -19.85, 'concrete');
+  B(-16.62, 16.62, 0, 1.1, 19.85, 20, 'concrete');
+  B(-16.62, 16.62, 0, 1.1, -20, -19.85, 'concrete');
 
   // Stirnwände der Halle mit je drei Rolltoren (halb heruntergelassen, man läuft darunter durch)
+  // Keine Fläche darf genau auf einer anderen liegen, sonst flimmern beide (z-fighting): Sockel
+  // schmaler als die Torrahmen, Rahmen ragen etwas in die Öffnung, Rolltor endet in den Rahmen.
   for (const [z0, z1] of [[-20, -13], [-9.5, -1.8], [1.8, 9.5], [13, 20]]) {
-    mirror(-17.3, -16.7, 0, 9.3, z0, z1, 'sheet', { tint: T.clad });
-    mirror(-17.45, -16.55, 0, 1.1, z0, z1, 'concrete');
+    mirror(-17.3, -16.7, 0, 9.2, z0, z1, 'sheet', { tint: T.clad });
+    mirror(-17.38, -16.62, 0, 1.1, z0, z1, 'concrete');
   }
   for (const [z0, z1] of [[-13, -9.5], [-1.8, 1.8], [9.5, 13]]) {
-    mirror(-17.3, -16.7, 4.2, 9.3, z0, z1, 'sheet', { tint: T.clad });
-    mirror(-17.12, -16.88, 3.0, 4.2, z0, z1, 'sheet', { tint: T.door });
-    mirror(-17.4, -16.6, 0, 4.2, z0 - 0.14, z0, 'paint', { tint: T.yellow, collider: 'none' });
-    mirror(-17.4, -16.6, 0, 4.2, z1, z1 + 0.14, 'paint', { tint: T.yellow, collider: 'none' });
+    mirror(-17.3, -16.7, 4.2, 9.2, z0, z1, 'sheet', { tint: T.clad });
+    mirror(-17.12, -16.88, 3.0, 4.2, z0 + 0.01, z1 - 0.01, 'sheet', { tint: T.door });
+    mirror(-17.42, -16.58, 0, 4.24, z0 - 0.14, z0 + 0.04, 'paint', { tint: T.yellow, collider: 'none' });
+    mirror(-17.42, -16.58, 0, 4.24, z1 - 0.04, z1 + 0.14, 'paint', { tint: T.yellow, collider: 'none' });
   }
 
-  // Dach mit drei offenen Lichtbändern: dort scheint die Sonne herein (und der Luftschlag trifft)
-  for (const [z0, z1] of [[-20, -12], [-9, -1.5], [1.5, 9], [12, 20]]) B(-17.3, 17.3, 9, 9.3, z0, z1, 'sheet', { tint: T.roof });
-  for (const [z0, z1] of [[-12, -9], [-1.5, 1.5], [9, 12]]) mirror(-17.3, -15, 9, 9.3, z0, z1, 'sheet', { tint: T.roof });
+  // Dach mit drei offenen Lichtbändern: dort scheint die Sonne herein
+  for (const [z0, z1] of [[-20, -12], [-9, -1.5], [1.5, 9], [12, 20]]) B(-17.4, 17.4, 9, 9.3, z0, z1, 'sheet', { tint: T.roof });
+  for (const [z0, z1] of [[-12, -9], [-1.5, 1.5], [9, 12]]) mirror(-17.4, -15, 9, 9.3, z0, z1, 'sheet', { tint: T.roof });
   // Dachträger und Lampen (nur zum Ansehen)
   for (const x of [-14, -7, 0, 7, 14]) B(x - 0.15, x + 0.15, 8.4, 9, -20, 20, 'paint', { tint: T.dark, collider: 'none' });
   for (const x of [-12, -4, 4, 12]) {
@@ -186,15 +189,16 @@ function halleLayout({ B, mirror, cap }) {
     const H = 4.2;
     mirror(x0, x1, 0, H, z0, z1, null, { surface: 'metal' });
     const zm = (z0 + z1) / 2;
-    mirror(x0 + 0.05, x1 - 0.05, 0.1, H - 0.1, zm - 0.02, zm + 0.02, 'paint', { tint: T.dark, collider: 'none' });
+    mirror(x0 + 0.05, x1 - 0.05, 0.1, H - 0.14, zm - 0.02, zm + 0.02, 'paint', { tint: T.dark, collider: 'none' });
+    // Stützen: etwas hinter den Querträgern, an den Enden 1 cm vorstehend, oben in der Abdeckung
     const n = Math.max(1, Math.round((x1 - x0) / 2.3));
     for (let i = 0; i <= n; i++) {
-      const x = Math.min(x1 - 0.1, Math.max(x0, x0 + ((x1 - x0) * i) / n - 0.05));
-      for (const z of [z0, z1 - 0.1]) mirror(x, x + 0.1, 0, H, z, z + 0.1, 'paint', { tint: T.blue, collider: 'none' });
+      const x = i === 0 ? x0 - 0.01 : i === n ? x1 - 0.09 : x0 + ((x1 - x0) * i) / n - 0.05;
+      for (const z of [z0 + 0.02, z1 - 0.12]) mirror(x, x + 0.1, 0, H - 0.05, z, z + 0.1, 'paint', { tint: T.blue, collider: 'none' });
     }
     for (const y of [1.45, 3.0]) {
       for (const z of [z0, z1 - 0.08]) mirror(x0, x1, y, y + 0.12, z, z + 0.08, 'paint', { tint: T.orange, collider: 'none' });
-      mirror(x0, x1, y + 0.1, y + 0.14, z0 + 0.05, z1 - 0.05, 'metal', { tint: T.grey, collider: 'none' });
+      mirror(x0 + 0.02, x1 - 0.02, y + 0.1, y + 0.14, z0 + 0.05, z1 - 0.05, 'metal', { tint: T.grey, collider: 'none' });
     }
     mirror(x0, x1, H - 0.1, H, z0, z1, 'paint', { tint: T.orange, collider: 'none' });
   };
@@ -208,11 +212,11 @@ function halleLayout({ B, mirror, cap }) {
   goods(-14.3, -12.4, 0.02, -6.45, -5.55, 1.1, T.card);
   goods(-13.9, -12.6, 1.59, -6.45, -5.55, 0.9, T.wrap);
   goods(-11.6, -10.3, 3.14, -6.45, -5.55, 0.8, T.card);
-  goods(-6.4, -4.3, 0.02, -6.45, -5.55, 1.2, T.wrap);
+  goods(-6.05, -4.2, 0.02, -6.45, -5.55, 1.2, T.wrap);
   goods(-8.1, -6.9, 3.14, -6.45, -5.55, 0.9, T.card);
   goods(-14.2, -12.8, 3.14, 5.55, 6.45, 0.85, T.wrap);
-  goods(-9.7, -8.3, 0.02, 5.55, 6.45, 1.15, T.card);
-  goods(-8.2, -6.8, 1.59, 5.55, 6.45, 1.0, T.card);
+  goods(-9.75, -8.4, 0.02, 5.55, 6.45, 1.15, T.card);
+  goods(-8.1, -6.65, 1.59, 5.55, 6.45, 1.0, T.card);
 
   // Büro-Container in der Mitte: versperrt die Sicht von Tor zu Tor
   B(-3, 3, 0, 3, -2.4, 2.4, 'sheet', { tint: T.white });
@@ -227,20 +231,28 @@ function halleLayout({ B, mirror, cap }) {
   mirror(-16.7, -8, 3.2, 4.3, 16.2, 16.3, null, { collider: 'clip' });
   mirror(-16.7, -8, 4.1, 4.16, 16.2, 16.28, 'paint', { tint: T.yellow, collider: 'none' });
   mirror(-16.7, -8, 3.65, 3.7, 16.2, 16.28, 'paint', { tint: T.yellow, collider: 'none' });
-  for (let x = -16.4; x < -8; x += 1.4) mirror(x, x + 0.05, 3.2, 4.16, 16.2, 16.28, 'paint', { tint: T.yellow, collider: 'none' });
-  // Treppe nach Osten hinunter, seitlich zu (nur von unten betretbar)
-  for (let k = 0; k < 10; k++) {
-    const x0 = -8 + 0.38 * k;
-    mirror(x0, x0 + 0.38, 0, 3.2 * (1 - (k + 0.5) / 10), 17.2, 19.85, 'concrete', { collider: 'stair' });
+  for (let x = -16.4; x < -8; x += 1.4) mirror(x, x + 0.05, 3.2, 4.12, 16.21, 16.27, 'paint', { tint: T.yellow, collider: 'none' });
+  // kurzes Stück Geländer zwischen Laufsteg-Kante und Treppe
+  mirror(-8.06, -8.0, 3.2, 4.3, 16.28, 17.1, null, { collider: 'clip' });
+  for (const y of [3.65, 4.1]) mirror(-8.06, -8.0, y, y + 0.05, 16.28, 17.1, 'paint', { tint: T.yellow, collider: 'none' });
+  // Treppe nach Osten hinunter, 29 Grad steil wie im Hof (ab 35 Grad rutscht man), seitlich zu
+  // (nur von unten betretbar); der schräge Handlauf steht bei den Geländern (rails)
+  const steps = 15, top = -8, run = (-2.2 - top) / steps;
+  for (let k = 0; k < steps; k++) {
+    const x0 = top + run * k;
+    mirror(x0, x0 + run, 0, 3.2 * (1 - (k + 0.5) / steps), 17.2, 19.85, 'concrete', { collider: 'stair' });
   }
-  mirror(-8, -4.2, 0, 4.3, 17.1, 17.2, null, { collider: 'clip' });
-  mirror(-8, -4.2, 3.35, 3.4, 17.12, 17.18, 'paint', { tint: T.yellow, collider: 'none' });
+  mirror(top, -2.2, 0, 4.3, 17.1, 17.2, null, { collider: 'clip' });
+  for (const x of [-2.45, -4.35, -6.25, -7.95]) {
+    const h = 3.2 * (-2.2 - x) / (-2.2 - top) + 1.0;
+    mirror(x, x + 0.05, 0, h, 17.13, 17.19, 'paint', { tint: T.yellow, collider: 'none' });
+  }
 
   // Gabelstapler in der Südgasse (Westhälfte), Gabel nach Osten
   const cx = -9.2, cz = -14.2;
   mirror(cx - 1.0, cx + 0.6, 0.25, 1.25, cz - 0.6, cz + 0.6, 'paint', { tint: T.yellow });
-  mirror(cx - 1.3, cx - 0.95, 0.25, 1.1, cz - 0.6, cz + 0.6, 'paint', { tint: T.dark });
-  for (const [x, z] of [[cx - 0.75, cz - 0.62], [cx - 0.75, cz + 0.62], [cx + 0.35, cz - 0.62], [cx + 0.35, cz + 0.62]]) {
+  mirror(cx - 1.3, cx - 0.95, 0.27, 1.1, cz - 0.62, cz + 0.62, 'paint', { tint: T.dark });
+  for (const [x, z] of [[cx - 0.75, cz - 0.62], [cx - 0.75, cz + 0.62], [cx + 0.3, cz - 0.62], [cx + 0.3, cz + 0.62]]) {
     mirror(x - 0.25, x + 0.25, 0, 0.5, z - 0.12, z + 0.12, 'paint', { tint: T.dark, collider: 'none' });
   }
   for (const x of [cx - 0.85, cx + 0.35]) {
@@ -266,12 +278,14 @@ function halleLayout({ B, mirror, cap }) {
   // gelbe Linien am Boden neben den Regalen und um das Büro
   for (const z of [-7.25, 7.25]) B(-16.6, 16.6, 0, 0.012, z - 0.06, z + 0.06, 'paint', { tint: T.yellow, collider: 'none' });
   for (const z of [-3.1, 3.1]) B(-3.7, 3.7, 0, 0.012, z - 0.06, z + 0.06, 'paint', { tint: T.yellow, collider: 'none' });
-  for (const x of [-3.7, 3.7]) B(x - 0.06, x + 0.06, 0, 0.012, -3.1, 3.1, 'paint', { tint: T.yellow, collider: 'none' });
+  for (const x of [-3.7, 3.7]) B(x - 0.06, x + 0.06, 0, 0.012, -3.04, 3.04, 'paint', { tint: T.yellow, collider: 'none' });
 }
 
 const HALLE = {
   id: 'halle',
   name: 'Lagerhalle',
+  // in der Halle gibt es keinen Luftschlag (unter einem Dach passt er nicht)
+  airstrike: false,
   desc: 'Halle mit Hochregalen, Büro in der Mitte, Laufsteg und Rolltoren. Enger, mehr Nahkampf.',
   ground: 'concrete',
   // Boden: in den Höfen dunkler (Asphalt), in der Halle heller Beton
@@ -287,13 +301,15 @@ const HALLE = {
     [14, 17, 0], [6.5, 16.8, 0], [12.5, 9, 0], [6, 9.5, 0], [15, 0, 0], [8, -3.5, 0], [11, -11, 0],
     [4.5, -16.5, 0], [13.5, -18, 3.2], [-23, 12, 0], [-25, -9, 0], [24, -12, 0], [26, 9, 0], [-20, -17, 0],
   ],
-  ramps: [[-4.2, -8, 3.2, 17.2, 19.85]],
+  ramps: [[-2.2, -8, 3.2, 17.2, 19.85]],
+  // schräge Handläufe: [x unten, Höhe unten, x oben, Höhe oben, z], gespiegelt
+  rails: [[-2.2, 1.0, -8, 4.2, 17.16]],
   layout: halleLayout,
   props: [
     // Kisten in den Regalen (Westhälfte, gespiegelt in die Osthälfte)
     ['Crate_S', -11, -6, 0, 0], ['Crate_S', -13.2, -6, 0.05, 3.14], ['Crate_L', -7.5, -6, 0, 0],
-    ['Crate_S', -5.2, -6, 0.1, 1.59], ['Crate_S', -12.9, 6, 0, 0], ['Crate_S', -11.9, 6, 0, 1.59],
-    ['Crate_L', -7.2, 6, 0, 0], ['wooden_crate_02', -9.4, 6, Math.PI / 2, 3.14],
+    ['Crate_S', -5.2, -6, 0.1, 1.59], ['Crate_S', -12.9, 6, 0, 0], ['Crate_S', -12.2, 6, 0, 1.59],
+    ['Crate_L', -7.4, 6, 0, 0], ['wooden_crate_02', -9.25, 6, Math.PI / 2, 3.14],
     // Deckung in den Gassen
     ['Crate_L', -13.5, -11, 0.1, 0], ['Crate_S', -13.4, -11.1, 0.35, 1.3], ['Crate_S', -12.3, -11.4, 0.1, 0],
     ['old_military_crate', -4.2, -17.8, 0, 0], ['Barrel_01', -15.6, -18.6, 0.3, 0], ['barrel_03', -15, -19, 1.1, 0],
@@ -398,6 +414,9 @@ function makeMaterial(assets, key) {
   if (key === 'paint') {
     return new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6, metalness: 0.2, vertexColors: true });
   }
+  if (key === 'rail') {
+    return new THREE.MeshStandardMaterial({ color: new THREE.Color().setRGB(...T.yellow), roughness: 0.55, metalness: 0.25 });
+  }
   if (key === 'sheet') {
     const t = assets.textures[MATS.sheet.tex];
     return new THREE.MeshStandardMaterial({ normalMap: t.nor, roughness: 0.5, metalness: 0.3, vertexColors: true });
@@ -484,6 +503,7 @@ export class Arena {
       this._collider(this.physics.addBox(center, half, surface, null, member));
     }
     this._addRamps();
+    this._buildRails();
     for (const [key, acc] of Object.entries(byMat)) {
       const g = new THREE.BufferGeometry();
       g.setAttribute('position', new THREE.Float32BufferAttribute(acc.pos, 3));
@@ -520,6 +540,27 @@ export class Arena {
           z: ((z0 + z1) / 2) * s,
         };
         this._collider(this.physics.addBox(center, { x: len / 2, y: t / 2, z: (z1 - z0) / 2 }, 'stone', q, GROUP.CLIP));
+      }
+    }
+  }
+
+  // schräge Handläufe an Treppen (nur zum Ansehen, die Treppe ist seitlich für Spieler zu)
+  _buildRails() {
+    const rails = this.map.rails || [];
+    if (!rails.length) return;
+    const mat = this._material('rail');
+    const a = new THREE.Vector3();
+    const b = new THREE.Vector3();
+    for (const [x0, y0, x1, y1, z] of rails) {
+      for (const s of [1, -1]) {
+        a.set(x0 * s, y0, z * s);
+        b.set(x1 * s, y1, z * s);
+        const m = new THREE.Mesh(new THREE.BoxGeometry(a.distanceTo(b), 0.06, 0.06), mat);
+        m.position.addVectors(a, b).multiplyScalar(0.5);
+        m.rotation.z = Math.atan2(b.y - a.y, b.x - a.x);
+        m.castShadow = true;
+        m.name = 'Arena_rail';
+        this.group.add(m);
       }
     }
   }

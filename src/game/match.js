@@ -1,5 +1,5 @@
 import { ECONOMY, TRAINING, WEAPONS, ARMOR, SPECIAL } from '../config.js';
-import { SPAWN } from '../world/map.js';
+import { MAP, SPAWN } from '../world/map.js';
 import { count } from './cosmetics.js';
 
 function shuffle(a) {
@@ -60,11 +60,11 @@ export class Match {
 
   get canUseSpecial() {
     const p = this.g.player;
-    return this.phase === 'live' && p.alive && !this.fireBlocked && !this.busy;
+    return MAP.airstrike && this.phase === 'live' && p.alive && !this.fireBlocked && !this.busy;
   }
 
   addCharge(points) {
-    if (this.specialReady || !(points > 0)) return;
+    if (!MAP.airstrike || this.specialReady || !(points > 0)) return;
     this.special = Math.min(SPECIAL.charge, this.special + points);
     if (this.specialReady) {
       this.g.audio.play('specialReady');

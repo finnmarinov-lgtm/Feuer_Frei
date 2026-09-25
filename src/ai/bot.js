@@ -901,7 +901,7 @@ export class Bot {
 
   /** Luftschlag anfordern, wenn die Leiste voll ist und der Mensch sich irgendwo versteckt */
   _maybeAirstrike() {
-    if (this.special < SPECIAL.charge || this.seeing || this.time < this.airT) return;
+    if (!MAP.airstrike || this.special < SPECIAL.charge || this.seeing || this.time < this.airT) return;
     this.airT = this.time + 1.5;
     let known = null;
     if (this.time - this.seenAt < 8) known = this.lastSeen;

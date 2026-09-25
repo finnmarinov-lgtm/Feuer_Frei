@@ -249,6 +249,7 @@ export class Game {
 
   quitToMenu() {
     if (this.mode === 'duel') this.match.leave();
+    this.viewmodel.clearDrops();
     this.state = 'menu';
     this.buyMenu.hide();
     this.hud.show(false);
@@ -366,7 +367,8 @@ export class Game {
     const as = this.airstrikes;
     const m = this.match;
     if (input.consume('special')) {
-      if (as.targeting) as.cancel();
+      if (!MAP.airstrike) this.hud.message('Kein Luftschlag', `In der ${MAP.name} gibt es keinen Luftschlag`, 1.6);
+      else if (as.targeting) as.cancel();
       else if (!m.specialReady) {
         const pct = Math.floor((m.special / SPECIAL.charge) * 100);
         this.hud.message('Luftschlag noch nicht bereit', `Spezialleiste ${pct} % · lädt mit Treffern`, 1.6);
@@ -562,8 +564,9 @@ export class Game {
     for (const part of m.userData.parts) applyFinish(part.model, part.names, spec.skin, part.scale);
     m.visible = true;
     sc.visible = true;
-    // die Waffe in der Hand gehört nicht in die Vorschau
+    // die Waffe in der Hand gehört nicht in die Vorschau, auch kein Magazin, das noch herausfiel
     this.viewmodel.root.visible = false;
+    this.viewmodel.clearDrops();
     this.viewCamera.quaternion.identity();
     this.viewCamera.updateMatrixWorld();
     this.env.viewSun.intensity = 2.6;
@@ -594,11 +597,24 @@ export class Game {
     };
     if (target === 'spieler') {
       add('soldier', ['Uniform'], 8, 1.85, 0);
+      const soldier = parts[0].model;
       // Helm neutral (im Spiel zeigt er die Teamfarbe)
-      parts[0].model.traverse((o) => {
+      soldier.traverse((o) => {
         if (o.isMesh && o.material.name === 'Helmet') o.material = Object.assign(o.material.clone(), { name: 'HelmetPreview' });
         if (o.isMesh && o.material.name === 'HelmetPreview') o.material.color.set('#3b4048');
       });
+      // die Figur hat zwei linke Arme (für Gewehr und Pistole): nur den fürs Gewehr, dazu ein Gewehr
+      // in die Hand, damit die Haltung stimmt
+      soldier.getObjectByName('ArmLShort').visible = false;
+      soldier.getObjectByName('ArmLLong').visible = true;
+      const gun = this.assets.models.wolf.clone();
+      const arms = [];
+      gun.traverse((o) => { if (/^(Hand|Wrist|Sleeve)/.test(o.name)) arms.push(o); });
+      for (const o of arms) o.removeFromParent();
+      mergeByMaterial(gun);
+      gun.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
+      applyFinish(gun, PAINT.wolf, skinOf(this.looks, 'wolf'));
+      soldier.getObjectByName('WeaponAnchor').add(gun);
       holder.position.set(1.05, -0.05, -3.4);
       holder.userData.spin = true;
     } else if (target === 'messer') {

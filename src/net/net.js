@@ -8,8 +8,8 @@ import { RealtimeClient } from '@supabase/realtime-js';
 
 const APP_ID = 'feuer-frei-duell-v1';
 // Version des Netzprotokolls: beide Spieler brauchen denselben Stand des Spiels
-// (4: Karte und Waffen-Modus in der Lobby, Skins werden mitgeschickt)
-export const PROTOCOL = 4;
+// (5: Lagerhalle mit flacherer Treppe und ohne Luftschlag)
+export const PROTOCOL = 5;
 const SUPABASE_WS = 'wss://yzzipjtounvktdhhvrnt.supabase.co/realtime/v1';
 const SUPABASE_REST = 'https://yzzipjtounvktdhhvrnt.supabase.co/realtime/v1/api/broadcast';
 // "publishable" Schlüssel: darf öffentlich im Code stehen

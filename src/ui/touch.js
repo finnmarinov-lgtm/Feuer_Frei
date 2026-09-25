@@ -1,4 +1,5 @@
 import { SLOT_KEYS, SPECIAL } from '../config.js';
+import { MAP } from '../world/map.js';
 
 // Touch-Steuerung fürs Handy (quer halten): linker Daumen bewegt über einen Stick, der dort
 // erscheint, wo man hintippt (ganz nach vorne geschoben = Sprinten). Rechter Daumen wischt zum
@@ -284,6 +285,7 @@ export class TouchControls {
       sp.style.setProperty('--k', `${k * 360}deg`);
     }
     sp.classList.toggle('ready', m.specialReady);
+    this._toggle(sp, !!MAP.airstrike);
     sp.classList.toggle('on', g.airstrikes.targeting);
     this._slots();
   }
