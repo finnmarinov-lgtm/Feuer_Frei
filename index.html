@@ -36,6 +36,9 @@
       </div>
     </div>
     <div id="net-status" hidden></div>
+    <!-- Aufgaben: Fortschritt live, neue Skins als Einblendung -->
+    <div id="tasks-hud" hidden></div>
+    <div id="task-toast" hidden><div class="title"></div><div class="sub"></div></div>
     <div id="protect" hidden></div>
     <div id="chat-log"></div>
     <div id="chat-menu" hidden></div>
@@ -123,9 +126,12 @@
       <button class="primary" id="btn-duel">1 gegen 1</button>
       <button id="btn-bots">Gegen KI</button>
       <button id="btn-start">Training</button>
+      <button id="btn-locker">Skins &amp; Aufgaben</button>
       <button id="btn-settings">Einstellungen</button>
       <button id="btn-controls">Steuerung</button>
     </div>
+    <div class="menu-map">Karte <div class="seg" id="menu-map"><button data-v="hof">Hof</button><button data-v="halle">Lagerhalle</button></div>
+      <small id="menu-map-info"></small></div>
   </div>
 
   <div id="lobby" class="screen dim" hidden>
@@ -154,6 +160,9 @@
       <div class="opts" id="lobby-opts">
         <div class="opt">Modus <div class="seg" data-opt="mode"><button data-v="kampf">Kampf</button><button data-v="bombe">Bombe</button></div>
           <small id="lobby-mode-info"></small></div>
+        <div class="opt">Karte <div class="seg" data-opt="map"><button data-v="hof">Hof</button><button data-v="halle">Lagerhalle</button></div></div>
+        <div class="opt">Waffen <div class="seg" data-opt="arms"><button data-v="alle">Alle</button><button data-v="pistolen">Nur Pistolen</button><button data-v="adler">Scharfschützen</button></div>
+          <small id="lobby-arms-info"></small></div>
         <div class="opt">Leben pro Runde <div class="seg" data-opt="lives"><button data-v="1">1</button><button data-v="3">3</button></div></div>
         <div class="opt">Gewonnen hat, wer zuerst <div class="seg" data-opt="wins"><button data-v="2">2</button><button data-v="3">3</button><button data-v="5">5</button></div> Runden gewinnt</div>
       </div>
@@ -175,6 +184,9 @@
       <div class="opt">Schwierigkeit <div class="seg" data-opt="level"><button data-v="anfaenger">Anfänger</button><button data-v="leicht">Leicht</button><button data-v="mittel">Mittel</button><button data-v="schwer">Schwer</button></div>
         <small id="bot-level-info"></small></div>
       <div class="opt">Modus <div class="seg" data-opt="mode"><button data-v="kampf">Kampf</button><button data-v="bombe">Bombe</button></div></div>
+      <div class="opt">Karte <div class="seg" data-opt="map"><button data-v="hof">Hof</button><button data-v="halle">Lagerhalle</button></div></div>
+      <div class="opt">Waffen <div class="seg" data-opt="arms"><button data-v="alle">Alle</button><button data-v="pistolen">Nur Pistolen</button><button data-v="adler">Scharfschützen</button></div>
+        <small id="bot-arms-info"></small></div>
       <div class="opt">Leben pro Runde <div class="seg" data-opt="lives"><button data-v="1">1</button><button data-v="3">3</button></div></div>
       <div class="opt">Gewonnen hat, wer zuerst <div class="seg" data-opt="wins"><button data-v="2">2</button><button data-v="3">3</button><button data-v="5">5</button></div> Runden gewinnt</div>
     </div>
@@ -237,9 +249,6 @@
         </select>
       </label>
       <label><span>Touch-Empfindlichkeit <small>(Umsehen per Wischen)</small></span><input type="range" id="set-touchsens" min="0.3" max="2.5" step="0.05"><output id="out-touchsens"></output></label>
-      <label id="set-knife-row" hidden><span>Messer-Skin <small>(dein Geschenk, sieht auch dein Gegner)</small></span>
-        <select id="set-knife"><option value="standard">Standard (Stahl)</option></select>
-      </label>
       <label class="check"><input type="checkbox" id="set-adstoggle"> Zielen per Klick umschalten (statt Taste halten)</label>
       <label class="check"><input type="checkbox" id="set-fullscreen"> Vollbild beim Start (schützt Strg+W)</label>
       <label class="check"><input type="checkbox" id="set-fps"> Bilder pro Sekunde anzeigen</label>
@@ -273,7 +282,7 @@
     <!-- Easter Egg: Sieg gegen die KI auf "Schwer" -->
     <div id="res-gift" hidden>
       <svg viewBox="0 0 24 24"><path d="M3 10h18v4H3zM4.5 14h15v7h-15z"/><path d="M11 10h2v11h-2z" fill="#fff" opacity=".55"/><path d="M12 10c-1.6-3.6-6.2-5.2-6.8-2.6C4.6 10 9.4 10 12 10zm0 0c1.6-3.6 6.2-5.2 6.8-2.6.6 2.6-4.2 2.6-6.8 2.6z"/></svg>
-      <div><b>Geschenk freigeschaltet!</b><span>Du hast die KI auf „Schwer“ besiegt. Dein Messer hat jetzt eine Regenbogen-Klinge, auch dein Gegner im 1 gegen 1 sieht sie. Zurück auf Stahl geht es in den Einstellungen.</span></div>
+      <div><b id="res-gift-title">Neuer Skin freigeschaltet!</b><span id="res-gift-text"></span></div>
     </div>
     <div class="res-grid" id="res-grid"></div>
     <table class="res-rounds" id="res-rounds"></table>
@@ -282,6 +291,21 @@
       <button class="primary" id="btn-again">Nochmal</button>
       <button id="btn-menu">Hauptmenü</button>
     </div>
+  </div>
+
+  <!-- Skins und Aufgaben: links die Auswahl, rechts dreht sich die Waffe (im Spiel-Bild gezeichnet) -->
+  <div id="locker" class="screen" hidden>
+    <div class="locker-panel">
+      <h1>Skins &amp; Aufgaben</h1>
+      <div class="seg" id="locker-tabs"><button data-v="skins" class="on">Skins</button><button data-v="tasks">Alle Aufgaben</button></div>
+      <div class="locker-body" id="locker-body">
+        <div class="locker-cats" id="locker-cats"></div>
+        <div class="locker-skins" id="locker-skins"></div>
+      </div>
+      <div class="locker-tasks" id="locker-tasks" hidden></div>
+      <div class="buttons"><button id="btn-locker-back">Zurück</button></div>
+    </div>
+    <div class="locker-label" id="locker-label"></div>
   </div>
 
   <div id="click-resume" class="screen dim" hidden>

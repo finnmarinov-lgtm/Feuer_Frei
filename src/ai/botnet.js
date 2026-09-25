@@ -1,5 +1,6 @@
 import { NavGrid } from './nav.js';
 import { Bot, BOT_NAMES, LEVELS } from './bot.js';
+import { MAP } from '../world/map.js';
 
 // Verbindung zum KI-Gegner: sieht für das Duell aus wie die Netzverbindung zu einem Gast
 // (gleiche Nachrichten), läuft aber komplett im eigenen Browser. Der Mensch ist immer Host.
@@ -18,9 +19,10 @@ export class BotNet {
     this.name = `${BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)]} (KI)`;
     this.inbox = [];
     this.timers = [];
-    // Wegenetz einmal pro Seite berechnen
-    game.nav ||= new NavGrid(game.physics);
-    this.brain = new Bot(game, game.nav, this.level, this.name);
+    // Wegenetz einmal pro Karte berechnen (die Karte muss schon geladen sein)
+    game.navs ||= {};
+    const nav = (game.navs[MAP.id] ||= new NavGrid(game.physics));
+    this.brain = new Bot(game, nav, this.level, this.name);
     // Explosionen und Blendgranaten treffen auch die KI (ihr Spiel läuft hier mit)
     this._blast = (...a) => this.brain.blast(...a);
     this._flash = (pos) => this.brain.flash(pos);

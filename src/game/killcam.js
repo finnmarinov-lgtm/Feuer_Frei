@@ -126,7 +126,7 @@ export class KillCam {
     if (this.saved) {
       const vm = g.viewmodel;
       vm.knifeSkin = this.saved.skin;
-      vm.knifeFinish = this.saved.finish;
+      vm.looks = this.saved.looks;
       this.saved = null;
       const own = g.weapons.inv.active;
       if (own) vm.equip(own.def);
@@ -162,7 +162,7 @@ export class KillCam {
     const gh = this.ghost;
     const me = g.match.me;
     gh.setActive(true, me);
-    gh.setKnifeFinish(this.saved?.finish ?? g.viewmodel.knifeFinish);
+    gh.setLooks(g.looks);
     gh.snaps = this.self.slice();
     gh.clockOff = 0;
     this.flags = 0;
@@ -320,10 +320,10 @@ export class KillCam {
     if (!id || id === this.vmId) return;
     const g = this.g;
     const vm = g.viewmodel;
-    // eigenes Messer merken, dann das des Gegners (sein Team, sein Skin)
-    this.saved ||= { skin: vm.knifeSkin, finish: vm.knifeFinish };
+    // eigenes Messer und eigene Skins merken, dann die des Gegners (sein Team, seine Skins)
+    this.saved ||= { skin: vm.knifeSkin, looks: vm.looks };
     vm.knifeSkin = TEAM_KNIFE[g.match.them];
-    vm.knifeFinish = g.remote.finish;
+    vm.looks = g.remote.looks;
     vm.equip(WEAPONS[id]);
     this.vmId = id;
     this.flags &= ~FLAG.RELOAD;

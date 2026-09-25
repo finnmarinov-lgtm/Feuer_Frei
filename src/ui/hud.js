@@ -1,6 +1,11 @@
 import * as THREE from 'three';
 import { BOMB, QUICK_CHAT, SLOT_KEYS, SPECIAL } from '../config.js';
 import { HEADSHOT_ICON, weaponIcon } from './icons.js';
+import { LOCKER, isDone, nextTaskFor, onProgress, stat, TASKS } from '../game/cosmetics.js';
+import { FINISHES } from '../weapons/finishes.js';
+
+const TARGET_NAME = Object.fromEntries(LOCKER.map((l) => [l.id, l.name]));
+const skinName = (t) => `${TARGET_NAME[t.reward[0]]} · ${FINISHES[t.reward[1]].name}`;
 
 const $ = (id) => document.getElementById(id);
 const fmtMoney = (v) => `${Math.round(v).toLocaleString('de-DE')} $`;
@@ -42,8 +47,20 @@ export class Hud {
       special: $('special'), specialFill: $('special-fill'), specialHint: $('special-hint'),
       spectate: $('spectate'), specTag: $('spec-tag'), specWho: $('spec-who'), specHint: $('spec-hint'),
       specLeft: $('spec-left'), killbars: $('killbars'),
+      tasks: $('tasks-hud'), toast: $('task-toast'),
     };
     this.spectating = false;
+    // Aufgaben: Fortschritt live mitzählen, neue Skins kurz einblenden
+    this.recent = null;
+    this.toastT = 0;
+    this.tasksT = 0;
+    onProgress(({ task, done }) => {
+      // bei mehreren Aufgaben auf einmal die, die am nächsten am Ziel ist
+      if (this.recent && this.recent.t > 3.9 && this.recent.task.goal < task.goal && !done) return;
+      this.recent = { task, t: 4, flash: 0.6 };
+      this.tasksT = 0;
+      if (done) this._toast(task);
+    });
     this.refreshKeys();
     this.chatOpen = false;
     this.chatT = 0;
@@ -159,8 +176,73 @@ export class Hud {
     this._show(el.specHint, !!info.hint);
   }
 
+  // neuer Skin: Einblendung oben mit Klang
+  _toast(task) {
+    const el = this.el.toast;
+    el.querySelector('.title').textContent = 'Skin freigeschaltet!';
+    el.querySelector('.sub').textContent = `${skinName(task)} · ${task.text}`;
+    el.hidden = false;
+    el.classList.remove('show');
+    void el.offsetWidth;
+    el.classList.add('show');
+    this.toastT = 4.5;
+    this.g.audio.play('specialReady');
+  }
+
+  /**
+   * Live-Fortschritt links oben: die nächste Aufgabe zur Waffe in der Hand (im Training die
+   * Klappziele), dazu kurz die Aufgabe, bei der sich gerade etwas getan hat.
+   */
+  _tasks(dt) {
+    const el = this.el;
+    if (this.toastT > 0) {
+      this.toastT -= dt;
+      if (this.toastT <= 0) el.toast.hidden = true;
+    }
+    if (this.recent) {
+      this.recent.t -= dt;
+      this.recent.flash -= dt;
+      if (this.recent.t <= 0) this.recent = null;
+    }
+    this.tasksT -= dt;
+    if (this.tasksT > 0) return;
+    this.tasksT = 0.25;
+    const g = this.g;
+    const list = [];
+    let focus = null;
+    if (g.mode === 'duel') {
+      focus = g.weapons.active?.id;
+      const t = focus && nextTaskFor(focus);
+      if (t) list.push(t);
+    } else {
+      const t = TASKS.find((x) => x.stat === 'targets');
+      if (t && !isDone(t)) list.push(t);
+      focus = 'spieler';
+    }
+    // dazu kurz, was sich gerade woanders getan hat (z. B. Bombe gelegt, Luftschlag), sonst reicht
+    // die Aufgabe der Waffe in der Hand
+    const r = this.recent?.task;
+    if (r && r.reward[0] !== focus && !list.includes(r)) list.push(r);
+    const html = list.map((t) => {
+      const v = Math.min(t.goal, stat(t.stat));
+      const done = isDone(t);
+      const pct = Math.round((v / t.goal) * 100);
+      const hot = this.recent?.task === t && this.recent.flash > 0;
+      return `<div class="trk${hot ? ' hot' : ''}${done ? ' done' : ''}"><b>${escapeHtml(skinName(t))}</b>`
+        + `<span>${escapeHtml(t.text)}</span><div class="prog"><i style="width:${pct}%"></i></div><em>${done ? '✓' : `${v} / ${t.goal}`}</em></div>`;
+    }).join('');
+    if (el.tasks._html !== html) {
+      el.tasks._html = html;
+      el.tasks.innerHTML = html;
+    }
+    this._show(el.tasks, !!list.length && !this.spectating);
+  }
+
   reset() {
     this.spectate(null);
+    this.recent = null;
+    this.toastT = 0;
+    this.el.toast.hidden = true;
     this.el.roundEnd.hidden = true;
     for (const k of ['usebar', 'useprompt', 'waypoint', 'bombBadge', 'specialHint']) this.el[k].hidden = true;
     this.el.flash.style.opacity = 0;
@@ -423,6 +505,7 @@ export class Hud {
     const el = this.el;
 
     this._text(el.round, m.roundLabel);
+    this._tasks(dt);
     if (m.duel) this._duel(m);
     this._bomb(m, camera);
     this._special(m);

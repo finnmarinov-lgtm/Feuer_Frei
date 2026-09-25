@@ -220,6 +220,13 @@ export class Effects {
     this.boomPeak = 900;
   }
 
+  /** Einschusslöcher und Brandflecken entfernen (neue Karte) */
+  clearMarks() {
+    this.decals.count = 0;
+    this.decalIndex = 0;
+    for (const s of this.scorches) s.visible = false;
+  }
+
   setViewport(heightPx, fovDeg) {
     const scale = heightPx / (2 * Math.tan((fovDeg * Math.PI) / 360));
     for (const p of [this.sparks, this.dust, this.chips]) p.material.uniforms.uScale.value = scale;

@@ -10,12 +10,16 @@ import { BotNet } from './ai/botnet.js';
 import { parseCode } from './net/net.js';
 import { session, setUrlLobby } from './net/session.js';
 import { loadSettings, saveSettings } from './settings.js';
-import { KNIFE_FINISHES, unlockFinish, unlockedFinishes } from './weapons/skins.js';
-import { TRAINING } from './config.js';
+import { LOCKER, cleanLooks, onProgress, skinOf } from './game/cosmetics.js';
+import { FINISHES } from './weapons/finishes.js';
+import { Locker } from './ui/locker.js';
+import { ARMS, TRAINING } from './config.js';
+import { MAP, MAPS, setMap } from './world/map.js';
 
 const $ = (id) => document.getElementById(id);
-const SCREENS = ['loading', 'menu', 'lobby', 'bots', 'pause', 'settings', 'controls', 'results', 'click-resume'];
+const SCREENS = ['loading', 'menu', 'lobby', 'bots', 'locker', 'pause', 'settings', 'controls', 'results', 'click-resume'];
 const BOT_KEY = 'feuer-frei-ki';
+const MAP_KEY = 'feuer-frei-karte';
 const BOT_INFO = {
   anfaenger: 'Reagiert sehr langsam, trifft kaum, kauft keine Gewehre und fordert keine Luftschläge an. Zum Üben.',
   leicht: 'Reagiert langsam, trifft selten und läuft beim Schießen herum. Gut zum Reinkommen.',
@@ -32,8 +36,19 @@ function show(name) {
 }
 
 const settings = loadSettings();
-// Messer-Skin nur, wenn er freigeschaltet ist (Geschenk für den Sieg gegen die KI auf "Schwer")
-if (settings.knifeFinish !== 'standard' && !unlockedFinishes().includes(settings.knifeFinish)) settings.knifeFinish = 'standard';
+// zuletzt gewählte Karte (für Hauptmenü und Training)
+try {
+  setMap(localStorage.getItem(MAP_KEY) || 'hof');
+} catch {
+  // ohne Speicher gilt der Hof
+}
+// früher gab es nur das Regenbogen-Messer (knifeFinish): in die Skins übernehmen
+if (settings.knifeFinish && settings.knifeFinish !== 'standard' && !settings.looks) {
+  settings.looks = { weapons: { messer: settings.knifeFinish } };
+}
+delete settings.knifeFinish;
+// nur freigeschaltete Skins tragen
+settings.looks = cleanLooks(settings.looks, true);
 
 async function boot() {
   const renderer = new Renderer($('game'));
@@ -79,6 +94,8 @@ async function boot() {
 
 function setupMenus(game, input, audio) {
   let pendingResume = false;
+  // in dieser Partie freigeschaltete Skins (für die Auswertung)
+  let freshSkins = [];
   let settingsBack = 'menu';
   let controlsBack = 'menu';
   let duelOpts = null;
@@ -123,6 +140,7 @@ function setupMenus(game, input, audio) {
   }
 
   async function start() {
+    freshSkins = [];
     audio.init();
     enterFullscreen();
     show(null);
@@ -134,6 +152,7 @@ function setupMenus(game, input, audio) {
 
   // Duell startet von selbst (Countdown), die Maus lässt sich aber erst nach einem Klick fangen
   function startDuel(net, opts) {
+    if (!opts.resume) freshSkins = [];
     duelNet = net;
     duelOpts = opts;
     audio.init();
@@ -146,13 +165,16 @@ function setupMenus(game, input, audio) {
     const tap = input.touch ? 'Tippen' : 'Klicken';
     $('click-title').textContent = opts.resume ? `Zurück im Duell – ${tap} zum Weiterspielen` : `${tap} zum Spielen`;
     const who = net.bot ? `${opts.theirName} · ${net.levelName}` : opts.theirName;
-    let hint = `1 gegen 1 gegen ${who} · Kaufzeit läuft, ${game.hint('buy')}`;
-    if (m.bombMode) hint = `Bombenmodus gegen ${who} · Runde 1: ${m.attacking ? 'Du greifst an und legst die Bombe' : 'Du verteidigst deinen Bombenplatz'}`;
+    const place = `${MAPS[m.cfg.map].name}${m.arms.allow ? ` · ${m.arms.name}` : ''}`;
+    let hint = `1 gegen 1 gegen ${who} · ${place} · Kaufzeit läuft, ${game.hint('buy')}`;
+    if (m.bombMode) hint = `Bombenmodus gegen ${who} · ${place} · Runde 1: ${m.attacking ? 'Du greifst an und legst die Bombe' : 'Du verteidigst deinen Bombenplatz'}`;
     if (opts.resume) hint = `Runde ${m.round} gegen ${opts.theirName}`;
     $('click-hint').textContent = hint;
     show('click-resume');
   }
-  game.onRematch = (cfg) => startDuel(duelNet, { ...duelOpts, lives: cfg.lives, wins: cfg.wins, mode: cfg.mode, resume: null, saved: null });
+  game.onRematch = (cfg) => startDuel(duelNet, {
+    ...duelOpts, lives: cfg.lives, wins: cfg.wins, mode: cfg.mode, map: cfg.map, arms: cfg.arms, resume: null, saved: null,
+  });
 
   const lobby = new Lobby({
     show,
@@ -160,11 +182,70 @@ function setupMenus(game, input, audio) {
     netMode: new URLSearchParams(location.search).get('netz'),
     keyName: (action) => input.label(action),
     // eigener Messer-Skin: der Gegner soll ihn auch sehen
-    skin: () => game.knifeFinish,
+    looks: () => game.looks,
   });
 
+  // ---------- Skins und Aufgaben ----------
+  const locker = new Locker(game, {
+    show,
+    looks: () => settings.looks,
+    setLooks: (looks) => {
+      settings.looks = looks;
+      saveSettings(settings);
+      game.setLooks(looks);
+    },
+  });
+  $('btn-locker').addEventListener('click', () => locker.open());
+  $('btn-locker-back').addEventListener('click', () => {
+    locker.close();
+    show('menu');
+  });
+
+  // neue Skins aus Aufgaben: sofort anlegen, wo noch der Standard getragen wird, und in der
+  // Auswertung zeigen
+  onProgress(({ task, done }) => {
+    if (!done) return;
+    freshSkins.push(task);
+    const looks = cleanLooks(settings.looks, true);
+    const [target, skin] = task.reward;
+    if (skinOf(looks, target) !== 'standard') return;
+    if (target === 'spieler') looks.player = skin;
+    else looks.weapons[target] = skin;
+    settings.looks = looks;
+    saveSettings(settings);
+    game.setLooks(looks);
+  });
+  const skinLabel = (t) => `${LOCKER.find((l) => l.id === t.reward[0]).name} · ${FINISHES[t.reward[1]].name}`;
+  function showNewSkins() {
+    const list = freshSkins;
+    freshSkins = [];
+    $('res-gift').hidden = !list.length;
+    if (!list.length) return;
+    $('res-gift-title').textContent = list.length === 1 ? 'Neuer Skin freigeschaltet!' : `${list.length} neue Skins freigeschaltet!`;
+    $('res-gift-text').textContent = `${list.map(skinLabel).join(', ')}. Auswählen kannst du alle Skins unter „Skins & Aufgaben“.`;
+    audio.play('specialReady');
+  }
+
+  // ---------- Karte im Hauptmenü: Hintergrund und Training ----------
+  function syncMenuMap() {
+    for (const b of $('menu-map').children) b.classList.toggle('on', b.dataset.v === MAP.id);
+    $('menu-map-info').textContent = MAP.desc;
+  }
+  $('menu-map').addEventListener('click', (e) => {
+    const id = e.target.dataset?.v;
+    if (!id || !MAPS[id]) return;
+    game.loadMap(id);
+    try {
+      localStorage.setItem(MAP_KEY, id);
+    } catch {
+      // dann nur für diese Sitzung
+    }
+    syncMenuMap();
+  });
+  syncMenuMap();
+
   // ---------- Gegen KI: Einstellungen merken, dann wie ein Duell starten (die KI ist der Gast) ----------
-  let botOpts = { level: null, mode: 'kampf', lives: 3, wins: 2 };
+  let botOpts = { level: null, mode: 'kampf', lives: 3, wins: 2, map: 'hof', arms: 'alle' };
   try {
     botOpts = { ...botOpts, ...JSON.parse(localStorage.getItem(BOT_KEY) || '{}') };
   } catch {
@@ -174,6 +255,7 @@ function setupMenus(game, input, audio) {
     for (const seg of document.querySelectorAll('#bot-opts .seg')) {
       for (const b of seg.children) b.classList.toggle('on', b.dataset.v === String(botOpts[seg.dataset.opt]));
     }
+    $('bot-arms-info').textContent = (ARMS[botOpts.arms] || ARMS.alle).info;
     $('bot-level-info').textContent = (BOT_INFO[botOpts.level] || '')
       + (input.touch ? ' Auf dem Handy spielt die KI in jeder Stufe schwächer als am PC.' : '');
   }
@@ -199,10 +281,13 @@ function setupMenus(game, input, audio) {
   });
   $('btn-bot-back').addEventListener('click', () => show('menu'));
   $('btn-bot-start').addEventListener('click', () => {
+    // erst die Karte, dann die KI (sie berechnet ihr Wegenetz auf der geladenen Karte)
+    if (!MAPS[botOpts.map]) botOpts.map = 'hof';
+    game.loadMap(botOpts.map);
     const net = new BotNet(game, botOpts.level);
     enterFullscreen();
     startDuel(net, {
-      role: 'host', lives: botOpts.lives, wins: botOpts.wins, mode: botOpts.mode,
+      role: 'host', lives: botOpts.lives, wins: botOpts.wins, mode: botOpts.mode, map: botOpts.map, arms: botOpts.arms,
       myName: lobby.name, theirName: net.name, resume: null, saved: null,
     });
   });
@@ -240,6 +325,8 @@ function setupMenus(game, input, audio) {
       session.clear();
       setUrlLobby(null);
     }
+    // eine Partie kann auf einer anderen Karte gewesen sein
+    syncMenuMap();
     show('menu');
   }
 
@@ -427,22 +514,12 @@ function setupMenus(game, input, audio) {
     bind('set-fps', 'showFps', () => ''),
     bind('set-touch', 'touch', (v) => v, String),
     bind('set-touchsens', 'touchSens', (v) => v.toFixed(2)),
-    bind('set-knife', 'knifeFinish', (v) => v, String),
   ];
   $('set-touch').addEventListener('input', () => touch.setEnabled(wantsTouch(settings)));
   function openSettings() {
-    syncKnifeOptions();
     for (const s of syncs) s();
     syncBossKey();
     show('settings');
-  }
-
-  // Messer-Skins: die Zeile gibt es erst, wenn man einen geschenkt bekommen hat
-  function syncKnifeOptions() {
-    const have = unlockedFinishes();
-    $('set-knife-row').hidden = !have.length;
-    $('set-knife').innerHTML = ['standard', ...have]
-      .map((id) => `<option value="${id}">${escapeHtml(KNIFE_FINISHES[id].name)}</option>`).join('');
   }
 
   // ---------- Notizblock-Taste ----------
@@ -577,15 +654,7 @@ function setupMenus(game, input, audio) {
         `<td>${why[x.why] || ''}</td><td>${x.kills}</td><td>${x.deaths}</td></tr>`).join('');
     $('btn-again').textContent = 'Nochmal';
     updateRematch();
-    // Easter Egg: wer die KI auf "Schwer" besiegt, bekommt die Regenbogen-Klinge (gleich angelegt)
-    const gift = m.net.bot && m.net.level === 'schwer' && r.won && !r.forfeit && unlockFinish('regenbogen');
-    $('res-gift').hidden = !gift;
-    if (gift) {
-      settings.knifeFinish = 'regenbogen';
-      saveSettings(settings);
-      game.applySettings();
-      audio.play('specialReady');
-    }
+    showNewSkins();
     show('results');
   }
 
@@ -619,6 +688,7 @@ function setupMenus(game, input, audio) {
     $('res-rounds').innerHTML = '<tr><th>Runde</th><th>Ergebnis</th><th>Ziele</th><th>Kopfschüsse</th><th>Zeit</th><th>Geld</th></tr>' +
       r.rounds.map((x, i) => `<tr><td>${i + 1}</td><td class="${x.won ? 'win' : 'loss'}">${x.won ? 'Gewonnen' : 'Verloren'}</td>` +
         `<td>${x.kills} / ${x.targets}</td><td>${x.heads}</td><td>${fmtTime(x.time)}</td><td>+${fmtMoney(x.bonus + x.reward)}</td></tr>`).join('');
+    showNewSkins();
     show('results');
   };
   return { lobby, touch };

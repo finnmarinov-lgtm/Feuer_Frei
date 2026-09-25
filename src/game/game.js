@@ -1,7 +1,8 @@
 import * as THREE from 'three';
-import { KNIFE_SKINS, MOVE, SPECIAL, TEAM_KNIFE, TICK } from '../config.js';
+import { KNIFE_SKINS, MOVE, SPECIAL, TEAM_KNIFE, TICK, WEAPONS } from '../config.js';
+import { mergeByMaterial } from '../engine/merge.js';
 import { setupEnvironment } from '../world/environment.js';
-import { Arena, SPAWN } from '../world/map.js';
+import { Arena, MAP, MAPS, SPAWN, setMap } from '../world/map.js';
 import { BombSites } from '../world/bombsites.js';
 import { Effects } from '../effects/effects.js';
 import { Targets } from './targets.js';
@@ -16,7 +17,8 @@ import { WeaponSystem } from '../weapons/weapons.js';
 import { Grenades } from '../weapons/grenades.js';
 import { Hud } from '../ui/hud.js';
 import { BuyMenu } from '../ui/buymenu.js';
-import { finishOrNull, setKnifeFinish } from '../weapons/skins.js';
+import { applyFinish, tickFinishes } from '../weapons/finishes.js';
+import { PAINT, SLEEVE, cleanLooks, skinOf } from './cosmetics.js';
 
 const DEG = Math.PI / 180;
 const MAX_TICKS = 10;
@@ -76,8 +78,8 @@ export class Game {
     this.buyMenu = new BuyMenu(this);
     // nach dem eigenen Tod im Duell: Kill-Cam und Gegner-Sicht
     this.killcam = new KillCam(this);
-    // eigener Messer-Skin (Geschenk für den Sieg gegen die KI auf "Schwer")
-    this.knifeFinish = finishOrNull(settings.knifeFinish);
+    // eigene Skins (Waffen, Messer, Spieler), freigeschaltet über Aufgaben (game/cosmetics.js)
+    this.looks = cleanLooks(settings.looks, true);
     this.hud.setCrosshairColor(settings.crosshairColor);
 
     this.renderer.applyQuality(settings.quality, this.env.sun, settings.renderScale);
@@ -95,8 +97,10 @@ export class Game {
     const r = this.renderer.renderer;
     for (const [key, m] of Object.entries(this.viewmodel.models)) {
       m.model.visible = true;
-      // Regenbogen-Klinge (falls freigeschaltet) gleich mit übersetzen
-      if (key.startsWith('messer:') && this.knifeFinish) setKnifeFinish(m.model, this.knifeFinish);
+      // getragene Skins gleich mit übersetzen, sonst ruckelt es beim ersten Ziehen
+      const [id, knife] = key.split(':');
+      applyFinish(m.model, PAINT[knife || id] || [], skinOf(this.looks, knife ? 'messer' : id), knife ? 40 : 22);
+      applyFinish(m.model, SLEEVE, skinOf(this.looks, 'spieler'), 9);
     }
     this.effects.muzzleLight.intensity = 1;
     this.effects.boomLight.intensity = 1;
@@ -107,10 +111,7 @@ export class Game {
 
   applySettings() {
     const s = this.settings;
-    this.knifeFinish = finishOrNull(s.knifeFinish);
-    // in der Kill-Cam hält man gerade das Messer des Gegners: dann erst beim Zurückkommen
-    if (this.killcam.saved) this.killcam.saved.finish = this.knifeFinish;
-    else this.viewmodel.setKnifeFinish(this.knifeFinish);
+    this.setLooks(s.looks);
     this.camera.fov = s.fov;
     this.camera.updateProjectionMatrix();
     this.audio.setVolume(s.volume);
@@ -154,17 +155,48 @@ export class Game {
     this.effects.setViewport(this.renderer.renderer.getDrawingBufferSize(new THREE.Vector2()).y, this.camera.fov);
   }
 
+  /**
+   * Karte wechseln (vor einer Partie): alte Arena abbauen, neue bauen, Bombenplätze, Spuren und
+   * Schatten anpassen. Liefert true, wenn sich etwas geändert hat.
+   */
+  loadMap(id) {
+    const map = MAPS[id] ? id : 'hof';
+    if (this.arena.mapId === map) return false;
+    setMap(map);
+    this.killcam.stop();
+    this.grenades.clear();
+    this.airstrikes.clear();
+    this.targets.clear();
+    this.effects.clearMarks();
+    this.arena.clear();
+    this.arena.build();
+    this.bombSites.show(null);
+    this.bombSites.remove();
+    if (this.renderer.quality?.staticShadows) this.renderer.needsShadowBake = true;
+    this.player.spawn(SPAWN.pos, SPAWN.yaw);
+    return true;
+  }
+
+  /** eigene Skins ändern (Waffenkammer): gilt sofort, in der Kill-Cam erst beim Zurückkommen */
+  setLooks(raw) {
+    this.looks = cleanLooks(raw, true);
+    if (this.killcam.saved) this.killcam.saved.looks = this.looks;
+    else this.viewmodel.setLooks(this.looks);
+  }
+
   /** Anzeigename einer Waffe; beim Messer das eigene (Karambit oder Butterfly) */
   weaponName(def, knifeSkin = this.viewmodel.knifeSkin) {
     return def.slot === 'knife' ? KNIFE_SKINS[knifeSkin].name : def.name;
   }
 
-  startMatch() {
+  /** Training auf der Karte mapId (sonst auf der aktuellen) */
+  startMatch(mapId = MAP.id) {
+    this.loadMap(mapId);
     this._setMode('training');
     this.match = this.training;
     // im Training entscheidet der Zufall, welches Messer man bekommt
     this.viewmodel.knifeSkin = Math.random() < 0.5 ? 'karambit' : 'butterfly';
-    this.viewmodel.knifeFinish = this.knifeFinish;
+    this.viewmodel.looks = this.looks;
     this.grenades.clear();
     this.airstrikes.clear();
     this.hud.reset();
@@ -176,18 +208,19 @@ export class Game {
   }
 
   /**
-   * 1 gegen 1 starten. opts: role ('host'/'guest'), lives, wins, myName, theirName, theirSkin
-   * (Messer-Skin des Gegners); mit resume (Stand der Partie) und saved (eigener Stand) geht es in
-   * einer laufenden Partie weiter.
+   * 1 gegen 1 starten. opts: role ('host'/'guest'), lives, wins, mode, map, arms (Waffen-Modus),
+   * myName, theirName, theirLooks (Skins des Gegners); mit resume (Stand der Partie) und saved
+   * (eigener Stand) geht es in einer laufenden Partie weiter.
    */
   startDuel(net, opts) {
+    this.loadMap(opts.map);
     this._setMode('duel');
     this.killcam.reset();
     this.remote.setActive(true, opts.role === 'host' ? 'guest' : 'host');
-    this.remote.setKnifeFinish(opts.theirSkin);
+    this.remote.setLooks(cleanLooks(opts.theirLooks));
     // Team Rot (Host) hat das Karambit, Team Blau (Gast) das Butterflymesser
     this.viewmodel.knifeSkin = TEAM_KNIFE[opts.role];
-    this.viewmodel.knifeFinish = this.knifeFinish;
+    this.viewmodel.looks = this.looks;
     // gegen die KI hat ihr eigener Körper die Kollision, die Figur zeigt ihn nur an
     this.remote.solid = !net.bot;
     this.match = new Duel(this, net, opts);
@@ -356,7 +389,7 @@ export class Game {
         // gehaltene Maustaste nach dem Bestätigen nicht als Schuss werten
         this.weapons.holdFire = true;
       } else {
-        this.hud.message('Kein Ziel', 'Schau auf den Boden, wo die Bomben fallen sollen', 1.4);
+        this.hud.message('Kein Ziel', 'Schau auf den Boden unter freiem Himmel, dort feuert der Jet hin', 1.6);
       }
     } else if (input.altPressed) {
       input.altPressed = false;
@@ -366,6 +399,8 @@ export class Game {
 
   frame(dt) {
     const duel = this.mode === 'duel';
+    // bewegte Skins (Regenbogen, Lava, Neon, Galaxie)
+    tickFinishes(performance.now() / 1000);
     // ein Duell übers Netz läuft in der Pause weiter (sonst hielte es auch beim Gegner an),
     // gegen die KI hält es wirklich an
     const online = duel && this.match.online;
@@ -444,8 +479,11 @@ export class Game {
     // hören, wo die Kamera ist (in der Kill-Cam also wie der Gegner)
     this.camera.getWorldDirection(_fwd);
     this.audio.updateListener(this.camera.position, _fwd);
+    // Waffenkammer: die Vorschau dreht sich im Menü rechts im Bild
+    const showcase = this.state === 'menu' && !!this.showcase?.visible;
+    if (showcase) this._turnShowcase(dt);
     if (this.renderer.needsShadowBake) this._bakeShadows();
-    this.renderer.render(showVm);
+    this.renderer.render(showVm || showcase);
   }
 
   _updateCamera(dt, alpha) {
@@ -453,8 +491,9 @@ export class Game {
     if (this.state === 'menu') {
       // langsamer Rundflug über die Arena hinter dem Hauptmenü
       this.menuAngle += dt * 0.05;
-      cam.position.set(Math.cos(this.menuAngle) * 24, 9, Math.sin(this.menuAngle) * 17);
-      cam.lookAt(0, 1.5, 0);
+      const mc = MAP.menu;
+      cam.position.set(Math.cos(this.menuAngle) * mc.rx, mc.y, Math.sin(this.menuAngle) * mc.rz);
+      cam.lookAt(mc.look[0], mc.look[1], mc.look[2]);
       cam.fov = this.settings.fov;
       cam.updateProjectionMatrix();
       return;
@@ -498,6 +537,95 @@ export class Game {
       this.match.sendChat?.(i - 1);
       hud.toggleChat(false);
       break;
+    }
+  }
+
+  /**
+   * Vorschau in der Waffenkammer: target = Waffe, 'messer' (beide Messer) oder 'spieler', skin =
+   * Oberfläche. Gezeichnet wird sie wie die Waffe in der Hand (eigene Szene vor der Kamera). null = aus.
+   */
+  setShowcase(spec) {
+    if (!this.showcase) {
+      this.showcase = new THREE.Group();
+      this.showcase.visible = false;
+      this.viewCamera.add(this.showcase);
+      this.showcaseModels = {};
+    }
+    const sc = this.showcase;
+    for (const m of Object.values(this.showcaseModels)) m.visible = false;
+    if (!spec) {
+      sc.visible = false;
+      this.viewmodel.root.visible = true;
+      return;
+    }
+    const m = (this.showcaseModels[spec.target] ||= this._showcaseModel(spec.target));
+    for (const part of m.userData.parts) applyFinish(part.model, part.names, spec.skin, part.scale);
+    m.visible = true;
+    sc.visible = true;
+    // die Waffe in der Hand gehört nicht in die Vorschau
+    this.viewmodel.root.visible = false;
+    this.viewCamera.quaternion.identity();
+    this.viewCamera.updateMatrixWorld();
+    this.env.viewSun.intensity = 2.6;
+    this.viewScene.environmentIntensity = 0.85;
+  }
+
+  // Modell für die Vorschau: Waffe ohne Arme, auf gleiche Größe gebracht, seitlich gezeigt
+  _showcaseModel(target) {
+    const holder = new THREE.Group();
+    const parts = [];
+    const add = (name, paint, scale, size, x) => {
+      const src = this.assets.models[name].clone();
+      const remove = [];
+      src.traverse((o) => { if (/^(Hand|Wrist|Sleeve)/.test(o.name)) remove.push(o); });
+      for (const o of remove) o.removeFromParent();
+      mergeByMaterial(src);
+      src.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
+      const box = new THREE.Box3().setFromObject(src);
+      const dim = box.getSize(new THREE.Vector3());
+      const k = size / Math.max(dim.x, dim.y, dim.z);
+      const pivot = new THREE.Group();
+      src.position.copy(box.getCenter(new THREE.Vector3())).multiplyScalar(-1);
+      pivot.add(src);
+      pivot.scale.setScalar(k);
+      pivot.position.x = x;
+      holder.add(pivot);
+      parts.push({ model: src, names: paint, scale, pivot });
+    };
+    if (target === 'spieler') {
+      add('soldier', ['Uniform'], 8, 1.85, 0);
+      // Helm neutral (im Spiel zeigt er die Teamfarbe)
+      parts[0].model.traverse((o) => {
+        if (o.isMesh && o.material.name === 'Helmet') o.material = Object.assign(o.material.clone(), { name: 'HelmetPreview' });
+        if (o.isMesh && o.material.name === 'HelmetPreview') o.material.color.set('#3b4048');
+      });
+      holder.position.set(1.05, -0.05, -3.4);
+      holder.userData.spin = true;
+    } else if (target === 'messer') {
+      add('karambit', PAINT.karambit, 40, 0.3, -0.2);
+      add('butterfly', PAINT.butterfly, 40, 0.34, 0.2);
+      holder.position.set(0.5, 0, -1.15);
+    } else {
+      const pistol = WEAPONS[target].slot === 'secondary';
+      add(WEAPONS[target].model, PAINT[target] || [], 22, pistol ? 0.5 : 0.9, 0);
+      holder.position.set(pistol ? 0.5 : 0.55, 0, pistol ? -1.2 : -1.45);
+    }
+    holder.userData.parts = parts;
+    holder.userData.t = 0;
+    this.showcase.add(holder);
+    return holder;
+  }
+
+  _turnShowcase(dt) {
+    for (const m of Object.values(this.showcaseModels)) {
+      if (!m.visible) continue;
+      m.userData.t += dt;
+      const t = m.userData.t;
+      for (const part of m.userData.parts) {
+        // Spieler dreht sich ganz, Waffen schwenken hin und her (Lauf nach rechts)
+        part.pivot.rotation.set(m.userData.spin ? 0 : 0.12 + Math.sin(t * 0.7) * 0.12,
+          m.userData.spin ? t * 0.6 : -Math.PI / 2 + Math.sin(t * 0.5) * 0.55, 0);
+      }
     }
   }
 

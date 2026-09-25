@@ -33,8 +33,9 @@ const DEFAULTS = {
   keys: null,
   // Taste links neben der 1 (^): wechselt sofort zu einem weißen Notizblatt
   bossKey: 'Backquote',
-  // Messer-Skin ('standard' oder ein freigeschalteter wie 'regenbogen', siehe weapons/skins.js)
-  knifeFinish: 'standard',
+  // getragene Skins { weapons: { wolf: 'gold', messer: 'regenbogen', … }, player: 'wald' },
+  // nur freigeschaltete (siehe game/cosmetics.js)
+  looks: null,
 };
 
 export function loadSettings() {

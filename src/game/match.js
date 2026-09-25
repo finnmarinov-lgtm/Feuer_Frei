@@ -1,5 +1,6 @@
 import { ECONOMY, TRAINING, WEAPONS, ARMOR, SPECIAL } from '../config.js';
 import { SPAWN } from '../world/map.js';
+import { count } from './cosmetics.js';
 
 function shuffle(a) {
   for (let i = a.length - 1; i > 0; i--) {
@@ -247,6 +248,8 @@ export class Match {
       head, reward: def.reward,
     });
     if (def.id !== 'luftschlag') this.addCharge(SPECIAL.killBonus);
+    // Aufgabe: Klappziele im Training
+    count('targets');
   }
 
   onGrenade() {

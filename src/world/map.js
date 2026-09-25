@@ -1,8 +1,11 @@
 import * as THREE from 'three';
 import { GROUP } from '../engine/physics.js';
 
-// Arena "Hof": 60 x 40 m Innenhof, punktsymmetrisch um die Mitte (für das spätere 1 gegen 1).
-// Westen = eigener Spawn im Training. Alle Angaben in Metern, y = Höhe.
+// Zwei Arenen, beide punktsymmetrisch um die Mitte: der Host startet im Westen, der Gast gespiegelt
+// im Osten (im Training startet man im Westen). Alle Angaben in Metern, y = Höhe.
+// - "Hof": sandiger Innenhof mit zwei Gassen, Tunnel durch das Gebäude in der Mitte und Balkon.
+// - "Lagerhalle": Halle mit Hochregalen, Büro-Container in der Mitte, Laufsteg und Dach mit
+//   Lichtbändern, davor je ein Hof mit dem Startpunkt.
 
 const MATS = {
   ground: { tex: 'sandy_gravel_02', tile: 3.0, surface: 'sand' },
@@ -10,57 +13,25 @@ const MATS = {
   plaster: { tex: 'patterned_clay_plaster', tile: 2.6, surface: 'stone' },
   concrete: { tex: 'concrete_floor_worn_001', tile: 2.2, surface: 'stone' },
   metal: { tex: 'rusty_corrugated_iron', tile: 2.4, surface: 'metal' },
+  // gestrichenes Trapezblech: nur das Relief der Wellblech-Textur, Farbe aus tint
+  sheet: { tex: 'rusty_corrugated_iron', tile: 2.4, surface: 'metal' },
+  // glatter Anstrich ohne Textur (Regale, Stapler, Geländer), die Farbe kommt aus tint
+  paint: { surface: 'metal' },
+  glass: { surface: 'stone' },
+  lamp: { surface: 'metal' },
 };
 
 // Blickrichtung (Yaw) so, dass die Kamera nach +X schaut
 const FACE_EAST = -Math.PI / 2;
 
-// Im 1 gegen 1 startet der Host im Westen, der Gast gespiegelt im Osten
-export const SPAWNS = {
-  west: { pos: new THREE.Vector3(-26.5, 0, 0), yaw: FACE_EAST },
-  east: { pos: new THREE.Vector3(26.5, 0, 0), yaw: -FACE_EAST },
-};
-export const SPAWN = SPAWNS.west;
-// Bombenplätze: je einer in der Gasse der eigenen Hälfte, nah an der Mitte vor dem Container,
-// gespiegelt. Wer angreift, legt die Bombe auf dem Platz des anderen. Vom Startpunkt des
-// Verteidigers aus sieht man den Platz nicht (erst nach gut 18 m Weg), die Wege sind fast gleich
-// lang (Verteidiger etwa 29 m, Angreifer 33 m): wer den Verteidiger erwischt, hat Zeit zum Legen.
-export const BOMB_SITES = {
-  west: new THREE.Vector3(-3, 0, -12.5),
-  east: new THREE.Vector3(3, 0, 12.5),
-};
-export const BUY_ZONES = {
-  west: { x0: -30, x1: -21.5, z0: -8, z1: 8 },
-  east: { x0: 21.5, x1: 30, z0: -8, z1: 8 },
-};
+const spawns = (x) => ({
+  west: { pos: new THREE.Vector3(-x, 0, 0), yaw: FACE_EAST },
+  east: { pos: new THREE.Vector3(x, 0, 0), yaw: -FACE_EAST },
+});
 
-// Mögliche Standorte der Klappziele (x, z, Bodenhöhe)
-export const TARGET_SPOTS = [
-  [-14, -12, 0], [-8, -14, 0], [-18, 12.5, 0], [-10, 16, 0], [-6, 4, 0], [-15, 0, 0],
-  [0, -6.5, 0], [0, 6.5, 0], [0, 0, 0], [0, -12, 0], [0, 12, 0], [0, -18.8, 0], [0, 18.8, 0],
-  [8, -10, 0], [13, -13.5, 0], [24, -17, 2.4], [20.5, -18.8, 2.4], [12, 0, 0], [18, 3, 0],
-  [15.5, -6.2, 0], [26, 5, 0], [26.5, -2.5, 0], [10, 14, 0], [21, 13.8, 0], [24, 17.5, 0],
-  [-24, -16, 0], [-26, 17.5, 2.4],
-];
+// ---------- Hof ----------
 
-// Unsichtbare Rampen über den Treppen: [x unten, x oben, Höhe oben, z0, z1], gespiegelt
-const RAMPS = [[-13.6, -18, 2.4, 16.3, 19.9]];
-
-function defineLayout() {
-  const list = [];
-  // opts.collider: 'world' (Standard), 'stair' (nur Kugeln/Granaten) oder 'none'
-  const B = (x0, x1, y0, y1, z0, z1, mat, opts = {}) => list.push({ min: [x0, y0, z0], max: [x1, y1, z1], mat, ...opts });
-  const mirror = (x0, x1, y0, y1, z0, z1, mat, opts) => {
-    B(x0, x1, y0, y1, z0, z1, mat, opts);
-    B(-x1, -x0, y0, y1, -z1, -z0, mat, opts);
-  };
-  // Wandstück mit Sockel aus Beton
-  const wall = (x0, x1, z0, z1, h, mat, add = B) => {
-    add(x0, x1, 0, h, z0, z1, mat);
-    add(x0 - 0.05, x1 + 0.05, 0, 0.3, z0 - 0.05, z1 + 0.05, 'concrete');
-  };
-  const cap = (x0, x1, z0, z1, y, add = B) => add(x0 - 0.08, x1 + 0.08, y, y + 0.15, z0 - 0.08, z1 + 0.08, 'concrete');
-
+function hofLayout({ B, mirror, wall, cap }) {
   // Boden und Außenmauern
   B(-33, 33, -1, 0, -23, 23, 'ground');
   B(-31, 31, 0, 7, -21, -20, 'sandstone');
@@ -110,26 +81,278 @@ function defineLayout() {
   // niedrige Deckungsmauern
   mirror(-12, -8, 0, 1.1, 12, 12.4, 'concrete');
   mirror(-24, -20, 0, 1.1, -12.3, -11.9, 'concrete');
-  return list;
 }
 
-// Requisiten: [Modell, x, z, Drehung, Höhe], jeweils gespiegelt in die andere Hälfte
-const PROPS = [
-  ['Crate_L', -12, -6.2, 0, 0], ['Crate_S', -12, -6.2, 0.3, 1.3], ['Crate_S', -13.25, -6.4, 0.1, 0],
-  ['Crate_L', -17, 3.5, 0, 0], ['Crate_L', -17, 4.85, 0.05, 0],
-  ['concrete_road_barrier', -9, 2.5, Math.PI / 2, 0],
-  ['Crate_L', -7, 18.8, 0, 0], ['Crate_S', -5.6, 19.0, 0.2, 0],
-  ['Barrel_01', -20.5, 9.2, 0.4, 0], ['barrel_03', -19.8, 9.7, 1.2, 0],
-  ['barrel_03', -26.5, -6.6, 0.2, 0], ['Barrel_01', -27.3, -6.1, 2.2, 0],
-  ['wooden_crate_02', -25, 5.8, 0.1, 0], ['wooden_crate_02', -15.5, 17.9, 1.5, 0],
-  ['old_military_crate', -14.6, 10.2, 0.4, 0], ['metal_jerrycan', -20.9, 10.4, 2.5, 0],
-  ['metal_jerrycan', -28.6, 18.8, 0.6, 2.4], ['Crate_S', -6.5, 11.2, 0.15, 0], ['Crate_L', -24.5, 13, 0, 0],
-  ['Crate_L', -15, -14.5, 0, 0], ['Crate_S', -13.7, -14.2, 0.2, 0], ['Crate_S', -15, -14.5, -0.2, 1.3],
-  ['concrete_road_barrier', -9, -17, 0.2, 0], ['Barrel_01', -7, -9.2, 0.9, 0], ['barrel_03', -6.3, -9.7, 0.1, 0],
-  // Kistenstapel vor dem Startpunkt: versperrt die Sicht durch den Tunnel zum anderen Startpunkt
-  ['Crate_L', -22.9, -0.72, 0.04, 0], ['Crate_L', -22.95, 0.62, -0.06, 0],
-  ['Crate_S', -22.85, -0.55, 0.12, 1.3], ['Crate_S', -22.95, 0.5, -0.2, 1.3],
-];
+const HOF = {
+  id: 'hof',
+  name: 'Hof',
+  desc: 'Sandiger Innenhof: zwei Gassen, Tunnel durch das Haus in der Mitte, Balkon.',
+  ground: 'ground',
+  spawns: spawns(26.5),
+  // Bombenplätze: je einer in der Gasse der eigenen Hälfte, nah an der Mitte vor dem Container.
+  // Vom Startpunkt des Verteidigers aus sieht man den Platz nicht (erst nach gut 18 m Weg), die
+  // Wege sind fast gleich lang (Verteidiger etwa 29 m, Angreifer 33 m).
+  sites: { west: new THREE.Vector3(-3, 0, -12.5), east: new THREE.Vector3(3, 0, 12.5) },
+  buyZones: { west: { x0: -30, x1: -21.5, z0: -8, z1: 8 }, east: { x0: 21.5, x1: 30, z0: -8, z1: 8 } },
+  // mögliche Standorte der Klappziele (x, z, Bodenhöhe)
+  targets: [
+    [-14, -12, 0], [-8, -14, 0], [-18, 12.5, 0], [-10, 16, 0], [-6, 4, 0], [-15, 0, 0],
+    [0, -6.5, 0], [0, 6.5, 0], [0, 0, 0], [0, -12, 0], [0, 12, 0], [0, -18.8, 0], [0, 18.8, 0],
+    [8, -10, 0], [13, -13.5, 0], [24, -17, 2.4], [20.5, -18.8, 2.4], [12, 0, 0], [18, 3, 0],
+    [15.5, -6.2, 0], [26, 5, 0], [26.5, -2.5, 0], [10, 14, 0], [21, 13.8, 0], [24, 17.5, 0],
+    [-24, -16, 0], [-26, 17.5, 2.4],
+  ],
+  // unsichtbare Rampen über den Treppen: [x unten, x oben, Höhe oben, z0, z1], gespiegelt
+  ramps: [[-13.6, -18, 2.4, 16.3, 19.9]],
+  layout: hofLayout,
+  // Requisiten: [Modell, x, z, Drehung, Höhe], jeweils gespiegelt in die andere Hälfte
+  props: [
+    ['Crate_L', -12, -6.2, 0, 0], ['Crate_S', -12, -6.2, 0.3, 1.3], ['Crate_S', -13.25, -6.4, 0.1, 0],
+    ['Crate_L', -17, 3.5, 0, 0], ['Crate_L', -17, 4.85, 0.05, 0],
+    ['concrete_road_barrier', -9, 2.5, Math.PI / 2, 0],
+    ['Crate_L', -7, 18.8, 0, 0], ['Crate_S', -5.6, 19.0, 0.2, 0],
+    ['Barrel_01', -20.5, 9.2, 0.4, 0], ['barrel_03', -19.8, 9.7, 1.2, 0],
+    ['barrel_03', -26.5, -6.6, 0.2, 0], ['Barrel_01', -27.3, -6.1, 2.2, 0],
+    ['wooden_crate_02', -25, 5.8, 0.1, 0], ['wooden_crate_02', -15.5, 17.9, 1.5, 0],
+    ['old_military_crate', -14.6, 10.2, 0.4, 0], ['metal_jerrycan', -20.9, 10.4, 2.5, 0],
+    ['metal_jerrycan', -28.6, 18.8, 0.6, 2.4], ['Crate_S', -6.5, 11.2, 0.15, 0], ['Crate_L', -24.5, 13, 0, 0],
+    ['Crate_L', -15, -14.5, 0, 0], ['Crate_S', -13.7, -14.2, 0.2, 0], ['Crate_S', -15, -14.5, -0.2, 1.3],
+    ['concrete_road_barrier', -9, -17, 0.2, 0], ['Barrel_01', -7, -9.2, 0.9, 0], ['barrel_03', -6.3, -9.7, 0.1, 0],
+    // Kistenstapel vor dem Startpunkt: versperrt die Sicht durch den Tunnel zum anderen Startpunkt
+    ['Crate_L', -22.9, -0.72, 0.04, 0], ['Crate_L', -22.95, 0.62, -0.06, 0],
+    ['Crate_S', -22.85, -0.55, 0.12, 1.3], ['Crate_S', -22.95, 0.5, -0.2, 1.3],
+  ],
+  // Rundflug hinter dem Hauptmenü
+  menu: { rx: 24, rz: 17, y: 9, look: [0, 1.5, 0] },
+  // KI: Wegpunkte für verschiedene Wege (sie ist immer der Gast im Osten) und wohin sie beim
+  // Verteidigen ihres Platzes schaut ([x0, x1, z0, z1]: die Gasse nach Westen, die Öffnung zur Mitte)
+  bot: {
+    lanes: [[0, 12.5], [0, -12.5], [0, 0], [-6, 6.5], [6, -6.5]],
+    watch: [[-13, -3, 9.5, 16.5], [-3, 5, 1, 7]],
+  },
+};
+
+// ---------- Lagerhalle ----------
+
+// Farben (Anstrich, Tönung der Texturen)
+const T = {
+  clad: [0.66, 0.72, 0.8], cladDark: [0.46, 0.5, 0.56], roof: [0.42, 0.44, 0.48],
+  blue: [0.12, 0.27, 0.55], orange: [0.95, 0.42, 0.08], yellow: [0.96, 0.74, 0.1],
+  dark: [0.13, 0.14, 0.16], grey: [0.5, 0.52, 0.55], white: [0.86, 0.87, 0.86],
+  card: [0.6, 0.44, 0.27], wrap: [0.8, 0.83, 0.84], red: [0.6, 0.14, 0.1], door: [0.24, 0.3, 0.4],
+};
+
+function halleLayout({ B, mirror, cap }) {
+  // Boden und Außenmauern: die Halle reicht von Nord- bis Südwand, davor zwei Höfe
+  B(-33, 33, -1, 0, -23, 23, 'ground');
+  B(-17.3, 17.3, 0, 9.3, 20, 21, 'sheet', { tint: T.clad });
+  B(-17.3, 17.3, 0, 9.3, -21, -20, 'sheet', { tint: T.clad });
+  mirror(-31, -17.3, 0, 6, 20, 21, 'concrete');
+  mirror(-31, -17.3, 0, 6, -21, -20, 'concrete');
+  mirror(-31, -30, 0, 6, -20, 20, 'concrete');
+  cap(-31, -17.3, 20, 21, 6, mirror);
+  cap(-31, -17.3, -21, -20, 6, mirror);
+  cap(-31, -30, -20, 20, 6, mirror);
+  // Sockel aus Beton an den Hallenwänden (innen)
+  B(-16.7, 16.7, 0, 1.1, 19.85, 20, 'concrete');
+  B(-16.7, 16.7, 0, 1.1, -20, -19.85, 'concrete');
+
+  // Stirnwände der Halle mit je drei Rolltoren (halb heruntergelassen, man läuft darunter durch)
+  for (const [z0, z1] of [[-20, -13], [-9.5, -1.8], [1.8, 9.5], [13, 20]]) {
+    mirror(-17.3, -16.7, 0, 9.3, z0, z1, 'sheet', { tint: T.clad });
+    mirror(-17.45, -16.55, 0, 1.1, z0, z1, 'concrete');
+  }
+  for (const [z0, z1] of [[-13, -9.5], [-1.8, 1.8], [9.5, 13]]) {
+    mirror(-17.3, -16.7, 4.2, 9.3, z0, z1, 'sheet', { tint: T.clad });
+    mirror(-17.12, -16.88, 3.0, 4.2, z0, z1, 'sheet', { tint: T.door });
+    mirror(-17.4, -16.6, 0, 4.2, z0 - 0.14, z0, 'paint', { tint: T.yellow, collider: 'none' });
+    mirror(-17.4, -16.6, 0, 4.2, z1, z1 + 0.14, 'paint', { tint: T.yellow, collider: 'none' });
+  }
+
+  // Dach mit drei offenen Lichtbändern: dort scheint die Sonne herein (und der Luftschlag trifft)
+  for (const [z0, z1] of [[-20, -12], [-9, -1.5], [1.5, 9], [12, 20]]) B(-17.3, 17.3, 9, 9.3, z0, z1, 'sheet', { tint: T.roof });
+  for (const [z0, z1] of [[-12, -9], [-1.5, 1.5], [9, 12]]) mirror(-17.3, -15, 9, 9.3, z0, z1, 'sheet', { tint: T.roof });
+  // Dachträger und Lampen (nur zum Ansehen)
+  for (const x of [-14, -7, 0, 7, 14]) B(x - 0.15, x + 0.15, 8.4, 9, -20, 20, 'paint', { tint: T.dark, collider: 'none' });
+  for (const x of [-12, -4, 4, 12]) {
+    for (const z of [-15.5, -4.5, 4.5, 15.5]) {
+      B(x - 1.6, x + 1.6, 7.05, 7.16, z - 0.13, z + 0.13, 'lamp', { collider: 'none' });
+      B(x - 1.7, x + 1.7, 7.16, 7.3, z - 0.18, z + 0.18, 'paint', { tint: T.dark, collider: 'none' });
+    }
+  }
+
+  // Hochregale: Körper für Kollision und Kugeln, darin Rückwand, Stützen, Träger und Böden
+  const shelf = (x0, x1, z0, z1) => {
+    const H = 4.2;
+    mirror(x0, x1, 0, H, z0, z1, null, { surface: 'metal' });
+    const zm = (z0 + z1) / 2;
+    mirror(x0 + 0.05, x1 - 0.05, 0.1, H - 0.1, zm - 0.02, zm + 0.02, 'paint', { tint: T.dark, collider: 'none' });
+    const n = Math.max(1, Math.round((x1 - x0) / 2.3));
+    for (let i = 0; i <= n; i++) {
+      const x = Math.min(x1 - 0.1, Math.max(x0, x0 + ((x1 - x0) * i) / n - 0.05));
+      for (const z of [z0, z1 - 0.1]) mirror(x, x + 0.1, 0, H, z, z + 0.1, 'paint', { tint: T.blue, collider: 'none' });
+    }
+    for (const y of [1.45, 3.0]) {
+      for (const z of [z0, z1 - 0.08]) mirror(x0, x1, y, y + 0.12, z, z + 0.08, 'paint', { tint: T.orange, collider: 'none' });
+      mirror(x0, x1, y + 0.1, y + 0.14, z0 + 0.05, z1 - 0.05, 'metal', { tint: T.grey, collider: 'none' });
+    }
+    mirror(x0, x1, H - 0.1, H, z0, z1, 'paint', { tint: T.orange, collider: 'none' });
+  };
+  // Ware in den Regalen: Kartons und eingeschweißte Paletten (Kisten stehen bei den Requisiten)
+  const goods = (x0, x1, y, z0, z1, h, tint) => mirror(x0, x1, y, y + h, z0, z1, 'paint', { tint, collider: 'none' });
+  // Reihe im Süden (in der Westhälfte) mit Lücke, Reihe im Norden mit Lücke
+  shelf(-14.5, -10, -6.6, -5.4);
+  shelf(-8.4, -4, -6.6, -5.4);
+  shelf(-14.5, -11.6, 5.4, 6.6);
+  shelf(-10, -6.5, 5.4, 6.6);
+  goods(-14.3, -12.4, 0.02, -6.45, -5.55, 1.1, T.card);
+  goods(-13.9, -12.6, 1.59, -6.45, -5.55, 0.9, T.wrap);
+  goods(-11.6, -10.3, 3.14, -6.45, -5.55, 0.8, T.card);
+  goods(-6.4, -4.3, 0.02, -6.45, -5.55, 1.2, T.wrap);
+  goods(-8.1, -6.9, 3.14, -6.45, -5.55, 0.9, T.card);
+  goods(-14.2, -12.8, 3.14, 5.55, 6.45, 0.85, T.wrap);
+  goods(-9.7, -8.3, 0.02, 5.55, 6.45, 1.15, T.card);
+  goods(-8.2, -6.8, 1.59, 5.55, 6.45, 1.0, T.card);
+
+  // Büro-Container in der Mitte: versperrt die Sicht von Tor zu Tor
+  B(-3, 3, 0, 3, -2.4, 2.4, 'sheet', { tint: T.white });
+  B(-3.1, 3.1, 3, 3.12, -2.5, 2.5, 'paint', { tint: T.dark });
+  for (const x of [-2.2, 1.0]) mirror(x, x + 1.2, 1.1, 2.1, -2.43, -2.4, 'glass');
+  mirror(-3.03, -3, 0, 2.2, -0.5, 0.5, 'paint', { tint: T.door, collider: 'none' });
+
+  // Laufsteg an der Nordwand (Westhälfte) bzw. Südwand (Osthälfte): Boden auf Stützen, darunter frei
+  mirror(-16.7, -8, 2.9, 3.2, 16.2, 20, 'concrete');
+  for (const x of [-16.35, -12.3, -8.35]) mirror(x - 0.15, x + 0.15, 0, 2.9, 16.3, 16.6, 'paint', { tint: T.yellow });
+  // Geländer: unsichtbare Wand für Spieler (Kugeln fliegen durch), sichtbar nur die Stangen
+  mirror(-16.7, -8, 3.2, 4.3, 16.2, 16.3, null, { collider: 'clip' });
+  mirror(-16.7, -8, 4.1, 4.16, 16.2, 16.28, 'paint', { tint: T.yellow, collider: 'none' });
+  mirror(-16.7, -8, 3.65, 3.7, 16.2, 16.28, 'paint', { tint: T.yellow, collider: 'none' });
+  for (let x = -16.4; x < -8; x += 1.4) mirror(x, x + 0.05, 3.2, 4.16, 16.2, 16.28, 'paint', { tint: T.yellow, collider: 'none' });
+  // Treppe nach Osten hinunter, seitlich zu (nur von unten betretbar)
+  for (let k = 0; k < 10; k++) {
+    const x0 = -8 + 0.38 * k;
+    mirror(x0, x0 + 0.38, 0, 3.2 * (1 - (k + 0.5) / 10), 17.2, 19.85, 'concrete', { collider: 'stair' });
+  }
+  mirror(-8, -4.2, 0, 4.3, 17.1, 17.2, null, { collider: 'clip' });
+  mirror(-8, -4.2, 3.35, 3.4, 17.12, 17.18, 'paint', { tint: T.yellow, collider: 'none' });
+
+  // Gabelstapler in der Südgasse (Westhälfte), Gabel nach Osten
+  const cx = -9.2, cz = -14.2;
+  mirror(cx - 1.0, cx + 0.6, 0.25, 1.25, cz - 0.6, cz + 0.6, 'paint', { tint: T.yellow });
+  mirror(cx - 1.3, cx - 0.95, 0.25, 1.1, cz - 0.6, cz + 0.6, 'paint', { tint: T.dark });
+  for (const [x, z] of [[cx - 0.75, cz - 0.62], [cx - 0.75, cz + 0.62], [cx + 0.35, cz - 0.62], [cx + 0.35, cz + 0.62]]) {
+    mirror(x - 0.25, x + 0.25, 0, 0.5, z - 0.12, z + 0.12, 'paint', { tint: T.dark, collider: 'none' });
+  }
+  for (const x of [cx - 0.85, cx + 0.35]) {
+    for (const z of [cz - 0.52, cz + 0.44]) mirror(x, x + 0.08, 1.25, 2.2, z, z + 0.08, 'paint', { tint: T.dark });
+  }
+  mirror(cx - 0.9, cx + 0.45, 2.2, 2.28, cz - 0.55, cz + 0.55, 'paint', { tint: T.dark });
+  mirror(cx - 0.6, cx - 0.2, 1.25, 1.6, cz - 0.25, cz + 0.25, 'paint', { tint: T.dark, collider: 'none' });
+  for (const z of [cz - 0.42, cz + 0.32]) mirror(cx + 0.62, cx + 0.72, 0.1, 2.5, z, z + 0.1, 'paint', { tint: T.dark });
+  for (const z of [cz - 0.36, cz + 0.26]) mirror(cx + 0.72, cx + 1.9, 0.08, 0.14, z, z + 0.1, 'paint', { tint: T.dark, collider: 'none' });
+  mirror(cx + 0.75, cx + 1.85, 0.14, 0.3, cz - 0.55, cz + 0.55, 'paint', { tint: T.card, collider: 'none' });
+
+  // Sattelauflieger im Hof an der Außenmauer (unten nur für Spieler zu, Kugeln fliegen drunter durch)
+  const tx0 = -29.6, tx1 = -27.1, tz0 = 7, tz1 = 19;
+  mirror(tx0, tx1, 1.05, 3.9, tz0, tz1, 'paint', { tint: T.white });
+  mirror(tx0 - 0.02, tx1 + 0.02, 2.3, 2.6, tz0 + 0.2, tz1 - 0.2, 'paint', { tint: T.blue, collider: 'none' });
+  mirror(tx0 + 0.2, tx1 - 0.2, 0.75, 1.05, tz0, tz1, 'paint', { tint: T.dark });
+  mirror(tx0, tx1, 0, 0.75, tz0, tz1, null, { collider: 'clip' });
+  for (const z of [tz1 - 3.2, tz1 - 1.9]) mirror(tx0 + 0.05, tx1 - 0.05, 0, 0.95, z - 0.47, z + 0.47, 'paint', { tint: T.dark });
+  mirror(tx0 + 0.5, tx1 - 0.5, 0, 0.75, tz0 + 1.2, tz0 + 1.4, 'paint', { tint: T.dark, collider: 'none' });
+  // Überseecontainer im Hof
+  mirror(-24.5, -22.1, 0, 2.6, -19.6, -13.6, 'sheet', { tint: T.red });
+
+  // gelbe Linien am Boden neben den Regalen und um das Büro
+  for (const z of [-7.25, 7.25]) B(-16.6, 16.6, 0, 0.012, z - 0.06, z + 0.06, 'paint', { tint: T.yellow, collider: 'none' });
+  for (const z of [-3.1, 3.1]) B(-3.7, 3.7, 0, 0.012, z - 0.06, z + 0.06, 'paint', { tint: T.yellow, collider: 'none' });
+  for (const x of [-3.7, 3.7]) B(x - 0.06, x + 0.06, 0, 0.012, -3.1, 3.1, 'paint', { tint: T.yellow, collider: 'none' });
+}
+
+const HALLE = {
+  id: 'halle',
+  name: 'Lagerhalle',
+  desc: 'Halle mit Hochregalen, Büro in der Mitte, Laufsteg und Rolltoren. Enger, mehr Nahkampf.',
+  ground: 'concrete',
+  // Boden: in den Höfen dunkler (Asphalt), in der Halle heller Beton
+  groundTint: (x) => (Math.abs(x) > 17.2 ? 0.62 : 1),
+  spawns: spawns(25),
+  // Bombenplätze in der Südgasse (Westhälfte) bzw. Nordgasse (Osthälfte), nah an der Mitte: vom
+  // Startpunkt aus nicht zu sehen, Wege etwa 28 m (Verteidiger) zu 33 m (Angreifer)
+  sites: { west: new THREE.Vector3(-3, 0, -11), east: new THREE.Vector3(3, 0, 11) },
+  buyZones: { west: { x0: -30, x1: -20.5, z0: -8, z1: 8 }, east: { x0: 20.5, x1: 30, z0: -8, z1: 8 } },
+  targets: [
+    [-14, -17, 0], [-6.5, -16.8, 0], [-12.5, -9, 0], [-6, -9.5, 0], [-15, 0, 0], [-8, 3.5, 0],
+    [-11, 11, 0], [-4.5, 16.5, 0], [-13.5, 18, 3.2], [0, -12, 0], [0, 12, 0], [0, 17, 0], [0, -4.2, 0],
+    [14, 17, 0], [6.5, 16.8, 0], [12.5, 9, 0], [6, 9.5, 0], [15, 0, 0], [8, -3.5, 0], [11, -11, 0],
+    [4.5, -16.5, 0], [13.5, -18, 3.2], [-23, 12, 0], [-25, -9, 0], [24, -12, 0], [26, 9, 0], [-20, -17, 0],
+  ],
+  ramps: [[-4.2, -8, 3.2, 17.2, 19.85]],
+  layout: halleLayout,
+  props: [
+    // Kisten in den Regalen (Westhälfte, gespiegelt in die Osthälfte)
+    ['Crate_S', -11, -6, 0, 0], ['Crate_S', -13.2, -6, 0.05, 3.14], ['Crate_L', -7.5, -6, 0, 0],
+    ['Crate_S', -5.2, -6, 0.1, 1.59], ['Crate_S', -12.9, 6, 0, 0], ['Crate_S', -11.9, 6, 0, 1.59],
+    ['Crate_L', -7.2, 6, 0, 0], ['wooden_crate_02', -9.4, 6, Math.PI / 2, 3.14],
+    // Deckung in den Gassen
+    ['Crate_L', -13.5, -11, 0.1, 0], ['Crate_S', -13.4, -11.1, 0.35, 1.3], ['Crate_S', -12.3, -11.4, 0.1, 0],
+    ['old_military_crate', -4.2, -17.8, 0, 0], ['Barrel_01', -15.6, -18.6, 0.3, 0], ['barrel_03', -15, -19, 1.1, 0],
+    // Deckung auf dem Bombenplatz
+    ['Crate_L', -4.9, -12.9, 0.12, 0], ['Crate_S', -4.8, -12.8, -0.2, 1.3], ['concrete_road_barrier', -1.2, -13.3, 0.15, 0],
+    ['Crate_S', -10.5, 2.4, 0.2, 0], ['wooden_crate_02', -12.4, -2.9, 0.3, 0], ['Barrel_01', -6.5, -3.6, 0.6, 0],
+    ['Crate_L', -5, 11.6, 0, 0], ['Crate_S', -3.75, 11.3, 0.25, 0], ['barrel_03', -14.8, 9.5, 0.4, 0],
+    ['Crate_S', -15.8, 14.6, 0.1, 0], ['metal_jerrycan', -15.2, 13.9, 1.4, 0],
+    // Höfe: Kisten zwischen Startpunkt und mittlerem Tor, Fässer in den Ecken
+    ['Crate_L', -20.8, -0.72, 0.04, 0], ['Crate_L', -20.85, 0.62, -0.06, 0], ['Crate_S', -20.8, -0.5, 0.15, 1.3],
+    ['Barrel_01', -29, -8.5, 0.4, 0], ['barrel_03', -28.3, -9.1, 1.2, 0], ['wooden_crate_02', -21.5, 10.5, 0.2, 0],
+    ['concrete_road_barrier', -19.5, -12.3, Math.PI / 2, 0], ['Crate_S', -25.5, 16.5, 0.3, 0],
+  ],
+  menu: { rx: 11, rz: 9, y: 5.2, look: [0, 1.8, 0] },
+  bot: {
+    lanes: [[0, 13], [0, -13], [0, 4.2], [0, -4.2], [-6, 9]],
+    watch: [[-12, -2, 8, 17], [-3, 3, 3.2, 5.6], [7.5, 10.5, 2, 5]],
+  },
+};
+
+export const MAPS = { hof: HOF, halle: HALLE };
+export const MAP_IDS = Object.keys(MAPS);
+
+// Die aktuelle Karte. Die übrigen Werte sind "live": Module, die sie importieren, sehen nach
+// setMap() gleich die der neuen Karte.
+export let MAP = HOF;
+export let SPAWNS = HOF.spawns;
+export let SPAWN = HOF.spawns.west;
+export let BOMB_SITES = HOF.sites;
+export let BUY_ZONES = HOF.buyZones;
+
+export function setMap(id) {
+  MAP = MAPS[id] || HOF;
+  SPAWNS = MAP.spawns;
+  SPAWN = MAP.spawns.west;
+  BOMB_SITES = MAP.sites;
+  BUY_ZONES = MAP.buyZones;
+  return MAP;
+}
+
+function defineLayout(map) {
+  const list = [];
+  // opts.collider: 'world' (Standard), 'stair' (nur Kugeln/Granaten), 'clip' (nur Spieler) oder 'none';
+  // opts.tint: Farbe [r, g, b], mit der die Textur bzw. der Anstrich eingefärbt wird;
+  // mat null: nur Kollision, nichts zu sehen (opts.surface für den Klang der Einschläge)
+  const B = (x0, x1, y0, y1, z0, z1, mat, opts = {}) => list.push({ min: [x0, y0, z0], max: [x1, y1, z1], mat, ...opts });
+  const mirror = (x0, x1, y0, y1, z0, z1, mat, opts) => {
+    B(x0, x1, y0, y1, z0, z1, mat, opts);
+    B(-x1, -x0, y0, y1, -z1, -z0, mat, opts);
+  };
+  // Wandstück mit Sockel aus Beton
+  const wall = (x0, x1, z0, z1, h, mat, add = B) => {
+    add(x0, x1, 0, h, z0, z1, mat);
+    add(x0 - 0.05, x1 + 0.05, 0, 0.3, z0 - 0.05, z1 + 0.05, 'concrete');
+  };
+  const cap = (x0, x1, z0, z1, y, add = B) => add(x0 - 0.08, x1 + 0.08, y, y + 0.15, z0 - 0.08, z1 + 0.08, 'concrete');
+  map.layout({ B, mirror, wall, cap });
+  return list;
+}
 
 const PROP_SURFACE = {
   Crate_L: 'wood', Crate_S: 'wood', wooden_crate_02: 'wood', old_military_crate: 'wood',
@@ -158,7 +381,7 @@ function pushBox(acc, min, max, tile, tint) {
       acc.pos.push(...p);
       acc.nrm.push(...f.n);
       acc.uv.push(dot(p, f.u) / tile, dot(p, f.v) / tile);
-      acc.col.push(tint, tint, tint);
+      acc.col.push(tint[0], tint[1], tint[2]);
     }
     acc.idx.push(base, base + 1, base + 2, base, base + 2, base + 3);
   }
@@ -168,6 +391,17 @@ function makeMaterial(assets, key) {
   if (key === 'glass') {
     return new THREE.MeshStandardMaterial({ color: 0x151b20, roughness: 0.12, metalness: 0.2 });
   }
+  if (key === 'lamp') {
+    // Leuchtröhren: hell, ohne Licht und Schatten
+    return new THREE.MeshBasicMaterial({ color: new THREE.Color(2.4, 2.35, 2.15) });
+  }
+  if (key === 'paint') {
+    return new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6, metalness: 0.2, vertexColors: true });
+  }
+  if (key === 'sheet') {
+    const t = assets.textures[MATS.sheet.tex];
+    return new THREE.MeshStandardMaterial({ normalMap: t.nor, roughness: 0.5, metalness: 0.3, vertexColors: true });
+  }
   const t = assets.textures[MATS[key].tex];
   return new THREE.MeshStandardMaterial({
     map: t.diff, normalMap: t.nor, roughnessMap: t.arm, metalnessMap: t.arm, aoMap: t.arm,
@@ -175,6 +409,8 @@ function makeMaterial(assets, key) {
   });
 }
 
+// Baut die aktuelle Karte (MAP): Kästen mit Welt-UVs, Kollision, Rampen, Requisiten per Instancing.
+// clear() räumt alles wieder ab, damit die nächste Karte gebaut werden kann.
 export class Arena {
   constructor(assets, physics, scene) {
     this.assets = assets;
@@ -184,28 +420,68 @@ export class Arena {
     this.group.name = 'Arena';
     scene.add(this.group);
     this.targetSpots = [];
+    this.colliders = [];
+    this.materials = [];
+    this.mapId = null;
   }
 
   build() {
+    this.map = MAP;
     this._buildGeometry();
     this._placeProps();
     this._validateSpots();
+    this.mapId = MAP.id;
+  }
+
+  /** alles der alten Karte entfernen: Meshes, Materialien, Kollision */
+  clear() {
+    const { world, surfaces } = this.physics;
+    for (const c of this.colliders) {
+      surfaces.delete(c.handle);
+      world.removeCollider(c, false);
+    }
+    this.colliders = [];
+    for (const o of [...this.group.children]) {
+      this.group.remove(o);
+      // Requisiten teilen sich die Geometrie mit ihren Vorlagen
+      if (o.isInstancedMesh) o.dispose();
+      else o.geometry.dispose();
+    }
+    for (const m of this.materials) m.dispose();
+    this.materials = [];
+    this.targetSpots = [];
+    this.mapId = null;
+  }
+
+  _material(key) {
+    const m = makeMaterial(this.assets, key);
+    this.materials.push(m);
+    return m;
+  }
+
+  _collider(c) {
+    this.colliders.push(c);
+    return c;
   }
 
   _buildGeometry() {
     const byMat = {};
     let seed = 7;
     const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-    for (const b of defineLayout()) {
-      if (b.mat !== 'ground') {
+    for (const b of defineLayout(this.map)) {
+      if (b.mat && b.mat !== 'ground') {
         const acc = (byMat[b.mat] ||= { pos: [], nrm: [], uv: [], col: [], idx: [] });
-        pushBox(acc, b.min, b.max, MATS[b.mat]?.tile ?? 1, 0.9 + rand() * 0.14);
+        // leichte Unterschiede von Bauteil zu Bauteil, beim Anstrich weniger
+        const k = b.mat === 'paint' ? 0.96 + rand() * 0.05 : 0.9 + rand() * 0.14;
+        const t = b.tint || [1, 1, 1];
+        pushBox(acc, b.min, b.max, MATS[b.mat]?.tile ?? 1, [t[0] * k, t[1] * k, t[2] * k]);
       }
       if (b.collider === 'none') continue;
       const half = { x: (b.max[0] - b.min[0]) / 2, y: (b.max[1] - b.min[1]) / 2, z: (b.max[2] - b.min[2]) / 2 };
       const center = { x: b.min[0] + half.x, y: b.min[1] + half.y, z: b.min[2] + half.z };
-      const member = b.collider === 'stair' ? GROUP.STAIR : GROUP.WORLD;
-      this.physics.addBox(center, half, MATS[b.mat]?.surface ?? 'stone', null, member);
+      const member = b.collider === 'stair' ? GROUP.STAIR : b.collider === 'clip' ? GROUP.CLIP : GROUP.WORLD;
+      const surface = MATS[b.mat]?.surface ?? b.surface ?? 'stone';
+      this._collider(this.physics.addBox(center, half, surface, null, member));
     }
     this._addRamps();
     for (const [key, acc] of Object.entries(byMat)) {
@@ -216,10 +492,11 @@ export class Arena {
       g.setAttribute('color', new THREE.Float32BufferAttribute(acc.col, 3));
       g.setIndex(acc.idx);
       g.computeBoundingSphere();
-      const mesh = new THREE.Mesh(g, makeMaterial(this.assets, key));
+      const mesh = new THREE.Mesh(g, this._material(key));
       mesh.name = `Arena_${key}`;
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
+      // Lampen werfen keinen Schatten (hängen unter dem Dach)
+      mesh.castShadow = key !== 'lamp';
+      mesh.receiveShadow = key !== 'lamp';
       this.group.add(mesh);
     }
     this._buildGround();
@@ -229,7 +506,7 @@ export class Arena {
   _addRamps() {
     const t = 0.3;
     const zAxis = new THREE.Vector3(0, 0, 1);
-    for (const [xLow, xHigh, h, z0, z1] of RAMPS) {
+    for (const [xLow, xHigh, h, z0, z1] of this.map.ramps) {
       for (const s of [1, -1]) {
         const x0 = xLow * s, x1 = xHigh * s;
         const len = Math.hypot(x1 - x0, h);
@@ -242,14 +519,17 @@ export class Arena {
           y: h / 2 - ny * t / 2,
           z: ((z0 + z1) / 2) * s,
         };
-        this.physics.addBox(center, { x: len / 2, y: t / 2, z: (z1 - z0) / 2 }, 'stone', q, GROUP.CLIP);
+        this._collider(this.physics.addBox(center, { x: len / 2, y: t / 2, z: (z1 - z0) / 2 }, 'stone', q, GROUP.CLIP));
       }
     }
   }
 
   // Boden als feines Raster mit weichen Farbflecken, damit die Kachelung nicht auffällt
   _buildGround() {
-    const w = 66, d = 46, nx = 66, nz = 46, tile = MATS.ground.tile;
+    const w = 66, d = 46, nx = 66, nz = 46;
+    const key = this.map.ground;
+    const tile = MATS[key].tile;
+    const shade = this.map.groundTint || (() => 1);
     const pos = [], uv = [], col = [], idx = [];
     const noise = (x, z) => 0.5
       + 0.22 * Math.sin(x * 0.19 + Math.sin(z * 0.11) * 2.3)
@@ -262,7 +542,7 @@ export class Arena {
         pos.push(x, 0, z);
         uv.push(x / tile, -z / tile);
         const n = Math.min(1, Math.max(0, noise(x, z)));
-        const k = 0.8 + 0.24 * n;
+        const k = (0.8 + 0.24 * n) * shade(x, z);
         col.push(k, k * (0.97 + 0.03 * n), k * (0.93 + 0.07 * n));
       }
     }
@@ -278,7 +558,7 @@ export class Arena {
     g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
     g.setIndex(idx);
     g.computeVertexNormals();
-    const mesh = new THREE.Mesh(g, makeMaterial(this.assets, 'ground'));
+    const mesh = new THREE.Mesh(g, this._material(key));
     mesh.name = 'Arena_ground';
     mesh.receiveShadow = true;
     this.group.add(mesh);
@@ -306,7 +586,7 @@ export class Arena {
   // Gleiche Requisiten werden per Instancing gezeichnet: ein Draw Call pro Teil für alle Kopien
   _placeProps() {
     const placements = {};
-    for (const [name, x, z, yaw, y] of PROPS) {
+    for (const [name, x, z, yaw, y] of this.map.props) {
       (placements[name] ||= []).push([x, z, yaw, y], [-x, -z, yaw + Math.PI, y]);
     }
     const up = new THREE.Vector3(0, 1, 0);
@@ -337,9 +617,9 @@ export class Arena {
         q.setFromAxisAngle(up, yaw);
         const center = localCenter.clone().applyQuaternion(q).add(p.set(x, y, z));
         if (/^barrel/i.test(name)) {
-          this.physics.addCylinder(center, size.y / 2, Math.max(size.x, size.z) / 2, surface);
+          this._collider(this.physics.addCylinder(center, size.y / 2, Math.max(size.x, size.z) / 2, surface));
         } else {
-          this.physics.addBox(center, { x: size.x / 2, y: size.y / 2, z: size.z / 2 }, surface, q.clone());
+          this._collider(this.physics.addBox(center, { x: size.x / 2, y: size.y / 2, z: size.z / 2 }, surface, q.clone()));
         }
       }
     }
@@ -350,7 +630,7 @@ export class Arena {
     const R = this.physics.R;
     const shape = new R.Cuboid(0.3, 0.5, 0.3);
     this.physics.step(); // Abfragestruktur mit den neuen Kollisionskörpern füllen
-    for (const [x, z, y] of TARGET_SPOTS) {
+    for (const [x, z, y] of this.map.targets) {
       if (this.physics.overlaps(shape, { x, y: y + 0.6, z })) {
         console.warn('Zielstandort blockiert:', x, z);
         continue;

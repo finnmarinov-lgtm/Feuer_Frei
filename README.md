@@ -8,6 +8,8 @@ Drei Spielarten:
 - **Gegen KI**: dasselbe 1 gegen 1 gegen einen Computer-Gegner (Anfänger, Leicht, Mittel, Schwer), ohne dass ein Freund online sein muss.
 - **Training**: 5 Runden gegen Klappziele aus Stahl, danach eine Auswertung.
 
+Dazu zwei Karten (**Hof** und **Lagerhalle**), drei Waffen-Modi (**Alle Waffen**, **Nur Pistolen**, **Scharfschützen**) und **Skins** für alle Waffen, das Messer und die eigene Figur, die man über **Aufgaben** freischaltet (Menüpunkt **Skins & Aufgaben**).
+
 Es läuft am PC (Maus und Tastatur) und auf dem Handy oder Tablet (Touch-Steuerung, quer halten).
 
 ## Starten
@@ -23,7 +25,7 @@ Danach `http://localhost:5173` öffnen und auf **1 gegen 1**, **Gegen KI** oder 
 
 1. **1 gegen 1 → Lobby erstellen.** Es erscheinen ein Code (z. B. `K7P2QX`) und ein Link. Den Link mit **Link kopieren** oder **Teilen** an den Freund schicken.
 2. Der Freund öffnet den Link und ist sofort in der Lobby. Alternativ: **1 gegen 1 → Beitreten** und den Code eintippen.
-3. Wer die Lobby erstellt hat (Host), stellt ein: **Modus** (Kampf oder Bombe), **1 oder 3 Leben pro Runde** und **Sieg bei 2, 3 oder 5 Rundensiegen**.
+3. Wer die Lobby erstellt hat (Host), stellt ein: **Modus** (Kampf oder Bombe), **Karte** (Hof oder Lagerhalle), **Waffen** (Alle, Nur Pistolen, Scharfschützen), **1 oder 3 Leben pro Runde** und **Sieg bei 2, 3 oder 5 Rundensiegen**.
 4. Sind beide da, startet nach 5 Sekunden das Spiel. Einmal ins Bild klicken, damit die Maus gefangen wird.
 
 Regeln:
@@ -50,13 +52,53 @@ Regeln:
 ### Spezialleiste und Luftschlag
 
 - Die Leiste rechts über der Munition füllt sich mit Schaden am Gegner oder an Klappzielen, dazu 50 Punkte pro Abschuss (350 Punkte = voll). Sie bleibt über die Runden erhalten.
-- Ist sie voll, **X** drücken und das Ziel anschauen: ein Kreis zeigt, wohin der Jet feuert. **Linksklick** bestätigt, **Rechtsklick** oder **X** bricht ab. Beim Zielen steht man still.
+- Ist sie voll, **X** drücken und das Ziel anschauen: ein Kreis zeigt, wohin der Jet feuert. **Linksklick** bestätigt, **Rechtsklick** oder **X** bricht ab. Beim Zielen steht man still. Das Ziel muss unter freiem Himmel liegen (in der Lagerhalle also im Hof oder unter einem Lichtband).
 - Am Ziel steigt roter Rauch auf, alle hören eine Warnung. Der Warnkreis hat keinen Rand: in der Mitte ist er kräftig rot, nach außen immer blasser, genau so verteilt sich auch der Schaden. Nach 3,2 Sekunden kommt ein Jet im Sturzflug und feuert mit der **Bordkanone** („Drrrrrt“, 48 Granaten in 1,2 Sekunden). Die Einschläge wandern in Flugrichtung durch den Kreis, mit Leuchtspuren, Feuer und Sandfontänen. In der Mitte ist das fast immer tödlich, 3 m daneben kostet es im Schnitt gut 90 Lebenspunkte, am Rand kaum noch etwas. Deckung schützt. Wer rechtzeitig aus dem Kreis läuft, überlebt. Auch der eigene Luftschlag trifft einen selbst.
 - Ein Abschuss mit dem Luftschlag bringt 300 $, lädt die Leiste aber nicht wieder auf. Der Luftschlag geht im Training und im 1 gegen 1.
 
+## Karten
+
+Im Hauptmenü wählt man die Karte für das Training (und für den Hintergrund des Menüs), bei **Gegen KI** und in der Lobby jeweils extra. Beide Karten sind punktsymmetrisch: Der Host startet im Westen, der Gast gespiegelt im Osten.
+
+- **Hof:** sandiger Innenhof mit zwei Gassen, einem Haus mit Tunnel in der Mitte, einem Balkon und Containern. Eher weite Blicke.
+- **Lagerhalle:** eine große Halle mit Hochregalen (drei Gänge pro Hälfte, mit Lücken zum Durchschlüpfen), einem Büro-Container in der Mitte, der die Sicht von Tor zu Tor versperrt, einem Gabelstapler und einem Laufsteg mit Treppe (in der Westhälfte an der Nordwand, gespiegelt im Osten). Das Dach hat drei offene Lichtbänder, durch die die Sonne fällt. Vor der Halle liegen die Höfe mit den Startpunkten, einem Lkw-Anhänger und einem Container, hinein geht es durch drei halb offene Rolltore pro Seite. Enger als der Hof, mehr Nahkampf. Die Bombenplätze liegen in der Halle nah an der Mitte (vom Startpunkt des Verteidigers aus nicht zu sehen, Wege etwa 28 m zu 33 m). Unter dem Dach geht kein Luftschlag, nur im Freien und unter den Lichtbändern.
+
+Die Karte wird beim Wechsel komplett neu aufgebaut (Wände, Kollision, Bombenplätze, Schatten). Das Wegenetz der KI rechnet sich für jede Karte einmal selbst aus.
+
+## Waffen-Modi
+
+- **Alle Waffen:** wie gewohnt.
+- **Nur Pistolen:** Kaufen kann man nur Natter und Kobra, dazu Granaten und Weste. Gewehre und Maschinenpistolen sind im Kaufmenü gesperrt.
+- **Scharfschützen:** Jede Runde gibt es einen Adler geschenkt, dazu nur Pistolen, Granaten und Weste.
+
+Die KI hält sich an denselben Modus (bei „Nur Pistolen“ kauft sie öfter die Kobra).
+
+## Skins und Aufgaben
+
+Unter **Skins & Aufgaben** im Hauptmenü stehen links die Waffen (Natter, Kobra, Falke, Keiler, Wolf, Luchs, Adler), das Messer und die eigene Figur, daneben ihre Skins. Rechts im Bild dreht sich die Waffe (oder der Soldat) mit dem Skin, zur Vorschau auch mit gesperrten Skins (einfach mit der Maus darüberfahren). Ein Klick auf einen freigeschalteten Skin legt ihn an. Gesperrte Skins zeigen ihre Aufgabe mit Fortschrittsbalken. Der zweite Reiter **Alle Aufgaben** listet alles, offene zuerst.
+
+| Waffe | Skins (Aufgabe) |
+|---|---|
+| Natter | Wüstentarn (5 Abschüsse), Kirschrot (3 Kopfschüsse), Neon (25 Abschüsse) |
+| Kobra | Nachttarn (5 Abschüsse), Gold (5 Kopfschüsse), Lava (eine Partie „Nur Pistolen“ gewinnen) |
+| Falke | Waldtarn (10), Ozeanblau (5 Kopfschüsse), Galaxie (40) |
+| Keiler | Waldtarn (5), Kupfer (15), Lava (40) |
+| Wolf | Arktis (10), Gold (10 Kopfschüsse), Regenbogen (50) |
+| Luchs | Nachttarn (10), Chrom (8 Kopfschüsse), Neon (40) |
+| Adler | Arktis (3), Kupfer (15), Galaxie (eine Partie „Scharfschützen“ gewinnen) |
+| Messer | Gold (3 Messer-Abschüsse), Galaxie (10), Regenbogen (die KI auf „Schwer“ besiegen) |
+| Spieler | Wüstentarn (3 Siege), Waldtarn (5 Bomben legen), Nachttarn (3 Bomben entschärfen), Arktis (100 Klappziele im Training), Gold (3 Luftschlag-Abschüsse), Galaxie (3 Online-Siege) |
+
+- **Zählen:** Abschüsse und Kopfschüsse zählen im 1 gegen 1, gegen die KI oder einen Freund. Ein Kopfschuss ist hier ein Abschuss mit Kopftreffer. Siege zählen nicht, wenn der Gegner einfach geht.
+- **Live im Spiel:** Links oben steht die nächste Aufgabe zur Waffe in der Hand mit Fortschritt (im Training die Klappziele). Tut sich etwas, leuchtet sie kurz auf. Wird ein Skin frei, erscheint oben eine Einblendung mit Regenbogen-Rahmen. Steht der Platz noch auf „Standard“, trägt man den neuen Skin sofort. Die Auswertung am Ende listet alle neuen Skins der Partie.
+- **Aussehen:** Tarnmuster (Wüste, Wald, Arktis und Nacht, die letzten beiden eckig wie Digitaltarn), Metall (Gold, Chrom, Kupfer), Lack (Kirschrot, Ozeanblau) und bewegte Muster: **Regenbogen** (Farben wandern über die Waffe), **Lava** (dunkles Gestein mit glühenden, fließenden Rissen), **Neon** (schwarz mit pulsierenden türkisen und pinken Linien) und **Galaxie** (tiefblaue Nebel mit funkelnden Sternen). Alles rechnet der Shader aus der Lage im Modell aus, ohne Texturen (`src/weapons/finishes.js`). Kleine Teile wie Visier, Lauf und Gummigriffe bleiben original.
+- **Spieler-Skins** färben die Uniform der eigenen Figur und die Ärmel in der Ego-Ansicht. Mit Spieler-Skin zeigt der Helm kräftig die Teamfarbe (Rot oder Blau).
+- **Der Gegner sieht sie:** Im 1 gegen 1 schickt die Lobby die eigenen Skins mit. Der Gegner sieht Waffen, Messer und Uniform so, wie man sie trägt, auch in der Kill-Cam.
+- Gespeichert wird im Browser: der Fortschritt unter `feuer-frei-aufgaben`, die getragenen Skins in den Einstellungen. Wer das Regenbogen-Messer schon vor den Aufgaben geschenkt bekommen hatte, behält es.
+
 ## Gegen KI
 
-**Gegen KI** im Hauptmenü: Schwierigkeit, Modus (Kampf oder Bombe), Leben und Rundensiege wählen, dann **Los geht’s**. Die Einstellungen merkt sich das Spiel.
+**Gegen KI** im Hauptmenü: Schwierigkeit, Modus (Kampf oder Bombe), Karte, Waffen-Modus, Leben und Rundensiege wählen, dann **Los geht’s**. Die Einstellungen merkt sich das Spiel.
 
 Die KI spielt nach denselben Regeln wie ein Freund im 1 gegen 1 (sie ist dabei der Gast im Osten):
 
@@ -76,7 +118,7 @@ Die KI spielt nach denselben Regeln wie ein Freund im 1 gegen 1 (sie ist dabei d
 
 Auf dem Handy spielt die KI in jeder Stufe schwächer, weil Zielen mit dem Finger schwerer ist: 0,3 s längere Reaktion, anderthalbfacher Zielfehler, langsameres Drehen und Schießen, halb so oft Luftschläge. Ohne gespeicherte Wahl beginnt man dort bei den Anfängern.
 
-**Geheimnis (Easter Egg):** Wer die KI auf **Schwer** besiegt, bekommt ein Geschenk: eine **Regenbogen-Klinge** fürs Messer, deren Farben langsam wandern. Die Auswertung zeigt das Geschenk mit Regenbogen-Rahmen, das Messer hat den Skin sofort. In den Einstellungen erscheint danach die Zeile *Messer-Skin* (Standard oder Regenbogen). Im 1 gegen 1 sieht auch der Gegner die bunte Klinge, weil die Lobby den Skin mitschickt. Freigeschaltet ist er im Browser gespeichert (`feuer-frei-geschenke`).
+**Überraschung:** Wer die KI auf **Schwer** besiegt, bekommt die **Regenbogen-Klinge** fürs Messer (siehe Skins und Aufgaben).
 
 Gegen die KI hält die Pause das Spiel wirklich an. Technisch hängt die KI wie ein zweiter Spieler am Duell: Sie schickt und bekommt dieselben Nachrichten wie ein Gast, nur ohne Netz (`src/ai/`).
 
@@ -196,15 +238,15 @@ Alle Werte (Waffen, Rückstoßmuster, Streuung, Preise, Rundenzeiten) stehen in 
 | Ordner / Datei | Zweck |
 |---|---|
 | `src/config.js` | Alle Spielwerte an einem Ort |
-| `src/game/` | Spielkern, Runden und Geld, Klappziele, 1 gegen 1 mit Bombenmodus (`duel.js`), der Gegner im eigenen Spiel (`remote.js`), Kill-Cam und Gegner-Sicht (`killcam.js`) und der Luftschlag (`airstrike.js`) |
+| `src/game/` | Spielkern, Runden und Geld, Klappziele, 1 gegen 1 mit Bombenmodus (`duel.js`), der Gegner im eigenen Spiel (`remote.js`), Kill-Cam und Gegner-Sicht (`killcam.js`), der Luftschlag (`airstrike.js`) sowie Skins und Aufgaben (`cosmetics.js`) |
 | `src/net/` | Verbindung zwischen zwei Browsern (Trystero und Supabase Realtime), Tab-Speicher für den Wiedereinstieg |
 | `src/ai/` | KI-Gegner: Wegenetz (`nav.js`), Verhalten (`bot.js`) und die Verbindung zum Duell ohne Netz (`botnet.js`) |
 | `src/player/` | Bewegung wie in der Source-Engine (Beschleunigung, Reibung, Luftsteuerung, Ducken) |
-| `src/weapons/` | Inventar mit 5 Slots, Schießen, Rückstoß, Waffe in der Hand, Granaten, Messer-Skins (`skins.js`) |
-| `src/world/` | Arena, Himmel und Licht, Bombenplätze und Bombe (`bombsites.js`) |
+| `src/weapons/` | Inventar mit 5 Slots, Schießen, Rückstoß, Waffe in der Hand, Granaten, Oberflächen der Skins (`finishes.js`) |
+| `src/world/` | Karten Hof und Lagerhalle mit Auf- und Abbau (`map.js`), Himmel und Licht, Bombenplätze und Bombe (`bombsites.js`) |
 | `src/effects/` | Einschusslöcher, Funken, Staub, Leuchtspuren, Explosionen |
 | `src/engine/` | Grafik, Physik, Steuerung, Ton (alle Geräusche werden per WebAudio erzeugt) |
-| `src/ui/` | HUD, Kaufmenü, Lobby und Touch-Steuerung (`touch.js`) |
+| `src/ui/` | HUD, Kaufmenü, Lobby, Touch-Steuerung (`touch.js`) und die Waffenkammer „Skins & Aufgaben“ (`locker.js`) |
 | `blender/` | Python-Skripte, die alle eigenen 3D-Modelle in Blender bauen |
 | `scripts/` | Laden der Poly-Haven-Dateien und Aufruf von Blender |
 | `public/assets/` | Fertige Modelle, Texturen und Himmel, die das Spiel lädt |

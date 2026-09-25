@@ -101,6 +101,21 @@ export const SPECIAL = {
   armorPen: 0.6,
 };
 
+// Waffen-Modus im 1 gegen 1 (Lobby bzw. Gegen KI): was man kaufen darf. allow = erlaubte Dinge
+// (fehlt es, ist alles erlaubt), free = gibt es zu jeder Runde geschenkt.
+const UTILITY = ['messer', 'he', 'flash', 'smoke', 'vest', 'helmet'];
+export const ARMS = {
+  alle: { name: 'Alle Waffen', info: 'Alles darf gekauft werden.' },
+  pistolen: {
+    name: 'Nur Pistolen', allow: ['natter', 'kobra', ...UTILITY],
+    info: 'Nur Natter und Kobra, dazu Granaten und Weste. Wer trifft, gewinnt.',
+  },
+  adler: {
+    name: 'Scharfschützen', allow: ['natter', 'kobra', 'adler', ...UTILITY], free: 'adler',
+    info: 'Jede Runde gibt es ein Adler geschenkt, sonst nur Pistolen, Granaten und Weste.',
+  },
+};
+
 // Was außer Waffen noch jemanden ausschalten kann (für Abschussliste und Prämie)
 export const KILLERS = {
   luftschlag: { id: 'luftschlag', name: 'Luftschlag', reward: 300 },

@@ -11,6 +11,7 @@ import { muzzleTexture } from '../effects/textures.js';
 // Spielern dieselben Einschläge.
 
 const DOWN = { x: 0, y: -1, z: 0 };
+const UP = { x: 0, y: 1, z: 0 };
 // Anflug: Tempo (m/s), Höhe beim Überflug, Sturzflug davor und Steigflug danach
 const PLANE_SPEED = 95;
 const PASS_HEIGHT = 24;
@@ -162,7 +163,8 @@ export class Airstrikes {
         if (down) _a.y -= down.distance;
       }
       this.aimPoint.copy(_a);
-      this.aimValid = true;
+      // unter einem Dach (Lagerhalle) kommt der Jet nicht hin
+      this.aimValid = this.openSky(_a);
     }
     const m = this.aim;
     m.visible = this.aimValid;
@@ -170,6 +172,12 @@ export class Airstrikes {
       m.position.copy(this.aimPoint).y += 0.04;
       m.material.opacity = 0.7 + 0.2 * Math.sin(performance.now() / 120);
     }
+  }
+
+  /** über dem Punkt ist freier Himmel (kein Dach, keine Decke) */
+  openSky(p) {
+    _b.set(p.x, p.y + 0.5, p.z);
+    return !this.g.physics.raycast(_b, UP, 60);
   }
 
   /** Ziel bestätigen: liefert den Punkt oder null (z. B. in den Himmel gezielt) */

@@ -146,9 +146,13 @@ export class BombSites {
     this.ledT = 0;
   }
 
-  /** Nur den Platz zeigen, um den es in dieser Runde geht (null = keinen) */
+  /** Nur den Platz zeigen, um den es in dieser Runde geht (null = keinen); Lage aus der aktuellen Karte */
   show(side) {
-    for (const [s, m] of Object.entries(this.sites)) m.visible = s === side;
+    for (const [s, m] of Object.entries(this.sites)) {
+      const pos = BOMB_SITES[s];
+      m.position.set(pos.x, pos.y + 0.015, pos.z);
+      m.visible = s === side;
+    }
   }
 
   place(pos, yaw = 0) {

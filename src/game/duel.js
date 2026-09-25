@@ -1,9 +1,10 @@
 import * as THREE from 'three';
-import { BOMB, DUEL, ECONOMY, KILLERS, KNIFE_SKINS, QUICK_CHAT, SLOT_KEYS, SPECIAL, TEAM_KNIFE, WEAPONS, WEAPON_IDS } from '../config.js';
-import { BOMB_SITES, SPAWNS } from '../world/map.js';
+import { ARMS, BOMB, DUEL, ECONOMY, KILLERS, KNIFE_SKINS, QUICK_CHAT, SLOT_KEYS, SPECIAL, TEAM_KNIFE, WEAPONS, WEAPON_IDS } from '../config.js';
+import { BOMB_SITES, MAPS, SPAWNS } from '../world/map.js';
 import { PROTOCOL } from '../net/net.js';
 import { session } from '../net/session.js';
 import { Match } from './match.js';
+import { cleanLooks, count } from './cosmetics.js';
 import { FLAG } from './remote.js';
 
 const other = (role) => (role === 'host' ? 'guest' : 'host');
@@ -41,7 +42,10 @@ export class Duel extends Match {
     this.them = other(opts.role);
     this.isHost = opts.role === 'host';
     this.side = this.isHost ? 'west' : 'east';
-    this.cfg = { lives: opts.lives, wins: opts.wins, mode: opts.mode === 'bombe' ? 'bombe' : 'kampf' };
+    this.cfg = {
+      lives: opts.lives, wins: opts.wins, mode: opts.mode === 'bombe' ? 'bombe' : 'kampf',
+      map: MAPS[opts.map] ? opts.map : 'hof', arms: ARMS[opts.arms] ? opts.arms : 'alle',
+    };
     this.bombMode = this.cfg.mode === 'bombe';
     this.names = { [this.me]: opts.myName, [this.them]: opts.theirName };
     this.queue = [];
@@ -154,6 +158,17 @@ export class Duel extends Match {
     return `Runde ${this.round} · Sieg bei ${this.cfg.wins}`;
   }
 
+  /** Waffen-Modus dieser Partie (Alle, Nur Pistolen, Scharfschützen) */
+  get arms() {
+    return ARMS[this.cfg.arms] || ARMS.alle;
+  }
+
+  blockReason(id) {
+    const allow = this.arms.allow;
+    if (allow && !allow.includes(id)) return `Nicht bei „${this.arms.name}“`;
+    return super.blockReason(id);
+  }
+
   name(role) {
     return role === this.me ? 'Du' : this.names[role];
   }
@@ -240,6 +255,12 @@ export class Duel extends Match {
     g.player.health = 100;
     g.player.frozen = true;
     g.viewmodel.root.visible = true;
+    // Scharfschützen: das Adler gibt es jede Runde geschenkt (wer es noch hat, behält es)
+    const free = this.arms.free;
+    if (free && !g.weapons.inv.has(free)) {
+      g.weapons.inv.give(free);
+      g.weapons.inv.current = g.weapons.inv.slotFor(free);
+    }
     g.weapons.inv.refillAmmo();
     g.weapons.resetForRound();
     g.airstrikes.clear();
@@ -335,6 +356,7 @@ export class Duel extends Match {
     const p = this.g.player;
     this.plantT = 0;
     this.stats.planted++;
+    count('plant');
     this.addMoney(BOMB.plantReward);
     const pos = p.feet.clone();
     if (this.isHost) {
@@ -418,6 +440,7 @@ export class Duel extends Match {
       if (won) {
         this.stats.defused++;
         this.addMoney(BOMB.defuseReward);
+        count('defuse');
       }
     }
     let bonus;
@@ -605,6 +628,9 @@ export class Duel extends Match {
     }
     this.addMoney(def.reward);
     if (def.id !== 'luftschlag') this.addCharge(SPECIAL.killBonus);
+    // Aufgaben: Abschüsse und Kopfschüsse je Waffe
+    count(`kill:${def.id}`);
+    if (head) count(`head:${def.id}`);
   }
 
   buy(id) {
@@ -896,14 +922,14 @@ export class Duel extends Match {
     this.net.setPartner(from);
     this.awayMsg = false;
     if (msg.name) this.names[this.them] = String(msg.name).replace(/[<>]/g, '').slice(0, 16);
-    if (msg.skin !== undefined) this.g.remote.setKnifeFinish(msg.skin);
+    if (msg.looks) this.g.remote.setLooks(cleanLooks(msg.looks));
     this.g.remote.resetStream();
     this._sendResume(from);
   }
 
   _sendResume(to) {
     this.net.send({
-      t: 'hi', v: PROTOCOL, ack: true, role: this.me, name: this.names[this.me], skin: this.g.knifeFinish, cfg: this.cfg,
+      t: 'hi', v: PROTOCOL, ack: true, role: this.me, name: this.names[this.me], looks: this.g.looks, cfg: this.cfg,
       resume: this._currentPhase(),
     }, to);
   }
@@ -1038,6 +1064,13 @@ export class Duel extends Match {
     const s = this.stats;
     const my = this.wins[this.me];
     const their = this.wins[this.them];
+    // Aufgaben: Siege (ein kampfloser Sieg zählt nicht)
+    if (!forfeit && my > their) {
+      count('wins');
+      count(`win:${this.cfg.arms}`);
+      if (this.net.bot && this.net.level === 'schwer') count('win:schwer');
+      if (this.online) count('win:online');
+    }
     this.g.onMatchOver({
       duel: true, forfeit, won: forfeit || my > their, score: [my, their],
       opponent: this.names[this.them], rounds: this.rounds,

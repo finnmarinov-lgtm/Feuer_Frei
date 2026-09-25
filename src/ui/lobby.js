@@ -1,4 +1,6 @@
 import { Net, PROTOCOL, randomCode, parseCode } from '../net/net.js';
+import { ARMS } from '../config.js';
+import { MAP } from '../world/map.js';
 import { session, setUrlLobby } from '../net/session.js';
 import { netText } from './hud.js';
 
@@ -19,21 +21,21 @@ function cleanName(s) {
 // läuft ein Countdown und das Spiel startet von selbst. Wer die Seite neu lädt, kommt mit
 // derselben Rolle zurück, bei einem laufenden Duell auch zurück ins Spiel (rejoin).
 export class Lobby {
-  constructor({ show, onStart, netMode = null, keyName = () => 'E', skin = () => null }) {
+  constructor({ show, onStart, netMode = null, keyName = () => 'E', looks = () => null }) {
     this.show = show;
     this.onStart = onStart;
     this.netMode = netMode;
     // Beschriftung der eigenen Taste für eine Aktion (Tastenbelegung)
     this.keyName = keyName;
-    // eigener Messer-Skin (wird mitgeschickt, damit der andere ihn sieht)
-    this.skin = skin;
+    // eigene Skins (werden mitgeschickt, damit der andere sie sieht)
+    this.looks = looks;
     this.net = null;
     this.role = null;
     this.rejoin = null;
     this.code = null;
     this.partnerName = '';
-    this.partnerSkin = null;
-    this.opts = { mode: 'kampf', lives: 3, wins: 2 };
+    this.partnerLooks = null;
+    this.opts = { mode: 'kampf', lives: 3, wins: 2, map: MAP.id, arms: 'alle' };
     this.countdown = 0;
     this.cdTimer = null;
     this.hiTimer = null;
@@ -70,7 +72,7 @@ export class Lobby {
       seg.addEventListener('click', (e) => {
         const raw = e.target.dataset?.v;
         if (!raw || this.role !== 'host') return;
-        const v = seg.dataset.opt === 'mode' ? raw : Number(raw);
+        const v = ['mode', 'map', 'arms'].includes(seg.dataset.opt) ? raw : Number(raw);
         this.opts = { ...this.opts, [seg.dataset.opt]: v };
         if (this.net?.partner) {
           this.net.send({ t: 'cfg', cfg: this.opts });
@@ -98,6 +100,8 @@ export class Lobby {
 
   create() {
     this.role = 'host';
+    // die Karte aus dem Hauptmenü vorschlagen
+    this.opts = { ...this.opts, map: MAP.id };
     this.rejoin = null;
     this._enterRoom(randomCode());
   }
@@ -135,7 +139,7 @@ export class Lobby {
     this.role = null;
     this.rejoin = null;
     this.partnerName = '';
-    this.partnerSkin = null;
+    this.partnerLooks = null;
     this.problem = '';
     session.clear();
     setUrlLobby(null);
@@ -169,12 +173,12 @@ export class Lobby {
   }
 
   _sayHi(id, ack = false) {
-    this.net?.send({ t: 'hi', v: PROTOCOL, name: this.name, skin: this.skin(), role: this.role, cfg: this.opts, ack, rejoin: !!this.rejoin }, id);
+    this.net?.send({ t: 'hi', v: PROTOCOL, name: this.name, looks: this.looks(), role: this.role, cfg: this.opts, ack, rejoin: !!this.rejoin }, id);
   }
 
-  _adopt(id, name, skin) {
+  _adopt(id, name, looks) {
     const net = this.net;
-    if (skin !== undefined) this.partnerSkin = typeof skin === 'string' ? skin : null;
+    if (looks && typeof looks === 'object') this.partnerLooks = looks;
     if (net.partner === id) {
       if (name) this.partnerName = cleanName(name);
       return false;
@@ -199,7 +203,7 @@ export class Lobby {
         if (this.role === 'host') net.send({ t: 'full' }, from);
         return;
       }
-      const isNew = this._adopt(from, msg.name, msg.skin);
+      const isNew = this._adopt(from, msg.name, msg.looks);
       // Das Duell läuft beim anderen noch: mit dem geschickten Stand wieder einsteigen
       if (msg.resume) {
         this._launch(msg.cfg || this.opts, msg.resume);
@@ -208,7 +212,7 @@ export class Lobby {
       // Beide haben neu geladen: der Host hat den Stand der Partie in seinem Speicher
       if (this.role === 'host' && this.rejoin?.phase && msg.rejoin) {
         const saved = this.rejoin;
-        net.send({ t: 'hi', v: PROTOCOL, ack: true, role: 'host', name: this.name, skin: this.skin(), cfg: saved.cfg, resume: saved.phase }, from);
+        net.send({ t: 'hi', v: PROTOCOL, ack: true, role: 'host', name: this.name, looks: this.looks(), cfg: saved.cfg, resume: saved.phase }, from);
         this._launch(saved.cfg, saved.phase);
         return;
       }
@@ -235,8 +239,8 @@ export class Lobby {
       return;
     }
     // der Gast übernimmt den Host auch über Countdown oder Start, falls ein "Hallo" fehlte
-    if (this.role === 'guest' && !net.partner && ['cd', 'start', 'ph'].includes(msg.t)) this._adopt(from, msg.name, msg.skin);
-    else if (from === net.partner && msg.skin !== undefined) this.partnerSkin = typeof msg.skin === 'string' ? msg.skin : null;
+    if (this.role === 'guest' && !net.partner && ['cd', 'start', 'ph'].includes(msg.t)) this._adopt(from, msg.name, msg.looks);
+    else if (from === net.partner && msg.looks && typeof msg.looks === 'object') this.partnerLooks = msg.looks;
     if (from !== net.partner) return;
     if (msg.t === 'cfg' && this.role === 'guest') {
       this.opts = msg.cfg;
@@ -268,7 +272,7 @@ export class Lobby {
   _startCountdown() {
     this._stopCountdown();
     const send = () => {
-      this.net.send({ t: 'cd', n: this.countdown, cfg: this.opts, name: this.name, skin: this.skin() });
+      this.net.send({ t: 'cd', n: this.countdown, cfg: this.opts, name: this.name, looks: this.looks() });
       this._render();
     };
     this.countdown = COUNTDOWN;
@@ -287,7 +291,7 @@ export class Lobby {
         return;
       }
       this._stopCountdown();
-      net.send({ t: 'start', cfg: this.opts, name: this.name, skin: this.skin() });
+      net.send({ t: 'start', cfg: this.opts, name: this.name, looks: this.looks() });
       this._launch(this.opts);
     }, 1000);
   }
@@ -316,8 +320,8 @@ export class Lobby {
     $('lobby-choice').hidden = false;
     $('lobby-room').hidden = true;
     this.onStart(net, {
-      role: this.role, lives: cfg.lives, wins: cfg.wins, mode: cfg.mode,
-      myName: this.name, theirName: this.partnerName || 'Mitspieler', theirSkin: this.partnerSkin,
+      role: this.role, lives: cfg.lives, wins: cfg.wins, mode: cfg.mode, map: cfg.map, arms: cfg.arms,
+      myName: this.name, theirName: this.partnerName || 'Mitspieler', theirLooks: this.partnerLooks,
       resume, saved,
     });
   }
@@ -352,9 +356,11 @@ export class Lobby {
     for (const seg of document.querySelectorAll('#lobby-opts .seg')) {
       const key = seg.dataset.opt;
       seg.classList.toggle('locked', !host);
-      for (const b of seg.children) b.classList.toggle('on', b.dataset.v === String(this.opts[key] ?? 'kampf'));
+      const def = { mode: 'kampf', map: 'hof', arms: 'alle' }[key];
+      for (const b of seg.children) b.classList.toggle('on', b.dataset.v === String(this.opts[key] ?? def));
     }
     $('lobby-mode-info').textContent = (MODE_INFO[this.opts.mode] || MODE_INFO.kampf)(this.keyName('use'));
+    $('lobby-arms-info').textContent = (ARMS[this.opts.arms] || ARMS.alle).info;
     const me = `${escapeHtml(this.name)}<small>${host ? 'Host · Westen' : 'Gast · Osten'}</small>`;
     const partner = net.partner
       ? `${escapeHtml(this.partnerName)}<small>${host ? 'Gast · Osten' : 'Host · Westen'}</small>`

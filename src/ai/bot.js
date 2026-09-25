@@ -1,6 +1,6 @@
 import * as THREE from 'three';
-import { BOMB, DUEL, ECONOMY, GRENADES, KILLERS, MOVE, SPECIAL, WEAPONS, WEAPON_IDS } from '../config.js';
-import { BOMB_SITES, SPAWNS } from '../world/map.js';
+import { ARMS, BOMB, DUEL, ECONOMY, GRENADES, KILLERS, MOVE, SPECIAL, WEAPONS, WEAPON_IDS } from '../config.js';
+import { BOMB_SITES, MAP, SPAWNS } from '../world/map.js';
 import { Player } from '../player/player.js';
 import { FLAG } from '../game/remote.js';
 import { attackerOf, shotEnd } from '../game/duel.js';
@@ -30,7 +30,6 @@ const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 const yawTo = (dx, dz) => Math.atan2(-dx, -dz);
 // Stellen zwischen den Hälften: über eine davon läuft der erste lange Weg, damit die KI nicht
 // jede Runde gleich kommt (Gassen oben und unten, Tunnel, links und rechts am Gebäude vorbei)
-const LANES = [[0, 12.5], [0, -12.5], [0, 0], [-6, 6.5], [6, -6.5]];
 
 const _e = new THREE.Vector3();
 const _t = new THREE.Vector3();
@@ -157,6 +156,11 @@ export class Bot {
     return { id, def, mag: def.mag ?? 0, reserve: def.reserve ?? 0 };
   }
 
+  /** Waffen-Modus der Partie (Alle, Nur Pistolen, Scharfschützen) */
+  get arms() {
+    return ARMS[this.g.match.cfg?.arms] || ARMS.alle;
+  }
+
   _resetGear() {
     this.inv = { primary: null, secondary: this._weapon('natter') };
     this.body.armor = 0;
@@ -278,6 +282,9 @@ export class Bot {
     b.spawn(sp.pos, sp.yaw);
     b.health = 100;
     b.collider.setEnabled(true);
+    // Scharfschützen: das Adler gibt es jede Runde geschenkt
+    const free = this.arms.free;
+    if (free && !this.inv.primary) this.inv.primary = this._weapon(free);
     for (const w of [this.inv.primary, this.inv.secondary]) {
       if (!w) continue;
       w.mag = w.def.mag;
@@ -501,6 +508,8 @@ export class Bot {
   _buy() {
     this.bought = true;
     const b = this.body;
+    const allow = this.arms.allow;
+    const ok = (id) => !allow || allow.includes(id);
     let m = this.money;
     if (!this.inv.primary) {
       let id = null;
@@ -513,11 +522,13 @@ export class Bot {
       else if (m >= 2700) id = 'wolf';
       else if (m >= 1250 && Math.random() < 0.7) id = 'falke';
       else if (m >= 1050) id = 'keiler';
+      // Waffen-Modus: nur Erlaubtes (bei "Nur Pistolen" dann öfter die Kobra)
+      if (id && !ok(id)) id = null;
       if (id) {
         this.inv.primary = this._weapon(id);
         m -= WEAPONS[id].price;
         this._switch('primary');
-      } else if (m >= 700 && this.inv.secondary.id === 'natter' && Math.random() < 0.4) {
+      } else if (m >= 700 && this.inv.secondary.id === 'natter' && ok('kobra') && Math.random() < (allow ? 0.7 : 0.4)) {
         this.inv.secondary = this._weapon('kobra');
         m -= WEAPONS.kobra.price;
         this._switch('secondary');
@@ -716,7 +727,7 @@ export class Bot {
   }
 
   _newPlan() {
-    const plan = { lane: pick(LANES), hunt: null, huntT: 0, hold: null, holdT: 0, guard: null, watch: null };
+    const plan = { lane: pick(MAP.bot.lanes), hunt: null, huntT: 0, hold: null, holdT: 0, guard: null, watch: null };
     if (this.bombMode) {
       if (this.attacking) {
         const s = BOMB_SITES.west;
@@ -792,16 +803,14 @@ export class Bot {
         return { wish: this._follow(this.bomb.pos.x, this.bomb.pos.z), sprint: true };
       }
       if (!this.attacking) {
-        // Platz halten, ab und zu ein Stück versetzen; Blick dorthin, woher der Angreifer kommt:
-        // die Gasse entlang nach Westen oder durch die Öffnung zur Mitte
+        // Platz halten, ab und zu ein Stück versetzen; Blick dorthin, woher der Angreifer kommt
+        // (Bereiche je Karte, z. B. die Gasse entlang nach Westen oder die Öffnung zur Mitte)
         plan.holdT -= dt;
         if (plan.holdT <= 0) {
           plan.holdT = rand(6, 11);
           if (Math.random() < 0.4) plan.hold = this._holdSpot(BOMB_SITES.east, 7);
-          const site = BOMB_SITES.east;
-          plan.watch = Math.random() < 0.55
-            ? { x: site.x - rand(9, 16), y: 1.2, z: site.z + rand(-3, 4) }
-            : { x: site.x + rand(-6, 2), y: 1.2, z: rand(1, 7) };
+          const [x0, x1, z0, z1] = pick(MAP.bot.watch);
+          plan.watch = { x: rand(x0, x1), y: 1.2, z: rand(z0, z1) };
         }
         const w = this._follow(plan.hold.x, plan.hold.z);
         return { wish: w, look: w ? null : plan.watch, sprint: false };
@@ -899,8 +908,12 @@ export class Bot {
     else if (this.time - this.heardAt < 5) known = this.heard;
     if (!known || this._dist(known) < SPECIAL.radius + 7 || Math.random() > this.L.air) return;
     const x = known.x + rand(-2, 2), z = known.z + rand(-2, 2);
-    const hit = this.g.physics.raycast({ x, y: 30, z }, DOWN, 40);
-    const point = new THREE.Vector3(x, hit ? 30 - hit.distance : 0, z);
+    // Boden unter dem Ziel (auch auf dem Balkon oder Laufsteg)
+    const y0 = (known.y || 0) + 1.2;
+    const hit = this.g.physics.raycast({ x, y: y0, z }, DOWN, 4);
+    const point = new THREE.Vector3(x, hit ? y0 - hit.distance : 0, z);
+    // unter einem Dach kommt der Jet nicht hin: lieber warten
+    if (!this.g.airstrikes.openSky(point)) return;
     this.special = 0;
     this.protectT = 0;
     this._event({ t: 'air', p: pack(point), s: Math.floor(Math.random() * 2147483647), y: Math.round(this.body.yaw * 1000) });

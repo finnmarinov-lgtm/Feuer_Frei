@@ -3,12 +3,13 @@ import { KNIFE_SKINS, MOVE, TEAM_KNIFE, WEAPONS, WEAPON_IDS } from '../config.js
 import { GROUP, groups } from '../engine/physics.js';
 import { mergeByMaterial } from '../engine/merge.js';
 import { muzzleTexture } from '../effects/textures.js';
-import { animateKnife, finishOrNull, setKnifeFinish } from '../weapons/skins.js';
+import { applyFinish } from '../weapons/finishes.js';
+import { PAINT, emptyLooks, skinOf } from './cosmetics.js';
 
 // Farben der beiden Seiten (sRGB). Im Spiel sieht man immer nur den Gegner.
 export const TEAMS = {
-  host: { name: 'Rot', uniform: '#6b3a30', helmet: '#442a24' },
-  guest: { name: 'Blau', uniform: '#34455f', helmet: '#262f3d' },
+  host: { name: 'Rot', uniform: '#6b3a30', helmet: '#442a24', mark: '#9a2d1f' },
+  guest: { name: 'Blau', uniform: '#34455f', helmet: '#262f3d', mark: '#23468c' },
 };
 
 // Bits im Zustand, den jeder Spieler 30-mal pro Sekunde schickt
@@ -127,8 +128,10 @@ export class RemotePlayer {
     // Körperteile am selben Gelenk mit gleichem Material zu einem Mesh (30 Teile -> 16)
     mergeByMaterial(model);
     // Materialien der Figur (ohne Waffen) für den Schimmer während des Spawn-Schutzes
+    this.bodyMeshes = [];
+    model.traverse((o) => { if (o.isMesh) this.bodyMeshes.push(o); });
     this.bodyMaterials = new Set();
-    model.traverse((o) => { if (o.isMesh && o.material.emissive) this.bodyMaterials.add(o.material); });
+    this._collectBody();
     this.glow = 0;
 
     // Waffen in der Hand (ohne die Arme aus der Ego-Ansicht); das Messer je nach Team
@@ -179,7 +182,8 @@ export class RemotePlayer {
     this.active = false;
     // firstPerson: man schaut gerade durch seine Augen (Kill-Cam), die Figur ist dann ausgeblendet
     this.firstPerson = false;
-    this.finish = null;
+    this.team = 'guest';
+    this.looks = emptyLooks();
     this.snaps = [];
     this.history = [];
     this.state = { pos: new THREE.Vector3(), yaw: 0, pitch: 0, duck: 0, f: 0, w: -1, t: 0 };
@@ -257,18 +261,36 @@ export class RemotePlayer {
     this.firstPerson = false;
     this.collider?.setEnabled(false);
     if (on) {
-      const t = TEAMS[team];
-      this.uniform?.color.set(t.uniform);
-      this.helmet?.color.set(t.helmet);
+      this.team = team;
       // Team Rot trägt ein Karambit, Team Blau ein Butterflymesser
       this.weapons.messer = this.knives[TEAM_KNIFE[team]] || this.weapons.messer;
+      this.setLooks(this.looks);
     }
   }
 
-  /** Aussehen der Klinge (Skin, den der Spieler gewählt hat), null = Stahl */
-  setKnifeFinish(finish) {
-    this.finish = finishOrNull(finish);
-    for (const k of Object.values(this.knives)) setKnifeFinish(k.model, this.finish);
+  /**
+   * Skins des Spielers (aus der Lobby): Waffen, Messer und Uniform. Mit Spieler-Skin zeigt der Helm
+   * kräftig die Teamfarbe, damit man Rot und Blau weiter unterscheidet.
+   */
+  setLooks(looks) {
+    this.looks = looks || emptyLooks();
+    for (const [id, w] of Object.entries(this.weapons)) {
+      if (w.def.slot !== 'knife') applyFinish(w.model, PAINT[id] || [], skinOf(this.looks, id));
+    }
+    for (const [skin, k] of Object.entries(this.knives)) applyFinish(k.model, PAINT[skin] || [], skinOf(this.looks, 'messer'), 40);
+    const t = TEAMS[this.team];
+    const player = skinOf(this.looks, 'spieler');
+    this.uniform?.color.set(t.uniform);
+    this.helmet?.color.set(player === 'standard' ? t.helmet : t.mark);
+    for (const m of this.bodyMaterials) m.emissive.setRGB(0, 0, 0);
+    applyFinish(this.fall, ['Uniform'], player, 8);
+    this._collectBody();
+  }
+
+  // Schimmern beim Spawn-Schutz: die aktuellen Materialien der Figur (auch eine neue Uniform)
+  _collectBody() {
+    this.bodyMaterials.clear();
+    for (const o of this.bodyMeshes) if (o.material.emissive) this.bodyMaterials.add(o.material);
   }
 
   get alive() {
@@ -403,7 +425,6 @@ export class RemotePlayer {
     const spd = dt > 0 && moved < 1 ? moved / dt : 0;
     this.speed += (spd - this.speed) * Math.min(1, dt * 10);
     this._setWeapon(s.w >= 0 ? WEAPON_IDS[s.w] : null);
-    if (this.finish && this.weaponId === 'messer' && !this.firstPerson) animateKnife(this.weapons.messer.model, performance.now() / 1000);
 
     const n = this.n;
     const ground = (s.f & FLAG.GROUND) !== 0;
