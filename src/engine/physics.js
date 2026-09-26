@@ -8,6 +8,7 @@ export const GROUP = { WORLD: 0x0001, PLAYER: 0x0002, GRENADE: 0x0004, STAIR: 0x
 export const groups = (member, filter) => ((member & 0xffff) << 16) | (filter & 0xffff);
 
 const WORLD_ONLY = groups(0xffff, GROUP.WORLD | GROUP.STAIR);
+const NO_ROT = { x: 0, y: 0, z: 0, w: 1 };
 /** alles Feste inklusive der unsichtbaren Rampen (für das Wegenetz der KI) */
 export const SOLID = groups(0xffff, GROUP.WORLD | GROUP.STAIR | GROUP.CLIP);
 
@@ -67,9 +68,9 @@ export class Physics {
     return !hit || hit.distance >= len - 0.05;
   }
 
-  /** prüft, ob eine Form an dieser Stelle etwas Festes überlappt */
-  overlaps(shape, pos, filter = WORLD_ONLY) {
-    return !!this.world.intersectionWithShape(pos, { x: 0, y: 0, z: 0, w: 1 }, shape, undefined, filter);
+  /** prüft, ob eine Form an dieser Stelle (gedreht um rot) etwas Festes überlappt */
+  overlaps(shape, pos, filter = WORLD_ONLY, rot = NO_ROT) {
+    return !!this.world.intersectionWithShape(pos, rot, shape, undefined, filter);
   }
 
   step() {

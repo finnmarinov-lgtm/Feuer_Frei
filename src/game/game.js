@@ -60,7 +60,7 @@ export class Game {
     this.arena.build();
     this.env.fitShadow(MAP.shadow);
     this.effects = new Effects(this.scene);
-    this.targets = new Targets(this.scene, assets.models.target, audio, this.effects);
+    this.targets = new Targets(this.scene, assets.models.target, audio, this.effects, this.physics);
     this.player = new Player(physics, audio);
     this.player.spawn(SPAWN.pos, SPAWN.yaw);
     this.viewmodel = new Viewmodel(assets, this.viewScene, this.viewCamera);

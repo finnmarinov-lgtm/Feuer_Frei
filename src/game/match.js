@@ -284,8 +284,9 @@ export class Training extends Match {
     g.airstrikes.clear();
     g.targets.clear();
     this._spawn();
-    const spots = shuffle([...g.arena.targetSpots]).slice(0, TRAINING.targets);
-    g.targets.setup(spots, TRAINING.moving, g.player.feet, TRAINING.targetRespawn);
+    // Standorte, an denen ein Ziel nicht passt, lässt setup aus und nimmt den nächsten
+    const spots = shuffle([...g.arena.targetSpots]);
+    g.targets.setup(spots, TRAINING.targets, TRAINING.moving, g.player.feet, TRAINING.targetRespawn);
     g.audio.play('roundStart');
     g.hud.message('Freies Training', `Keine Zeitgrenze · ${g.hint('buy')}, alles gratis · Ziele klappen wieder hoch`, 3.5);
     g.hud.onWeaponChange();

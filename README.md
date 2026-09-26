@@ -249,7 +249,7 @@ Trefferzonen: Kopf (Faktor je Waffe, meist 2,4), Körper und Arme (1), Beine (0,
 - Keine Runden und keine Zeitgrenze: Man übt, so lange man will, und beendet es über die Pause (`Esc` → *Training beenden*).
 - Geld ohne Ende: Alles ist gratis und lässt sich jederzeit und überall kaufen (`B`), auch mitten auf der Karte. Zurückgeben geht mit Rechtsklick.
 - Die Ersatzmunition geht nicht aus, nachladen muss man trotzdem.
-- 10 Klappziele an zufälligen Stellen der Karte, 3 davon bewegen sich. Jedes Ziel klappt etwa 2 Sekunden nach dem Umfallen wieder hoch. Oben steht, wie viele man schon umgelegt hat, `Tab` zeigt dazu Zeit, Treffergenauigkeit und Kopfschüsse.
+- 10 Klappziele an zufälligen Stellen der Karte, 3 davon fahren hin und her. Jedes Ziel misst beim Aufstellen, wie viel Platz es hat: Bewegliche Ziele fahren nie in Wände, Kisten oder über Kanten, und wo ein umgefallenes Ziel hinten anstoßen würde, rückt es ein Stück nach vorn. Jedes Ziel klappt etwa 2 Sekunden nach dem Umfallen wieder hoch. Oben steht, wie viele man schon umgelegt hat, `Tab` zeigt dazu Zeit, Treffergenauigkeit und Kopfschüsse.
 - 100 Lebenspunkte je Ziel, Kopftreffer zählen 2,4-fach (Sturmgewehr: 25 Körper, 60 Kopf).
 - Wer sich mit der eigenen Granate oder dem eigenen Luftschlag ausschaltet, ist nach 2 Sekunden wieder am Startpunkt und behält seine Waffen.
 
