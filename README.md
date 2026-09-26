@@ -8,7 +8,7 @@ Drei Spielarten:
 - **Gegen KI**: das 1 gegen 1 gegen einen Computer-Gegner (Anfänger, Leicht, Mittel, Schwer), ohne dass ein Freund online sein muss.
 - **Training**: 5 Runden gegen Klappziele aus Stahl, danach eine Auswertung.
 
-Dazu zwei Karten (**Hof** und **Lagerhalle**), drei Waffen-Modi (**Alle Waffen**, **Nur Pistolen**, **Scharfschützen**) und **Skins** für alle Waffen, das Messer und die eigene Figur, die man über **Aufgaben** freischaltet (Menüpunkt **Skins & Aufgaben**).
+Dazu drei Karten (**Hof**, **Lagerhalle** und der große, offene **Hafen** für Team-Spiele), drei Waffen-Modi (**Alle Waffen**, **Nur Pistolen**, **Scharfschützen**) und **Skins** für alle Waffen, das Messer und die eigene Figur, die man über **Aufgaben** freischaltet (Menüpunkt **Skins & Aufgaben**).
 
 Es läuft am PC (Maus und Tastatur) und auf dem Handy oder Tablet (Touch-Steuerung, quer halten).
 
@@ -27,7 +27,7 @@ Danach `http://localhost:5173` öffnen und auf **Mehrspieler**, **Gegen KI** ode
 2. Wer den Link öffnet, ist sofort in der Lobby. Alternativ: **Mehrspieler → Beitreten** und den Code eintippen.
 3. Die Lobby zeigt zwei Spalten, **Team Rot** und **Team Blau** (je bis zu 4 Plätze). Der Host ist in Rot, wer beitritt, kommt ins kleinere Team und kann mit **Hierher wechseln** tauschen.
 4. **KI-Spieler nur auf Knopfdruck:** **Mit KI auffüllen** gibt dem kleineren Team so viele KI-Spieler, bis beide gleich groß sind. Mit **+ KI** kommt in ein bestimmtes Team ein KI-Spieler dazu, **✕** nimmt ihn wieder heraus. Tritt noch ein Freund bei, während ein Team voll ist, macht ein KI-Spieler Platz. Wie stark die KI-Spieler sind, stellt der Host unter **KI-Stärke** ein.
-5. Der Host stellt ein: **Modus** (Kampf oder Bombe), **Karte** (Hof oder Lagerhalle), **Waffen** (Alle, Nur Pistolen, Scharfschützen), **1 oder 3 Leben pro Runde** und **Sieg bei 2, 3 oder 5 Rundensiegen**.
+5. Der Host stellt ein: **Modus** (Kampf oder Bombe), **Karte** (Hof, Lagerhalle oder Hafen; der Hafen ist größer und passt am besten zu 3 gegen 3 und 4 gegen 4), **Waffen** (Alle, Nur Pistolen, Scharfschützen), **1 oder 3 Leben pro Runde** und **Sieg bei 2, 3 oder 5 Rundensiegen**.
 6. Sind alle da, drückt der Host **Starten** (der Knopf zeigt, was es wird, z. B. „2 gegen 2 starten“). Nach 3 Sekunden geht es los. Einmal ins Bild klicken, damit die Maus gefangen wird.
 
 **Zu zweit (ein Mensch pro Team, keine KI) wird daraus das 1 gegen 1**, genau wie bisher. Sonst ist es ein Team-Spiel (siehe unten).
@@ -54,6 +54,7 @@ Alles wie im 1 gegen 1 (Geld, Kaufen, Leben pro Runde, Kill-Cam, Bombenmodus, Lu
 - **Bombenmodus:** In ungeraden Runden greift Rot an, in geraden Blau. Jeder Angreifer kann die Bombe legen, jeder Verteidiger sie entschärfen (Geld und Aufgabe bekommt, wer es getan hat). Liegt die Bombe, tickt sie weiter, auch wenn alle Angreifer draußen sind.
 - **Anzeige:** Oben stehen die Teams mit den Rundensiegen und darunter ein Punkt pro Spieler (voll = lebt). Über den Mitspielern schweben ihre Namen, auch durch Wände. `Tab` zeigt die Tabelle mit allen Spielern (Abschüsse, Tode, Ping).
 - **Nach dem Tod:** Erst die Kill-Cam aus Sicht des Schützen (auch wenn es ein KI-Spieler war), danach schaut man den eigenen Mitspielern zu. `Leertaste` oder Klick wechselt zum nächsten Mitspieler und zurück zur Kill-Cam.
+- **Nach dem letzten Leben** (keine Leben mehr in dieser Runde) läuft die Kill-Cam nur noch 2 Sekunden (bis zum Abschuss und dem Fallen) und ist danach weg: Man schaut nur noch den Mitspielern zu, `Leertaste` oder Klick wechselt reihum zwischen ihnen. Wer sie überspringt, kommt auch nicht mehr zurück.
 - **KI-Spieler** spielen wie im Modus „Gegen KI“ (kaufen, hören Schritte, legen und entschärfen die Bombe, fordern Luftschläge an), nur mit mehreren Gegnern und Mitspielern. Sie laufen im Browser des Hosts mit.
 - **Verbindung:** Lädt ein Spieler neu, ist er gleich wieder drin (mit Geld, Waffen und Tabelle). Wer länger als 20 Sekunden weg ist, zählt in der Runde als ausgeschieden. Lädt der Host neu, warten alle anderen auf ihn (die Zeit steht), danach geht es weiter. Ist der Host länger als 60 Sekunden weg oder verlässt er das Spiel, ist die Partie vorbei. Ist ein ganzes Team 60 Sekunden lang weg, gewinnt das andere kampflos.
 - **Nochmal:** Der Host startet mit **Nochmal** die nächste Partie mit denselben Teams (wer gegangen ist, fehlt dann). Die anderen zeigen mit **Nochmal**, dass sie noch einmal wollen.
@@ -76,12 +77,14 @@ Alles wie im 1 gegen 1 (Geld, Kaufen, Leben pro Runde, Kill-Cam, Bombenmodus, Lu
 
 ## Karten
 
-Im Hauptmenü wählt man die Karte für das Training (und für den Hintergrund des Menüs), bei **Gegen KI** und in der Lobby jeweils extra. Beide Karten sind punktsymmetrisch: Der Host startet im Westen, der Gast gespiegelt im Osten.
+Im Hauptmenü wählt man die Karte für das Training (und für den Hintergrund des Menüs), bei **Gegen KI** und in der Lobby jeweils extra. Alle Karten sind punktsymmetrisch: Der Host startet im Westen, der Gast gespiegelt im Osten.
 
 - **Hof:** sandiger Innenhof mit zwei Gassen, einem Haus mit Tunnel in der Mitte, einem Balkon und Containern. Eher weite Blicke.
 - **Lagerhalle:** eine große Halle mit Hochregalen (drei Gänge pro Hälfte, mit Lücken zum Durchschlüpfen), einem Büro-Container in der Mitte, der die Sicht von Tor zu Tor versperrt, einem Gabelstapler und einem Laufsteg mit Treppe und Handlauf (in der Westhälfte an der Nordwand, gespiegelt im Osten; die Treppe ist so flach wie die im Hof, damit man nicht herunterrutscht). Das Dach hat drei offene Lichtbänder, durch die die Sonne fällt. Vor der Halle liegen die Höfe mit den Startpunkten, einem Lkw-Anhänger und einem Container, hinein geht es durch drei halb offene Rolltore pro Seite. Enger als der Hof, mehr Nahkampf. Die Bombenplätze liegen in der Halle nah an der Mitte (vom Startpunkt des Verteidigers aus nicht zu sehen, Wege etwa 28 m zu 33 m). In der Lagerhalle gibt es keinen Luftschlag (die Spezialleiste ist dort ausgeblendet, auch die KI fordert keinen an).
 
-Die Karte wird beim Wechsel komplett neu aufgebaut (Wände, Kollision, Bombenplätze, Schatten). Das Wegenetz der KI rechnet sich für jede Karte einmal selbst aus.
+- **Hafen:** groß und offen, gedacht für 3 gegen 3 und 4 gegen 4 (88 x 59 m statt 60 x 40 m). Eine Mole mit Wasser an beiden Längsseiten, an den Enden je ein Speicher aus Backstein hinter dem Startpunkt. In der Mitte die breite Kranbahn mit einem gelben Portalkran, an dem ein Container hängt, darunter ein Container und Kisten als Deckung, dazu je ein Sattelzug. Auf der einen Seite jeder Hälfte das Stapelfeld (Containerreihen mit Gassen und einem Container mit Treppe als Ausguck), auf der anderen der offene Umschlagplatz mit dem Bombenplatz, einem Gabelstapler und der Hafenmeisterei: auf ihr Dach führt eine Treppe, die Brüstung schützt geduckt. An beiden Kaikanten ein breiter Weg am Wasser mit Pollern; eine unsichtbare Wand hält einen an Land. Vor den Ausgängen der Startbereiche stehen Container, damit man nicht von Startbereich zu Startbereich schauen kann (die längsten Sichtlinien sind Diagonalen um 60 m). Granaten, die ins Wasser fallen, gehen unter, ohne zu zünden. Der Luftschlag geht hier wieder.
+
+Die Karte wird beim Wechsel komplett neu aufgebaut (Wände, Kollision, Bombenplätze, Schatten). Das Wegenetz der KI rechnet sich für jede Karte einmal selbst aus (auch auf dem großen Hafen in einem Bruchteil einer Sekunde).
 
 ## Waffen-Modi
 
@@ -190,7 +193,7 @@ Die Tabelle zeigt die Standardbelegung. **Eigene Tastenbelegung:** Unter *Steuer
 | `T`, dann `1` – `6` | Schnellnachricht (im Mehrspieler) |
 | `E` halten | Bombe legen bzw. entschärfen (Bombenmodus) |
 | `X` | Luftschlag, wenn die Spezialleiste voll ist |
-| `Esc` | Pause |
+| `Esc` | Pause; in den Menüs zurück (wie der Zurück-Knopf, in der Auswertung zum Hauptmenü); schließt auch Kaufmenü und Schnellnachrichten |
 | `^` (änderbar) | Notizblock: sofort ein weißes Notizblatt, Spiel pausiert, Ton aus; nochmal drücken zum Zurückschalten |
 
 **Sprinten** geht nur vorwärts und nicht beim Ducken, Schleichen, Schießen, Zielen, Nachladen oder Ausholen zum Granatenwurf. Wie schnell man ist, hängt von der Waffe in der Hand ab (Meter pro Sekunde, Laufen / Sprinten):
@@ -262,7 +265,7 @@ Alle Werte (Waffen, Rückstoßmuster, Streuung, Preise, Rundenzeiten) stehen in 
 | `src/ai/` | KI-Spieler: Wegenetz (`nav.js`), Verhalten (`bot.js`), die Verbindung zum Duell ohne Netz (`botnet.js`) und die KI-Spieler im Team-Spiel beim Host (`squad.js`) |
 | `src/player/` | Bewegung wie in der Source-Engine (Beschleunigung, Reibung, Luftsteuerung, Ducken) |
 | `src/weapons/` | Inventar mit 5 Slots, Schießen, Rückstoß, Waffe in der Hand, Granaten, Oberflächen der Skins (`finishes.js`) |
-| `src/world/` | Karten Hof und Lagerhalle mit Auf- und Abbau (`map.js`), Himmel und Licht, Bombenplätze und Bombe (`bombsites.js`) |
+| `src/world/` | Karten Hof und Lagerhalle mit Auf- und Abbau (`map.js`), der Hafen (`hafen.js`), Bauteile für mehrere Karten wie Seecontainer und Gabelstapler (`parts.js`), Himmel und Licht, Bombenplätze und Bombe (`bombsites.js`) |
 | `src/effects/` | Einschusslöcher, Funken, Staub, Leuchtspuren, Explosionen |
 | `src/engine/` | Grafik, Physik, Steuerung, Ton (alle Geräusche werden per WebAudio erzeugt) |
 | `src/ui/` | HUD, Kaufmenü, Lobby, Touch-Steuerung (`touch.js`) und die Waffenkammer „Skins & Aufgaben“ (`locker.js`) |

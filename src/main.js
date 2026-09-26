@@ -372,14 +372,22 @@ function setupMenus(game, input, audio) {
       pause();
     }
   };
+  // Esc: im Spiel erst Kaufmenü bzw. Schnellnachrichten zu, sonst Pause; in den Menüs wie der
+  // Knopf, der dort zurückführt (Pause: Weiter, Auswertung: Hauptmenü)
+  const ESC_BACK = {
+    pause: 'btn-resume', settings: 'btn-settings-back', controls: 'btn-controls-back', lobby: 'btn-lobby-back',
+    bots: 'btn-bot-back', locker: 'btn-locker-back', results: 'btn-menu',
+  };
   input.onEscape = () => {
     if (notesOpen) return;
     if (game.state === 'playing') {
       if (game.buyMenu.open) game.closeBuyMenu();
+      else if (game.hud.chatOpen) game.hud.toggleChat(false);
       else pause();
-    } else if (game.state === 'paused' && $('pause').hidden === false) {
-      resume();
+      return;
     }
+    const back = ESC_BACK[SCREENS.find((s) => !$(s).hidden)];
+    if (back) $(back).click();
   };
   input.canvas.addEventListener('click', () => {
     if (game.state === 'playing' && !input.locked && !game.buyMenu.open) lockOrAsk();

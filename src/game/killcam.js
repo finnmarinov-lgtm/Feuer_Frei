@@ -10,11 +10,15 @@ import { FLAG, RemotePlayer, sampleSnaps } from './remote.js';
 //    übrig, der Schütze).
 // Springen oder ein Klick (auf dem Handy der Feuer- oder Sprungknopf) wechselt zwischen Kill-Cam
 // und Zuschauen, im Team-Spiel auch zum nächsten Mitspieler.
+// Nach dem letzten Leben im Team-Spiel läuft die Kill-Cam nur 2 Sekunden und ist danach weg: man
+// schaut dann nur noch den Mitspielern zu (Springen oder Klick wechselt reihum zwischen ihnen).
 
 const DEATH_TIME = 0.75;
 // Ausschnitt der Kill-Cam: so viele Sekunden vor dem Abschuss bis so viele danach (man sieht sich fallen)
 const BEFORE = 2.0;
 const AFTER = 0.9;
+// nach dem letzten Leben im Team-Spiel: so lange läuft die Kill-Cam (endet wie sonst kurz nach dem Abschuss)
+const LAST_REPLAY = 2.0;
 // so lange (ms) werden die eigenen Zustände und die Schüsse der anderen gemerkt
 const KEEP = 6000;
 const DEG = Math.PI / 180;
@@ -66,6 +70,8 @@ export class KillCam {
     this.ads = 0;
     this.flags = 0;
     this.scoped = false;
+    // letztes Leben im Team-Spiel: Kill-Cam nur einmal kurz, danach nur noch Mitspieler
+    this.last = false;
   }
 
   /** man sieht durch die Augen eines anderen (Kill-Cam oder Zuschauen) */
@@ -107,8 +113,11 @@ export class KillCam {
     while (list.length > 400 || (list[0].from === from && list[0].k < k - KEEP)) list.shift();
   }
 
-  /** eigener Tod: by = wer einen erwischt hat (Rolle bzw. Kennung), w = Waffe (Id) */
-  start(by, w) {
+  /**
+   * eigener Tod: by = wer einen erwischt hat (Rolle bzw. Kennung), w = Waffe (Id),
+   * last = letztes Leben im Team-Spiel (Kill-Cam nur kurz, danach nur noch Mitspieler)
+   */
+  start(by, w, last = false) {
     const g = this.g;
     const m = g.match;
     const r = m.remoteOf?.(by) ?? null;
@@ -119,14 +128,15 @@ export class KillCam {
     this.killer = r;
     this.killerKey = by;
     this.watch = null;
+    this.last = last;
     this.label = weaponLabel(w, m.teamOf ? m.teamOf(by) : by);
     const h = r?.history;
     // Kill-Cam nur, wenn ein anderer einen erwischt hat und genug von ihm aufgezeichnet ist
     this.canReplay = !!r && w !== 'bombe' && r.clockOff !== null && h.length > 5;
     if (!this.canReplay) return;
     const kill = performance.now() + r.clockOff;
-    this.r0 = Math.max(h[0].t, kill - BEFORE * 1000);
     this.r1 = kill + AFTER * 1000;
+    this.r0 = Math.max(h[0].t, this.r1 - (last ? LAST_REPLAY : BEFORE + AFTER) * 1000);
     this.offset = r.clockOff;
     // so viel später hat der Schütze einen gesehen: Weg hin und zurück plus sein Puffer gegen
     // Ruckeln (die KI im eigenen Browser sieht einen sofort)
@@ -170,16 +180,20 @@ export class KillCam {
   toggle() {
     if (!this.active || this.deathT < DEATH_TIME) return;
     if (this.view === 'replay') {
-      this.view = 'live';
-      this.watch = null;
+      this._endReplay();
       return;
     }
     // Team-Spiel: der Reihe nach allen lebenden Mitspielern zuschauen, danach die Kill-Cam
+    // (nach dem letzten Leben gibt es keine mehr: dann wieder beim ersten Mitspieler weiter)
     if (this.view === 'live' && this.g.match.teamMode) {
       const list = this._candidates();
       const i = list.indexOf(this.watch);
       if (i >= 0 && i < list.length - 1) {
         this.watch = list[i + 1];
+        return;
+      }
+      if (this.last && list.length) {
+        this.watch = list[0];
         return;
       }
     }
@@ -241,11 +255,16 @@ export class KillCam {
     }
     if (this.view === 'replay') {
       this.rt += dt * 1000;
-      if (this.rt >= this.r1) {
-        this.view = 'live';
-        this.watch = null;
-      }
+      if (this.rt >= this.r1) this._endReplay();
     }
+  }
+
+  // Kill-Cam vorbei (abgelaufen oder weggeschaltet): live zuschauen; nach dem letzten Leben im
+  // Team-Spiel ist sie damit weg
+  _endReplay() {
+    this.view = 'live';
+    this.watch = null;
+    if (this.last) this.canReplay = false;
   }
 
   /**
@@ -491,7 +510,10 @@ export class KillCam {
       tag = team ? (mate ? 'Mitspieler' : 'Zuschauen') : 'Gegner-Sicht';
       who = team ? r?.name ?? '' : m.names[m.them];
       if (team && mates.length > 1 && mates.indexOf(r) < mates.length - 1) hint = `${key}: nächster Mitspieler`;
-      else hint = this.canReplay ? `${key}: Kill-Cam` : `${key}: eigene Sicht`;
+      else if (this.canReplay) hint = `${key}: Kill-Cam`;
+      // nach dem letzten Leben: nur noch reihum zuschauen
+      else if (this.last) hint = this._candidates().length > 1 ? `${key}: ${mate ? 'nächster Mitspieler' : 'weiter'}` : '';
+      else hint = `${key}: eigene Sicht`;
     } else if (this.deathT >= DEATH_TIME && this.canWatch) {
       hint = `${key}: ${this.canReplay ? 'Kill-Cam' : team ? 'Zuschauen' : 'Gegner-Sicht'}`;
     }

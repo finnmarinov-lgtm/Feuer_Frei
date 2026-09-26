@@ -61,20 +61,27 @@ export function setupEnvironment(renderer, scene, viewScene, sky) {
   }
 
   const sun = new THREE.DirectionalLight(0xfff1dc, 3.2);
-  sun.position.copy(sunDir).multiplyScalar(60);
   sun.target.position.set(0, 0, 0);
   sun.castShadow = true;
   const s = sun.shadow;
-  s.camera.left = -38;
-  s.camera.right = 38;
-  s.camera.top = 38;
-  s.camera.bottom = -38;
   s.camera.near = 5;
   s.camera.far = 140;
   s.bias = -0.00025;
   s.normalBias = 0.035;
   s.radius = 2.5;
   scene.add(sun, sun.target);
+
+  /**
+   * Schatten auf die Größe der Karte einstellen: radius = Abstand von der Mitte, bis zu dem alles
+   * Schatten wirft und bekommt. Je größer, desto gröber die Schatten (gleiche Auflösung).
+   */
+  const fitShadow = (radius) => {
+    sun.position.copy(sunDir).multiplyScalar(Math.max(60, radius + 22));
+    s.camera.left = s.camera.bottom = -radius;
+    s.camera.right = s.camera.top = radius;
+    s.camera.updateProjectionMatrix();
+  };
+  fitShadow(38);
 
   // Der Himmel enthält keinen Boden, also fehlt das warme Streulicht vom sonnigen Sand.
   // Das Halbkugellicht ersetzt es, vor allem für die Schattenseiten der Wände.
@@ -87,5 +94,5 @@ export function setupEnvironment(renderer, scene, viewScene, sky) {
   viewSun.position.copy(sunDir);
   viewScene.add(viewSun, viewSun.target, new THREE.HemisphereLight(0xaeb6bf, 0xb88a58, 0.8));
 
-  return { sun, viewSun, sunDir, envMap };
+  return { sun, viewSun, sunDir, envMap, fitShadow };
 }

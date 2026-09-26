@@ -1,11 +1,16 @@
 import * as THREE from 'three';
 import { GROUP } from '../engine/physics.js';
+import { T, forklift, spawns } from './parts.js';
+import { HAFEN } from './hafen.js';
 
-// Zwei Arenen, beide punktsymmetrisch um die Mitte: der Host startet im Westen, der Gast gespiegelt
+// Drei Arenen, alle punktsymmetrisch um die Mitte: der Host startet im Westen, der Gast gespiegelt
 // im Osten (im Training startet man im Westen). Alle Angaben in Metern, y = Höhe.
 // - "Hof": sandiger Innenhof mit zwei Gassen, Tunnel durch das Gebäude in der Mitte und Balkon.
 // - "Lagerhalle": Halle mit Hochregalen, Büro-Container in der Mitte, Laufsteg und Dach mit
 //   Lichtbändern, davor je ein Hof mit dem Startpunkt.
+// - "Hafen" (hafen.js): große, offene Mole mit Containerstapeln, Kran und Wasser zu beiden Seiten.
+// Die ersten beiden sind 60 x 40 m groß; wer größer ist, gibt bounds (Wegenetz der KI), size (Boden)
+// und shadow (Radius, den die Schatten abdecken) an. water: Höhe des Wassers rund um die Karte.
 
 const MATS = {
   ground: { tex: 'sandy_gravel_02', tile: 3.0, surface: 'sand' },
@@ -20,14 +25,6 @@ const MATS = {
   glass: { surface: 'stone' },
   lamp: { surface: 'metal' },
 };
-
-// Blickrichtung (Yaw) so, dass die Kamera nach +X schaut
-const FACE_EAST = -Math.PI / 2;
-
-const spawns = (x) => ({
-  west: { pos: new THREE.Vector3(-x, 0, 0), yaw: FACE_EAST },
-  east: { pos: new THREE.Vector3(x, 0, 0), yaw: -FACE_EAST },
-});
 
 // ---------- Hof ----------
 
@@ -89,6 +86,10 @@ const HOF = {
   airstrike: true,
   desc: 'Sandiger Innenhof: zwei Gassen, Tunnel durch das Haus in der Mitte, Balkon.',
   ground: 'ground',
+  // Wegenetz der KI, Boden (Breite, Tiefe) und Radius, den die Schatten abdecken
+  bounds: { x0: -30, x1: 30, z0: -20, z1: 20 },
+  size: [66, 46],
+  shadow: 38,
   spawns: spawns(26.5),
   // Bombenplätze: je einer in der Gasse der eigenen Hälfte, nah an der Mitte vor dem Container.
   // Vom Startpunkt des Verteidigers aus sieht man den Platz nicht (erst nach gut 18 m Weg), die
@@ -134,14 +135,6 @@ const HOF = {
 };
 
 // ---------- Lagerhalle ----------
-
-// Farben (Anstrich, Tönung der Texturen)
-const T = {
-  clad: [0.66, 0.72, 0.8], cladDark: [0.46, 0.5, 0.56], roof: [0.42, 0.44, 0.48],
-  blue: [0.12, 0.27, 0.55], orange: [0.95, 0.42, 0.08], yellow: [0.96, 0.74, 0.1],
-  dark: [0.13, 0.14, 0.16], grey: [0.5, 0.52, 0.55], white: [0.86, 0.87, 0.86],
-  card: [0.6, 0.44, 0.27], wrap: [0.8, 0.83, 0.84], red: [0.6, 0.14, 0.1], door: [0.24, 0.3, 0.4],
-};
 
 function halleLayout({ B, mirror, cap }) {
   // Boden und Außenmauern: die Halle reicht von Nord- bis Südwand, davor zwei Höfe
@@ -249,20 +242,7 @@ function halleLayout({ B, mirror, cap }) {
   }
 
   // Gabelstapler in der Südgasse (Westhälfte), Gabel nach Osten
-  const cx = -9.2, cz = -14.2;
-  mirror(cx - 1.0, cx + 0.6, 0.25, 1.25, cz - 0.6, cz + 0.6, 'paint', { tint: T.yellow });
-  mirror(cx - 1.3, cx - 0.95, 0.27, 1.1, cz - 0.62, cz + 0.62, 'paint', { tint: T.dark });
-  for (const [x, z] of [[cx - 0.75, cz - 0.62], [cx - 0.75, cz + 0.62], [cx + 0.3, cz - 0.62], [cx + 0.3, cz + 0.62]]) {
-    mirror(x - 0.25, x + 0.25, 0, 0.5, z - 0.12, z + 0.12, 'paint', { tint: T.dark, collider: 'none' });
-  }
-  for (const x of [cx - 0.85, cx + 0.35]) {
-    for (const z of [cz - 0.52, cz + 0.44]) mirror(x, x + 0.08, 1.25, 2.2, z, z + 0.08, 'paint', { tint: T.dark });
-  }
-  mirror(cx - 0.9, cx + 0.45, 2.2, 2.28, cz - 0.55, cz + 0.55, 'paint', { tint: T.dark });
-  mirror(cx - 0.6, cx - 0.2, 1.25, 1.6, cz - 0.25, cz + 0.25, 'paint', { tint: T.dark, collider: 'none' });
-  for (const z of [cz - 0.42, cz + 0.32]) mirror(cx + 0.62, cx + 0.72, 0.1, 2.5, z, z + 0.1, 'paint', { tint: T.dark });
-  for (const z of [cz - 0.36, cz + 0.26]) mirror(cx + 0.72, cx + 1.9, 0.08, 0.14, z, z + 0.1, 'paint', { tint: T.dark, collider: 'none' });
-  mirror(cx + 0.75, cx + 1.85, 0.14, 0.3, cz - 0.55, cz + 0.55, 'paint', { tint: T.card, collider: 'none' });
+  forklift(mirror, -9.2, -14.2);
 
   // Sattelauflieger im Hof an der Außenmauer (unten nur für Spieler zu, Kugeln fliegen drunter durch)
   const tx0 = -29.6, tx1 = -27.1, tz0 = 7, tz1 = 19;
@@ -290,6 +270,9 @@ const HALLE = {
   ground: 'concrete',
   // Boden: in den Höfen dunkler (Asphalt), in der Halle heller Beton
   groundTint: (x) => (Math.abs(x) > 17.2 ? 0.62 : 1),
+  bounds: { x0: -30, x1: 30, z0: -20, z1: 20 },
+  size: [66, 46],
+  shadow: 38,
   spawns: spawns(25),
   // Bombenplätze in der Südgasse (Westhälfte) bzw. Nordgasse (Osthälfte), nah an der Mitte: vom
   // Startpunkt aus nicht zu sehen, Wege etwa 28 m (Verteidiger) zu 33 m (Angreifer)
@@ -330,7 +313,7 @@ const HALLE = {
   },
 };
 
-export const MAPS = { hof: HOF, halle: HALLE };
+export const MAPS = { hof: HOF, halle: HALLE, hafen: HAFEN };
 export const MAP_IDS = Object.keys(MAPS);
 
 // Die aktuelle Karte. Die übrigen Werte sind "live": Module, die sie importieren, sehen nach
@@ -416,6 +399,10 @@ function makeMaterial(assets, key) {
   }
   if (key === 'rail') {
     return new THREE.MeshStandardMaterial({ color: new THREE.Color().setRGB(...T.yellow), roughness: 0.55, metalness: 0.25 });
+  }
+  if (key === 'water') {
+    // glatt: spiegelt den Himmel, in der Ferne verschwimmt es im Dunst
+    return new THREE.MeshStandardMaterial({ color: 0x0f3440, roughness: 0.12, metalness: 0.1 });
   }
   if (key === 'sheet') {
     const t = assets.textures[MATS.sheet.tex];
@@ -504,6 +491,7 @@ export class Arena {
     }
     this._addRamps();
     this._buildRails();
+    this._buildWater();
     for (const [key, acc] of Object.entries(byMat)) {
       const g = new THREE.BufferGeometry();
       g.setAttribute('position', new THREE.Float32BufferAttribute(acc.pos, 3));
@@ -565,9 +553,20 @@ export class Arena {
     }
   }
 
+  // Wasser rund um die Karte (Hafen): eine große Fläche bis zum Horizont, ohne Kollision
+  _buildWater() {
+    if (this.map.water === undefined) return;
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000).rotateX(-Math.PI / 2), this._material('water'));
+    mesh.position.y = this.map.water;
+    mesh.receiveShadow = true;
+    mesh.name = 'Arena_water';
+    this.group.add(mesh);
+  }
+
   // Boden als feines Raster mit weichen Farbflecken, damit die Kachelung nicht auffällt
   _buildGround() {
-    const w = 66, d = 46, nx = 66, nz = 46;
+    const [w, d] = this.map.size;
+    const nx = w, nz = d;
     const key = this.map.ground;
     const tile = MATS[key].tile;
     const shade = this.map.groundTint || (() => 1);

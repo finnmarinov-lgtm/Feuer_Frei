@@ -1,6 +1,6 @@
 import { SOLID } from '../engine/physics.js';
 
-// Wegenetz für die KI: ein Raster aus 0,5-m-Feldern über dem Hof. Ein Feld ist begehbar, wenn
+// Wegenetz für die KI: ein Raster aus 0,5-m-Feldern über der Karte. Ein Feld ist begehbar, wenn
 // eine stehende Figur dort Platz hat (mit etwas Abstand zu Wänden). Wege sucht A*, danach wird
 // der Weg geglättet: gerade Strecken überall dort, wo nichts im Weg ist.
 
@@ -72,6 +72,8 @@ export class NavGrid {
     this.g = new Float32Array(n);
     this.from = new Int32Array(n);
     this.stamp = new Uint32Array(n);
+    // Feld schon fertig untersucht (in dieser Suche): wird nicht noch einmal ausgebreitet
+    this.closed = new Uint32Array(n);
     this.run = 0;
     this._build();
   }
@@ -176,7 +178,7 @@ export class NavGrid {
     const start = s[1] * nx + s[0];
     const goal = e[1] * nx + e[0];
     const run = ++this.run;
-    const { g, from, stamp, walk, extra } = this;
+    const { g, from, stamp, closed, walk, extra } = this;
     const heap = new Heap();
     const h = (i, j) => {
       const dx = Math.abs(i - e[0]), dz = Math.abs(j - e[1]);
@@ -188,8 +190,12 @@ export class NavGrid {
     heap.push(h(s[0], s[1]), start);
     let found = start === goal;
     let guard = 0;
-    while (heap.size && !found && guard++ < 20000) {
+    while (heap.size && !found && guard < 40000) {
       const cur = heap.pop();
+      // ältere Einträge desselben Felds überspringen: sein bester Weg ist schon ausgebreitet
+      if (closed[cur] === run) continue;
+      closed[cur] = run;
+      guard++;
       const ci = cur % nx, cj = (cur - ci) / nx;
       const gc = g[cur];
       for (const [di, dj, cost] of DIRS) {

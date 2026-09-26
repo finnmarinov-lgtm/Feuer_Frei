@@ -330,7 +330,8 @@ export class TeamMatch extends Duel {
     else if (this.phase === 'live' && this.members(this.team).some((e) => e.key !== this.me && this.isAlive(e.key))) sub = 'Jetzt ist dein Team dran';
     const title = by === this.me ? 'Selbst erwischt' : `${this.name(by)} hat dich erwischt`;
     g.hud.message(title, sub, 1.6);
-    g.killcam.start(by, w);
+    // letztes Leben: die Kill-Cam gibt es nur kurz, danach schaut man den Mitspielern zu
+    g.killcam.start(by, w, this.phase === 'live' && left <= 0);
     if (this.isHost) this._hostDeath(this.me);
   }
 

@@ -3,6 +3,7 @@ import { GRENADES, WEAPONS } from '../config.js';
 import { GROUP, groups } from '../engine/physics.js';
 import { mergeByMaterial } from '../engine/merge.js';
 import { puffTexture } from '../effects/textures.js';
+import { MAP } from '../world/map.js';
 
 const DOWN = { x: 0, y: -1, z: 0 };
 const PUFFS = 38;
@@ -142,11 +143,18 @@ export class Grenades {
       const gr = this.list[i];
       gr.t += dt;
       gr.bounceCd -= dt;
+      // ins Wasser gefallen (Hafen): geht unter, ohne zu zünden
+      const p = gr.body.translation();
+      if (MAP.water !== undefined && p.y < MAP.water) {
+        this._splash(p);
+        this._remove(gr);
+        this.list.splice(i, 1);
+        continue;
+      }
       const lv = gr.body.linvel();
       _v.set(lv.x, lv.y, lv.z);
       const dv = _a.subVectors(_v, gr.lastVel).length();
       if (dv > 2.2 && gr.bounceCd <= 0) {
-        const p = gr.body.translation();
         this.g.audio.play('bounce', { position: p, volume: Math.min(1, dv / 10) });
         gr.bounceCd = 0.08;
       }
@@ -219,6 +227,17 @@ export class Grenades {
   _groundBelow(p) {
     const hit = this.g.physics.raycast(p, DOWN, 2);
     return hit ? p.y - hit.distance : null;
+  }
+
+  // kleine Fontäne, wo eine Granate ins Wasser fällt
+  _splash(p) {
+    const g = this.g;
+    _a.set(p.x, MAP.water, p.z);
+    for (let i = 0; i < 8; i++) {
+      _v.set((Math.random() - 0.5) * 1.6, 2 + Math.random() * 2.5, (Math.random() - 0.5) * 1.6);
+      g.effects.dust.spawn(_a, _v, { color: [0.72, 0.8, 0.84], life: 0.6 + Math.random() * 0.4, size0: 0.1, size1: 0.5, alpha: 0.7, gravity: 6, drag: 1.2 });
+    }
+    g.audio.play('impact', { position: _a, surface: 'sand', volume: 0.6 });
   }
 
   _detonate(gr) {

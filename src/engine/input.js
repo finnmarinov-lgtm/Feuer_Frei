@@ -152,7 +152,8 @@ export class Input {
       return;
     }
     if (e.code === 'Escape' && isDown) {
-      this.onEscape?.();
+      // gehalten zählt nur einmal (sonst ginge es gleich durch mehrere Menüs zurück)
+      if (!e.repeat) this.onEscape?.();
       return;
     }
     if (this.bindings[e.code] && this.enabled) e.preventDefault();

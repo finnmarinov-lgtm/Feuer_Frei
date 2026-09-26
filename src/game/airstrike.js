@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { KILLERS, SPECIAL } from '../config.js';
 import { muzzleTexture } from '../effects/textures.js';
+import { MAP } from '../world/map.js';
 
 // Luftschlag (Spezialleiste voll, Taste X): erst Ziel wählen, dann steigt roter Rauch auf und ein
 // roter Kreis warnt alle: in der Mitte kräftig rot, nach außen immer blasser (genau so verteilt
@@ -219,6 +220,8 @@ export class Airstrikes {
       _a.set(p.x, point.y + 12, p.z);
       const ground = g.physics.raycast(_a, DOWN, 30);
       if (ground) p.y = _a.y - ground.distance;
+      // neben der Kaikante: aufs Wasser
+      else if (MAP.water !== undefined) p.y = MAP.water;
       hits.push({ pos: p, along: x * fly.x + z * fly.z });
     }
     hits.sort((p, q) => p.along - q.along);

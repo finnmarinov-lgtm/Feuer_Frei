@@ -22,7 +22,7 @@ export class BotNet {
     this.timers = [];
     // Wegenetz einmal pro Karte berechnen (die Karte muss schon geladen sein)
     game.navs ||= {};
-    const nav = (game.navs[MAP.id] ||= new NavGrid(game.physics));
+    const nav = (game.navs[MAP.id] ||= new NavGrid(game.physics, MAP.bounds));
     this.brain = new Bot(game, nav, this.level, this.name, { key: 'guest', team: 'guest', world: duelWorld(game) });
     // Explosionen und Blendgranaten treffen auch die KI (ihr Spiel läuft hier mit)
     this._blast = (...a) => this.brain.blast(...a);

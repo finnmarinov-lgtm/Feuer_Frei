@@ -1,6 +1,6 @@
 import { Net, PROTOCOL, randomCode, parseCode } from '../net/net.js';
 import { ARMS } from '../config.js';
-import { MAP } from '../world/map.js';
+import { MAP, MAPS } from '../world/map.js';
 import { session, setUrlLobby } from '../net/session.js';
 import { netText } from './hud.js';
 import { BOT_NAMES, LEVELS } from '../ai/bot.js';
@@ -760,6 +760,7 @@ export class Lobby {
       for (const b of seg.children) b.classList.toggle('on', b.dataset.v === String(this.opts[key] ?? def));
     }
     $('lobby-mode-info').textContent = (MODE_INFO[this.opts.mode] || MODE_INFO.kampf)(this.keyName('use'));
+    $('lobby-map-info').textContent = (MAPS[this.opts.map] || MAPS.hof).desc;
     $('lobby-arms-info').textContent = (ARMS[this.opts.arms] || ARMS.alle).info;
     const bots = this.roster.some((e) => e.bot);
     $('lobby-level').hidden = !bots;

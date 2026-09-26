@@ -119,11 +119,16 @@ export class RemotePlayer {
     this.anchorRestZ = this.n.anchor.position.z;
     this.uniform = null;
     this.helmet = null;
+    // jede Figur bekommt eigene Materialien: Teamfarbe, Skin und das Schimmern beim Spawn-Schutz
+    // gelten nur für sie (mit geteilten Materialien schimmerten sonst alle Figuren mit)
+    const own = new Map();
     model.traverse((o) => {
       if (!o.isMesh) return;
       o.castShadow = o.receiveShadow = true;
-      if (o.material.name === 'Uniform') o.material = this.uniform ||= o.material.clone();
-      else if (o.material.name === 'Helmet') o.material = this.helmet ||= o.material.clone();
+      if (!own.has(o.material)) own.set(o.material, o.material.clone());
+      o.material = own.get(o.material);
+      if (o.material.name === 'Uniform') this.uniform = o.material;
+      else if (o.material.name === 'Helmet') this.helmet = o.material;
     });
     // Körperteile am selben Gelenk mit gleichem Material zu einem Mesh (30 Teile -> 16)
     mergeByMaterial(model);

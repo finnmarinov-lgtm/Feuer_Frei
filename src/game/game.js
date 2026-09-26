@@ -58,6 +58,7 @@ export class Game {
     this.viewCamera.add(fill, fill.target);
     this.arena = new Arena(assets, physics, this.scene);
     this.arena.build();
+    this.env.fitShadow(MAP.shadow);
     this.effects = new Effects(this.scene);
     this.targets = new Targets(this.scene, assets.models.target, audio, this.effects);
     this.player = new Player(physics, audio);
@@ -178,6 +179,7 @@ export class Game {
     this.effects.clearMarks();
     this.arena.clear();
     this.arena.build();
+    this.env.fitShadow(MAP.shadow);
     this.bombSites.show(null);
     this.bombSites.remove();
     if (this.renderer.quality?.staticShadows) this.renderer.needsShadowBake = true;

@@ -90,7 +90,7 @@ export class Squad {
     this.g = game;
     this.m = match;
     game.navs ||= {};
-    const nav = (game.navs[MAP.id] ||= new NavGrid(game.physics));
+    const nav = (game.navs[MAP.id] ||= new NavGrid(game.physics, MAP.bounds));
     this.actors = new Map();
     this.actors.set(match.me, playerActor(game, match));
     for (const e of match.roster.values()) {
