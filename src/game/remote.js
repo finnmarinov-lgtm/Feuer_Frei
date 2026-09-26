@@ -6,11 +6,11 @@ import { muzzleTexture } from '../effects/textures.js';
 import { applyFinish } from '../weapons/finishes.js';
 import { PAINT, emptyLooks, skinOf } from './cosmetics.js';
 
-// Farben der beiden Seiten (sRGB). Im Spiel sieht man immer nur den Gegner.
-export const TEAMS = {
-  host: { name: 'Rot', uniform: '#6b3a30', helmet: '#442a24', mark: '#9a2d1f' },
-  guest: { name: 'Blau', uniform: '#34455f', helmet: '#262f3d', mark: '#23468c' },
-};
+// Farben der beiden Seiten (sRGB). Im 1 gegen 1 heißen sie nach den Rollen (Host = Rot), im
+// Team-Spiel nach den Teams.
+const RED = { name: 'Rot', uniform: '#6b3a30', helmet: '#442a24', mark: '#9a2d1f' };
+const BLUE = { name: 'Blau', uniform: '#34455f', helmet: '#262f3d', mark: '#23468c' };
+export const TEAMS = { host: RED, guest: BLUE, rot: RED, blau: BLUE };
 
 // Bits im Zustand, den jeder Spieler 30-mal pro Sekunde schickt
 // BUSY: legt oder entschärft gerade die Bombe
@@ -183,6 +183,12 @@ export class RemotePlayer {
     // firstPerson: man schaut gerade durch seine Augen (Kill-Cam), die Figur ist dann ausgeblendet
     this.firstPerson = false;
     this.team = 'guest';
+    // Team-Spiel: Kennung und Name des Spielers, Kennung im Netz, über die seine Zustände kommen,
+    // und local = KI-Spieler, der im eigenen Browser läuft (beim Host)
+    this.key = null;
+    this.name = '';
+    this.peer = null;
+    this.local = false;
     this.looks = emptyLooks();
     this.snaps = [];
     this.history = [];
@@ -364,8 +370,12 @@ export class RemotePlayer {
 
   /** Puffer gegen Ruckeln im Netz (ms); die KI schickt 60 Zustände pro Sekunde ohne Verzögerung */
   get delay() {
-    const mode = this.g.match.net?.mode;
-    return mode === 'server' ? 170 : mode === 'bot' ? 35 : 90;
+    if (this.local) return 35;
+    const net = this.g.match.net;
+    const mode = this.peer && net?.modeOf ? net.modeOf(this.peer) : net?.mode;
+    // im Team-Spiel über den Server kommen weniger Zustände pro Sekunde: mehr Puffer
+    if (mode === 'server') return this.g.match.slowServer ? 240 : 170;
+    return mode === 'bot' ? 35 : 90;
   }
 
   // Interpolierter Zustand zur Zeit rt (in der Uhr des Absenders), danach alte Zustände verwerfen
@@ -535,7 +545,8 @@ export class RemotePlayer {
     if (s.f & FLAG.BUSY) {
       this.busyT -= dt;
       if (this.busyT <= 0) {
-        const planting = g.match.attacker === (this.ghost ? g.match.me : g.match.them);
+        // legt die Bombe (Angreifer) oder entschärft sie
+        const planting = g.match.attacker === this.team;
         this.busyT = planting ? 0.32 : 0.45;
         g.audio.play(planting ? 'plantKey' : 'defuseTick', { position: feet });
       }
@@ -546,7 +557,7 @@ export class RemotePlayer {
 
   /** Strahl gegen die Trefferzonen. Liefert den nächsten Treffer bis maxDist. */
   raycast(origin, dir, maxDist) {
-    if (!this.active || !this.alive) return null;
+    if (!this.active || !this.alive || this.hidden) return null;
     this.root.updateMatrixWorld(true);
     this.raycaster.set(origin, dir);
     this.raycaster.far = maxDist;
@@ -554,6 +565,6 @@ export class RemotePlayer {
     if (!hits.length) return null;
     const h = hits[0];
     const normal = h.face ? h.face.normal.clone().transformDirection(h.object.matrixWorld) : dir.clone().negate();
-    return { remote: true, zone: h.object.userData.zone, point: h.point, normal, distance: h.distance };
+    return { remote: true, who: this, zone: h.object.userData.zone, point: h.point, normal, distance: h.distance };
   }
 }

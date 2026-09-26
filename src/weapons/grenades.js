@@ -77,10 +77,11 @@ export class Grenades {
   }
 
   /**
-   * Granate werfen. ghost = Wurf des Gegners: fliegt nur zum Ansehen mit, gezündet wird sie,
-   * wenn sein Spiel die Explosion meldet (remoteBoom). Gibt die Kennung zurück.
+   * Granate werfen. ghost = Wurf eines anderen: fliegt nur zum Ansehen mit, gezündet wird sie,
+   * wenn sein Spiel die Explosion meldet (remoteBoom). owner: wer geworfen hat (Rolle bzw.
+   * Kennung, Standard: man selbst). Gibt die Kennung der Granate zurück.
    */
-  throw(type, pos, vel, { ghost = false, id = null } = {}) {
+  throw(type, pos, vel, { ghost = false, id = null, owner = null } = {}) {
     const { R, world } = this.g.physics;
     // eigene Granaten prallen am Gegner ab, seine an einem selbst
     const hits = GROUP.WORLD | GROUP.STAIR | (ghost ? GROUP.PLAYER : GROUP.OTHER);
@@ -102,18 +103,18 @@ export class Grenades {
     mesh.position.copy(pos);
     this.g.scene.add(mesh);
     const gid = id ?? ++this.nextId;
-    this.list.push({ id: gid, ghost, type, body, mesh, t: 0, lastVel: vel.clone(), bounceCd: 0 });
+    this.list.push({ id: gid, ghost, owner: owner ?? this.g.myKey, type, body, mesh, t: 0, lastVel: vel.clone(), bounceCd: 0 });
     return gid;
   }
 
-  /** Das Spiel des Gegners meldet: seine Granate ist hier losgegangen */
-  remoteBoom(id, type, pos) {
-    const i = this.list.findIndex((gr) => gr.ghost && gr.id === id);
+  /** Das Spiel eines anderen (owner) meldet: seine Granate ist hier losgegangen */
+  remoteBoom(id, type, pos, owner) {
+    const i = this.list.findIndex((gr) => gr.ghost && gr.id === id && gr.owner === owner);
     if (i >= 0) {
       this._remove(this.list[i]);
       this.list.splice(i, 1);
     }
-    if (type === 'he') this._explode(pos, true);
+    if (type === 'he') this._explode(pos, owner);
     else if (type === 'flash') this._flash(pos);
     else this._smoke(pos);
   }
@@ -225,15 +226,17 @@ export class Grenades {
     const pos = new THREE.Vector3(p.x, p.y, p.z);
     this._remove(gr);
     this.g.match.boomFx?.(gr.id, gr.type, pos);
-    if (gr.type === 'he') this._explode(pos);
+    if (gr.type === 'he') this._explode(pos, gr.owner);
     else if (gr.type === 'flash') this._flash(pos);
     else this._smoke(pos);
   }
 
-  // remote = Granate des Gegners: trifft nur einen selbst (seinen Schaden rechnet sein Spiel)
-  _explode(pos, remote = false) {
+  // owner: wer geworfen hat. Die Klappziele trifft nur die eigene Granate; Schaden am eigenen
+  // Spieler rechnet jedes Spiel selbst (Granaten von Mitspielern schaden nicht, siehe damagePlayer)
+  _explode(pos, owner) {
     const g = this.g;
     const cfg = GRENADES.he;
+    const remote = owner !== g.myKey;
     const ground = this._groundBelow(pos);
     g.effects.explosion(pos, ground !== null && pos.y - ground < 1.2 ? ground : null);
     g.audio.play('explosion', { position: pos });
@@ -254,10 +257,10 @@ export class Grenades {
     const d = _a.distanceTo(_b);
     if (d < cfg.radius && g.physics.lineOfSight(_a, _b)) {
       const dmg = cfg.damage * Math.pow(1 - d / cfg.radius, 1.5);
-      if (dmg >= 1) g.damagePlayer(dmg, { armorPen: cfg.armorPen, from: pos, byOpponent: remote, weapon: 'he' });
+      if (dmg >= 1) g.damagePlayer(dmg, { armorPen: cfg.armorPen, from: pos, by: owner, weapon: 'he' });
     }
-    // KI-Gegner: sein Spiel läuft im selben Browser mit
-    g.onBlast?.(_a, cfg.radius, cfg.damage, cfg.armorPen, 1.5, remote ? 'guest' : 'host', 'he', true);
+    // KI-Spieler: ihr Spiel läuft im selben Browser mit
+    g.onBlast?.(_a, cfg.radius, cfg.damage, cfg.armorPen, 1.5, owner, 'he', true);
     g.shake(Math.max(0, 1 - d / 22));
   }
 

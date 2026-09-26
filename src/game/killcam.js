@@ -2,19 +2,20 @@ import * as THREE from 'three';
 import { KILLERS, KNIFE_SKINS, MOVE, TEAM_KNIFE, WEAPONS, WEAPON_IDS } from '../config.js';
 import { FLAG, RemotePlayer, sampleSnaps } from './remote.js';
 
-// Nach dem eigenen Tod im 1 gegen 1, bis zum Wiedereinstieg (oder bis zur nächsten Runde):
-// 1. Der Blick sinkt zu Boden und dreht sich zum Gegner.
-// 2. Kill-Cam: die letzten Sekunden noch einmal durch die Augen des Gegners, mit seiner Waffe in
+// Nach dem eigenen Tod, bis zum Wiedereinstieg (oder bis zur nächsten Runde):
+// 1. Der Blick sinkt zu Boden und dreht sich zum Schützen.
+// 2. Kill-Cam: die letzten Sekunden noch einmal durch die Augen des Schützen, mit seiner Waffe in
 //    der Hand, seinen Schüssen und der eigenen Figur so, wie er sie gesehen hat.
-// 3. Gegner-Sicht: live, was der Gegner gerade sieht.
+// 3. Live zuschauen: im 1 gegen 1 der Gegner, im Team-Spiel die Mitspieler (sind keine mehr
+//    übrig, der Schütze).
 // Springen oder ein Klick (auf dem Handy der Feuer- oder Sprungknopf) wechselt zwischen Kill-Cam
-// und Gegner-Sicht.
+// und Zuschauen, im Team-Spiel auch zum nächsten Mitspieler.
 
 const DEATH_TIME = 0.75;
 // Ausschnitt der Kill-Cam: so viele Sekunden vor dem Abschuss bis so viele danach (man sieht sich fallen)
 const BEFORE = 2.0;
 const AFTER = 0.9;
-// so lange (ms) werden die eigenen Zustände und die Schüsse des Gegners gemerkt
+// so lange (ms) werden die eigenen Zustände und die Schüsse der anderen gemerkt
 const KEEP = 6000;
 const DEG = Math.PI / 180;
 // Oberflächen in den Schussmeldungen (wie in duel.js)
@@ -33,12 +34,15 @@ const smooth = (t) => {
   return x * x * (3 - 2 * x);
 };
 
+/** Figur kann man gerade ansehen (aktiv, verbunden, lebt) */
+const watchable = (r) => !!r && r.active && !r.hidden && r.shown && !r.dead;
+
 export class KillCam {
   constructor(game) {
     this.g = game;
-    // eigene Zustände, so wie sie an den Gegner gingen (Ortszeit in ms)
+    // eigene Zustände, so wie sie an die anderen gingen (Ortszeit in ms)
     this.self = [];
-    // Schüsse, Messerhiebe und Würfe des Gegners mit der Absenderzeit (seine Uhr)
+    // Schüsse, Messerhiebe und Würfe der anderen mit der Absenderzeit (seine Uhr) und seiner Kennung
     this.events = [];
     // eigene Figur für die Kill-Cam (wird beim ersten Mal gebaut)
     this.ghost = null;
@@ -47,20 +51,31 @@ export class KillCam {
     this.view = null;
     this.shown = null;
     this.deathT = 0;
+    // killer: Figur des Schützen, watch: wem man live zuschaut, eyes: durch wessen Augen man gerade sieht
+    this.killer = null;
+    this.killerKey = null;
+    this.watch = null;
+    this.eyes = null;
     this.s = { pos: new THREE.Vector3(), yaw: 0, pitch: 0, duck: 0, f: 0, w: -1, t: 0 };
     this.lastPos = new THREE.Vector3();
     // was die Waffe in der Hand vom Spieler wissen will (Wippen beim Laufen, Sprinten …)
     this.proxy = { horizontalSpeed: 0, onGround: true, sprinting: false, busy: false, vel: { y: 0 }, landImpact: 0, duckAmount: 0 };
     this.vmId = null;
+    this.vmFor = null;
     this.saved = null;
     this.ads = 0;
     this.flags = 0;
     this.scoped = false;
   }
 
-  /** man sieht durch die Augen des Gegners (Kill-Cam oder Gegner-Sicht) */
+  /** man sieht durch die Augen eines anderen (Kill-Cam oder Zuschauen) */
   get firstPerson() {
     return this.active && (this.shown === 'replay' || this.shown === 'live');
+  }
+
+  /** man schaut gerade live durch die Augen von r */
+  watching(r) {
+    return this.shown === 'live' && this.eyes === r;
   }
 
   /** neue Partie: alles vergessen */
@@ -70,7 +85,7 @@ export class KillCam {
     this.events.length = 0;
   }
 
-  /** eigener Zustand, so wie er gerade an den Gegner geht (aus Duel._sendState) */
+  /** eigener Zustand, so wie er gerade an die anderen geht (aus Duel._sendState) */
   noteSelf(msg) {
     const list = this.self;
     const last = list[list.length - 1];
@@ -82,36 +97,41 @@ export class KillCam {
     while (list[0].t < msg.k - KEEP) list.shift();
   }
 
-  /** Ereignis des Gegners; k = Absenderzeit des Zustands, in dem es kam */
-  noteEvent(k, ev) {
+  /** Ereignis eines anderen (from); k = Absenderzeit des Zustands, in dem es kam */
+  noteEvent(k, ev, from) {
     if (ev.t !== 'f' && ev.t !== 'k' && ev.t !== 'n') return;
     const list = this.events;
-    list.push({ k, ev });
-    while (list[0].k < k - KEEP) list.shift();
+    list.push({ k, ev, from });
+    // nach Zeit sortiert pro Absender; alte Einträge (jeder Absender hat seine eigene Uhr) fliegen
+    // spätestens raus, wenn es zu viele werden
+    while (list.length > 400 || (list[0].from === from && list[0].k < k - KEEP)) list.shift();
   }
 
-  /** eigener Tod: by = Rolle des Schützen, w = Waffe (Id), mit der es passiert ist */
+  /** eigener Tod: by = wer einen erwischt hat (Rolle bzw. Kennung), w = Waffe (Id) */
   start(by, w) {
     const g = this.g;
     const m = g.match;
-    const r = g.remote;
+    const r = m.remoteOf?.(by) ?? null;
     this.stop();
     this.active = true;
     this.view = 'death';
     this.deathT = 0;
-    this.label = weaponLabel(w, by);
-    const h = r.history;
-    // Kill-Cam nur, wenn der Gegner einen erwischt hat und genug von ihm aufgezeichnet ist
-    this.canReplay = by === m.them && w !== 'bombe' && r.clockOff !== null && h.length > 5;
+    this.killer = r;
+    this.killerKey = by;
+    this.watch = null;
+    this.label = weaponLabel(w, m.teamOf ? m.teamOf(by) : by);
+    const h = r?.history;
+    // Kill-Cam nur, wenn ein anderer einen erwischt hat und genug von ihm aufgezeichnet ist
+    this.canReplay = !!r && w !== 'bombe' && r.clockOff !== null && h.length > 5;
     if (!this.canReplay) return;
     const kill = performance.now() + r.clockOff;
     this.r0 = Math.max(h[0].t, kill - BEFORE * 1000);
     this.r1 = kill + AFTER * 1000;
     this.offset = r.clockOff;
-    // so viel später hat der Gegner einen gesehen: Weg hin und zurück plus sein Puffer gegen Ruckeln
-    // (die KI sieht einen sofort)
+    // so viel später hat der Schütze einen gesehen: Weg hin und zurück plus sein Puffer gegen
+    // Ruckeln (die KI im eigenen Browser sieht einen sofort)
     const net = m.net;
-    this.lag = net.bot ? 0 : (net.ping || 80) + (net.mode === 'server' ? 170 : 90);
+    this.lag = net.bot || r.local ? 0 : (net.pingOf?.(r.peer) || net.ping || 80) + r.delay;
   }
 
   /** Wiedereinstieg, neue Runde, Ende: wieder mit eigenen Augen und eigener Waffe */
@@ -121,6 +141,8 @@ export class KillCam {
     this.active = false;
     this.view = this.shown = null;
     this.scoped = false;
+    this.eyes = this.watch = this.killer = null;
+    for (const r of g.others) r.firstPerson = false;
     g.remote.firstPerson = false;
     if (this.ghost) this.ghost.root.visible = false;
     if (this.saved) {
@@ -132,6 +154,7 @@ export class KillCam {
       if (own) vm.equip(own.def);
     }
     this.vmId = null;
+    this.vmFor = null;
     g.hud.spectate(null);
   }
 
@@ -146,22 +169,57 @@ export class KillCam {
 
   toggle() {
     if (!this.active || this.deathT < DEATH_TIME) return;
-    if (this.view === 'replay') this.view = 'live';
-    else if (this.canReplay) this._beginReplay();
-    else this.view = this.view === 'live' ? 'death' : 'live';
+    if (this.view === 'replay') {
+      this.view = 'live';
+      this.watch = null;
+      return;
+    }
+    // Team-Spiel: der Reihe nach allen lebenden Mitspielern zuschauen, danach die Kill-Cam
+    if (this.view === 'live' && this.g.match.teamMode) {
+      const list = this._candidates();
+      const i = list.indexOf(this.watch);
+      if (i >= 0 && i < list.length - 1) {
+        this.watch = list[i + 1];
+        return;
+      }
+    }
+    if (this.canReplay) this._beginReplay();
+    else if (this.view === 'live') this.view = 'death';
+    else {
+      this.view = 'live';
+      this.watch = null;
+    }
+  }
+
+  // wem man zuschauen kann: im Team-Spiel die lebenden Mitspieler, sonst der Schütze oder irgendwer
+  _candidates() {
+    const g = this.g;
+    const m = g.match;
+    if (!m.teamMode) return watchable(g.remote) ? [g.remote] : [];
+    const mates = g.others.filter((r) => r.team === m.myTeam && watchable(r));
+    if (mates.length) return mates;
+    if (watchable(this.killer)) return [this.killer];
+    return g.others.filter(watchable);
+  }
+
+  /** wem man live zuschaut (bleibt, solange er lebt) */
+  _watchTarget() {
+    if (watchable(this.watch) && this._candidates().includes(this.watch)) return this.watch;
+    this.watch = this._candidates()[0] || null;
+    return this.watch;
   }
 
   _beginReplay() {
     const g = this.g;
     this.view = 'replay';
     this.rt = this.r0;
-    this.evIdx = this.events.findIndex((e) => e.k >= this.r0);
-    if (this.evIdx < 0) this.evIdx = this.events.length;
+    // nur die Ereignisse des Schützen (jeder Absender hat seine eigene Uhr)
+    this.replay = this.events.filter((e) => e.from === this.killerKey && e.k >= this.r0);
+    this.evIdx = 0;
     // eigene Figur mit den eigenen Zuständen
     this.ghost ||= new RemotePlayer(g, { ghost: true });
     const gh = this.ghost;
-    const me = g.match.me;
-    gh.setActive(true, me);
+    gh.setActive(true, g.match.myTeam);
     gh.setLooks(g.looks);
     gh.snaps = this.self.slice();
     gh.clockOff = 0;
@@ -170,8 +228,7 @@ export class KillCam {
   }
 
   get canWatch() {
-    const r = this.g.remote;
-    return r.active && !r.hidden && r.shown && !r.dead;
+    return this._candidates().length > 0;
   }
 
   /** Zeit läuft (nur während die Welt läuft) */
@@ -184,7 +241,10 @@ export class KillCam {
     }
     if (this.view === 'replay') {
       this.rt += dt * 1000;
-      if (this.rt >= this.r1) this.view = 'live';
+      if (this.rt >= this.r1) {
+        this.view = 'live';
+        this.watch = null;
+      }
     }
   }
 
@@ -194,15 +254,22 @@ export class KillCam {
    */
   camera(dt, eye) {
     const g = this.g;
-    const r = g.remote;
     let view = this.active ? this.view : 'death';
-    if (view === 'live' && !this.canWatch) view = 'death';
-    if (view === 'replay' && !sampleSnaps(r.history, this.rt, this.s)) view = 'death';
+    let r = null;
+    if (view === 'live') {
+      r = this._watchTarget();
+      if (!r) view = 'death';
+    }
+    if (view === 'replay') {
+      r = this.killer;
+      if (!r || !sampleSnaps(r.history, this.rt, this.s)) view = 'death';
+    }
     this.shown = view;
     const fp = view === 'replay' || view === 'live';
-    r.firstPerson = fp;
+    this.eyes = fp ? r : null;
+    for (const o of g.others) o.firstPerson = fp && o === r;
     if (view === 'replay') {
-      // eigene Figur zu der Zeit, als der Gegner sie so gesehen hat
+      // eigene Figur zu der Zeit, als der Schütze sie so gesehen hat
       this.ghost.update(dt, this.rt - this.offset - this.lag);
       this._replayEvents();
     } else if (this.ghost) {
@@ -218,7 +285,7 @@ export class KillCam {
     this._hud(view);
   }
 
-  // durch die Augen des Gegners: Position, Blick, Zielen (Zoom), Zielfernrohr
+  // durch die Augen eines anderen: Position, Blick, Zielen (Zoom), Zielfernrohr
   _eyes(dt) {
     const g = this.g;
     const cam = g.camera;
@@ -259,7 +326,7 @@ export class KillCam {
     g.viewCamera.updateMatrixWorld();
   }
 
-  // eigene Sicht nach dem Tod: Blick sinkt zu Boden und dreht sich zum Gegner (wie in CS)
+  // eigene Sicht nach dem Tod: Blick sinkt zu Boden und dreht sich zum Schützen (wie in CS)
   _deathView(dt, eye) {
     const g = this.g;
     const cam = g.camera;
@@ -268,8 +335,9 @@ export class KillCam {
     const k = smooth(this.deathT / 0.9);
     eye.y -= (p.eyeHeight - 0.45) * k;
     let yaw = p.yaw, pitch = p.pitch;
-    if (g.remote.shown && !g.remote.hidden) {
-      g.remote.headPosition(_to).sub(eye);
+    const r = this.killer || (g.match.teamMode ? null : g.remote);
+    if (r?.shown && !r.hidden) {
+      r.headPosition(_to).sub(eye);
       const targetYaw = Math.atan2(-_to.x, -_to.z);
       const targetPitch = Math.atan2(_to.y, Math.hypot(_to.x, _to.z));
       yaw += Math.atan2(Math.sin(targetYaw - yaw), Math.cos(targetYaw - yaw)) * k;
@@ -297,7 +365,7 @@ export class KillCam {
     g.effects.setViewport(g.renderer.renderer.getDrawingBufferSize(_size).y, fov);
   }
 
-  /** Waffe des Gegners in der eigenen Hand zeigen (pro Bild, statt der eigenen) */
+  /** Waffe des anderen in der eigenen Hand zeigen (pro Bild, statt der eigenen) */
   drawViewmodel(dt) {
     const g = this.g;
     const s = this.s;
@@ -317,33 +385,33 @@ export class KillCam {
 
   _equip(w) {
     const id = w >= 0 ? WEAPON_IDS[w] : null;
-    if (!id || id === this.vmId) return;
+    const r = this.eyes;
+    if (!id || !r || (id === this.vmId && r === this.vmFor)) return;
     const g = this.g;
     const vm = g.viewmodel;
-    // eigenes Messer und eigene Skins merken, dann die des Gegners (sein Team, seine Skins)
+    // eigenes Messer und eigene Skins merken, dann die des anderen (sein Team, seine Skins)
     this.saved ||= { skin: vm.knifeSkin, looks: vm.looks };
-    vm.knifeSkin = TEAM_KNIFE[g.match.them];
-    vm.looks = g.remote.looks;
+    vm.knifeSkin = TEAM_KNIFE[r.team];
+    vm.looks = r.looks;
     vm.equip(WEAPONS[id]);
     this.vmId = id;
+    this.vmFor = r;
     this.flags &= ~FLAG.RELOAD;
   }
 
-  // Ereignisse der Wiederholung bis zur aktuellen Zeit abspielen
+  // Ereignisse des Schützen in der Wiederholung bis zur aktuellen Zeit abspielen
   _replayEvents() {
-    const list = this.events;
-    while (this.evIdx < list.length && list[this.evIdx].k <= this.rt) {
-      this._event(list[this.evIdx++].ev, true);
-    }
+    const list = this.replay;
+    while (this.evIdx < list.length && list[this.evIdx].k <= this.rt) this._event(list[this.evIdx++].ev, true);
   }
 
-  /** Schuss, Messerhieb oder Wurf des Gegners, während man durch seine Augen schaut (live) */
-  liveEvent(ev) {
-    if (this.shown === 'live') this._event(ev, false);
+  /** Schuss, Messerhieb oder Wurf von r, während man live durch seine Augen schaut */
+  liveEvent(ev, r) {
+    if (this.watching(r)) this._event(ev, false);
   }
 
   // Waffe in der Hand bewegen; in der Wiederholung auch Knall, Leuchtspur, Einschläge und
-  // Treffer an der eigenen Figur (live kommt das schon vom Duell)
+  // Treffer an der eigenen Figur (live kommt das schon vom Spiel)
   _event(ev, replay) {
     const g = this.g;
     const vm = g.viewmodel;
@@ -400,7 +468,7 @@ export class KillCam {
     }
   }
 
-  // Schriftzug oben: was man gerade sieht, wie man umschaltet, wann es weitergeht
+  // Schriftzug unten: was man gerade sieht, wie man umschaltet, wann es weitergeht
   _hud(view) {
     const g = this.g;
     const m = g.match;
@@ -408,23 +476,29 @@ export class KillCam {
       g.hud.spectate(null);
       return;
     }
-    const them = m.names[m.them];
+    const team = !!m.teamMode;
+    const killer = m.name(this.killerKey);
     const key = g.input.touch ? 'Feuerknopf' : `${g.input.label('jump')} / Klick`;
+    const mates = team ? this._candidates().filter((r) => r.team === m.myTeam) : [];
     let tag = '', who = '', hint = '';
     if (view === 'replay') {
       tag = 'Kill-Cam';
-      who = `${them} · ${this.label}`;
-      hint = `${key}: Gegner-Sicht`;
+      who = `${killer} · ${this.label}`;
+      hint = `${key}: ${team ? 'Zuschauen' : 'Gegner-Sicht'}`;
     } else if (view === 'live') {
-      tag = 'Gegner-Sicht';
-      who = them;
-      hint = this.canReplay ? `${key}: Kill-Cam` : `${key}: eigene Sicht`;
+      const r = this.eyes;
+      const mate = team && r?.team === m.myTeam;
+      tag = team ? (mate ? 'Mitspieler' : 'Zuschauen') : 'Gegner-Sicht';
+      who = team ? r?.name ?? '' : m.names[m.them];
+      if (team && mates.length > 1 && mates.indexOf(r) < mates.length - 1) hint = `${key}: nächster Mitspieler`;
+      else hint = this.canReplay ? `${key}: Kill-Cam` : `${key}: eigene Sicht`;
     } else if (this.deathT >= DEATH_TIME && this.canWatch) {
-      hint = `${key}: ${this.canReplay ? 'Kill-Cam' : 'Gegner-Sicht'}`;
+      hint = `${key}: ${this.canReplay ? 'Kill-Cam' : team ? 'Zuschauen' : 'Gegner-Sicht'}`;
     }
     let left = '';
-    if (m.phase === 'live' && m.respawnT > 0 && m.lives[m.me] > 0) left = `Zurück in ${Math.ceil(m.respawnT)} s`;
-    else if (m.phase === 'live' && m.lives[m.me] <= 0) left = 'Keine Leben mehr in dieser Runde';
+    const lives = m.lives[m.me] ?? 0;
+    if (m.phase === 'live' && m.respawnT > 0 && lives > 0) left = `Zurück in ${Math.ceil(m.respawnT)} s`;
+    else if (m.phase === 'live' && lives <= 0) left = 'Keine Leben mehr in dieser Runde';
     g.hud.spectate({ view, tag, who, hint, left });
   }
 }
@@ -439,9 +513,9 @@ function copyState(from, to) {
   to.t = from.t;
 }
 
-/** Name der Waffe für die Kill-Cam (beim Messer das des Schützen: Karambit oder Butterfly) */
-function weaponLabel(w, role) {
+/** Name der Waffe für die Kill-Cam (beim Messer das des Teams: Karambit oder Butterfly) */
+function weaponLabel(w, team) {
   const def = WEAPONS[w] || KILLERS[w];
-  if (def?.slot === 'knife') return KNIFE_SKINS[TEAM_KNIFE[role]]?.name ?? def.name;
+  if (def?.slot === 'knife') return KNIFE_SKINS[TEAM_KNIFE[team]]?.name ?? def.name;
   return def?.name ?? '';
 }

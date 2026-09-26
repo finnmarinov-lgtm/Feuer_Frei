@@ -382,11 +382,17 @@ export class WeaponSystem {
     }
   }
 
-  /** Nächster Treffer auf einem Klappziel oder dem Gegner (vor der Wand in maxDist) */
+  /**
+   * Nächster Treffer auf einem Klappziel oder einem Gegner (vor der Wand in maxDist). Mitspieler
+   * im eigenen Team zählen nicht: Kugeln fliegen an ihnen vorbei (kein Eigenbeschuss).
+   */
   _hitscan(eye, dir, maxDist) {
-    const t = this.g.targets.raycast(eye, dir, maxDist);
-    const r = this.g.remote.raycast(eye, dir, t ? t.distance : maxDist);
-    return r || t;
+    let best = this.g.targets.raycast(eye, dir, maxDist);
+    for (const r of this.g.foes) {
+      const h = r.raycast(eye, dir, best ? best.distance : maxDist);
+      if (h) best = h;
+    }
+    return best;
   }
 
   /** Schaden eines Treffers vor Weste und Helm: Zone und Entfernung */
@@ -425,10 +431,8 @@ export class WeaponSystem {
     if (_right.lengthSq() < 1e-6) _right.set(1, 0, 0);
     _up.crossVectors(_right, aim).normalize();
     const hits = new Map();
-    // am Gegner pro Zone zusammenzählen, weil Weste und Helm je Zone anders schützen
-    const remote = { head: 0, body: 0, legs: 0 };
-    const shielded = this.g.remote.protected;
-    let remotePoint = null;
+    // an jedem Gegner pro Zone zusammenzählen, weil Weste und Helm je Zone anders schützen
+    const remotes = new Map();
     let firstImpact = null;
     for (let i = 0; i < def.pellets; i++) {
       const a = Math.random() * Math.PI * 2;
@@ -438,9 +442,13 @@ export class WeaponSystem {
       const worldDist = world ? world.distance : MAX_RANGE;
       const hit = this._hitscan(eye, _pdir, worldDist);
       if (hit?.remote) {
-        remote[hit.zone] += this._rawDamage(def, hit);
-        remotePoint ||= hit.point.clone();
-        if (!shielded) this.g.effects.bloodHit(hit.point, hit.normal, hit.zone === 'head');
+        let rh = remotes.get(hit.who);
+        if (!rh) {
+          rh = { head: 0, body: 0, legs: 0, point: hit.point.clone() };
+          remotes.set(hit.who, rh);
+        }
+        rh[hit.zone] += this._rawDamage(def, hit);
+        if (!hit.who.protected) this.g.effects.bloodHit(hit.point, hit.normal, hit.zone === 'head');
         ends.push(shotEnd(hit.point));
       } else if (hit) {
         const head = hit.zone === 'head';
@@ -470,8 +478,12 @@ export class WeaponSystem {
       this.g.match.onHit(res.damage, h.head);
       if (res.killed) this.g.match.onKill(def, h.head);
     }
-    if (remotePoint) {
-      const head = remote.head > 0;
+    if (remotes.size) {
+      let head = false, shielded = true;
+      for (const [r, rh] of remotes) {
+        if (rh.head > 0) head = true;
+        if (!r.protected) shielded = false;
+      }
       if (shielded) {
         this.g.audio.play('shield');
         this.g.hud.hitmarker(false, false, true);
@@ -480,8 +492,10 @@ export class WeaponSystem {
         this.g.hud.hitmarker(head, false);
       }
       this.g.match.onHit(0, head);
-      for (const zone of ['head', 'body', 'legs']) {
-        if (remote[zone] > 0) this.g.match.sendHit?.(remote[zone], zone, def, remotePoint);
+      for (const [r, rh] of remotes) {
+        for (const zone of ['head', 'body', 'legs']) {
+          if (rh[zone] > 0) this.g.match.sendHit?.(rh[zone], zone, def, rh.point, r);
+        }
       }
     }
   }
@@ -490,7 +504,7 @@ export class WeaponSystem {
   // Hat er Spawn-Schutz, gibt es eine blaue Markierung statt Blut (sein Spiel ignoriert den Treffer).
   _hitRemote(hit, def, raw) {
     const head = hit.zone === 'head';
-    if (this.g.remote.protected) {
+    if (hit.who.protected) {
       this.g.audio.play('shield');
       this.g.hud.hitmarker(false, false, true);
     } else {
@@ -499,7 +513,7 @@ export class WeaponSystem {
       this.g.hud.hitmarker(head, false);
     }
     this.g.match.onHit(0, head);
-    this.g.match.sendHit?.(raw, hit.zone, def, hit.point);
+    this.g.match.sendHit?.(raw, hit.zone, def, hit.point, hit.who);
   }
 
   _damageTarget(hit, def, raw) {

@@ -260,13 +260,13 @@ export const WEAPONS = {
   },
 };
 
-// Messer: Team Rot (Host) hat ein Karambit, Team Blau (Gast) ein Butterflymesser, im Training
-// entscheidet der Zufall. Gleiche Werte, nur Aussehen, Haltung und die Bewegung beim Ziehen sind anders.
+// Messer: Team Rot (im 1 gegen 1 der Host) hat ein Karambit, Team Blau (Gast) ein Butterflymesser, im
+// Training entscheidet der Zufall. Gleiche Werte, nur Aussehen, Haltung und die Bewegung beim Ziehen sind anders.
 export const KNIFE_SKINS = {
   karambit: { name: 'Karambit', model: 'karambit', view: { pos: [0.12, -0.07, -0.29], rot: [0.85, 1.05, -0.05] } },
   butterfly: { name: 'Butterfly', model: 'butterfly', view: { pos: [0.15, -0.13, -0.3], rot: [0.45, 0.45, -0.2] } },
 };
-export const TEAM_KNIFE = { host: 'karambit', guest: 'butterfly' };
+export const TEAM_KNIFE = { host: 'karambit', guest: 'butterfly', rot: 'karambit', blau: 'butterfly' };
 
 // feste Reihenfolge, damit die Waffe im Netz als kleine Zahl übertragen werden kann
 export const WEAPON_IDS = Object.keys(WEAPONS);

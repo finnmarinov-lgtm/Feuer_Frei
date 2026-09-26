@@ -1,6 +1,7 @@
 import { NavGrid } from './nav.js';
 import { Bot, BOT_NAMES, LEVELS } from './bot.js';
-import { MAP } from '../world/map.js';
+import { MAP, SPAWNS } from '../world/map.js';
+import { attackerOf } from '../game/duel.js';
 
 // Verbindung zum KI-Gegner: sieht für das Duell aus wie die Netzverbindung zu einem Gast
 // (gleiche Nachrichten), läuft aber komplett im eigenen Browser. Der Mensch ist immer Host.
@@ -22,7 +23,7 @@ export class BotNet {
     // Wegenetz einmal pro Karte berechnen (die Karte muss schon geladen sein)
     game.navs ||= {};
     const nav = (game.navs[MAP.id] ||= new NavGrid(game.physics));
-    this.brain = new Bot(game, nav, this.level, this.name);
+    this.brain = new Bot(game, nav, this.level, this.name, { key: 'guest', team: 'guest', world: duelWorld(game) });
     // Explosionen und Blendgranaten treffen auch die KI (ihr Spiel läuft hier mit)
     this._blast = (...a) => this.brain.blast(...a);
     this._flash = (pos) => this.brain.flash(pos);
@@ -62,7 +63,7 @@ export class BotNet {
     if (this.inbox.length) {
       const list = this.inbox;
       this.inbox = [];
-      for (const m of list) bot.receive(m);
+      for (const m of list) bot.receive(m, 'host');
     }
     bot.tick(dt);
     if (bot.out.length) {
@@ -81,4 +82,43 @@ export class BotNet {
     this.brain.dispose();
     this.onMessage = null;
   }
+}
+
+/**
+ * Welt der KI im 1 gegen 1: ihr einziger Gegner ist der Mensch (Host, Rolle 'host'), sie selbst
+ * ist der Gast. Rollen sind hier zugleich die Teams.
+ */
+function duelWorld(game) {
+  const human = {
+    key: 'host',
+    team: 'host',
+    get alive() {
+      return game.player.alive;
+    },
+    get feet() {
+      return game.player.feet;
+    },
+    get eyeHeight() {
+      return game.player.eyeHeight;
+    },
+    // rennende Schritte hört man (Schleichen und Ducken sind leise)
+    get running() {
+      const p = game.player;
+      return p.alive && p.onGround && !p.ducked && p.horizontalSpeed > p.maxSpeed * 0.6 && !game.input.isDown('walk');
+    },
+    get protected() {
+      return game.match.protectT > 0;
+    },
+  };
+  const foes = [human];
+  return {
+    duel: true,
+    foes: () => foes,
+    actor: (k) => (k === 'host' ? human : null),
+    teamOf: (k) => k,
+    attackerOf,
+    livesOf: (msg) => msg.lv[1],
+    homeSide: (team) => (team === 'host' ? 'west' : 'east'),
+    spawn: (bot) => SPAWNS[bot.homeSide],
+  };
 }

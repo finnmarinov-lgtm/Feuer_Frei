@@ -4,6 +4,7 @@ import { HEADSHOT_ICON, weaponIcon } from './icons.js';
 import { LOCKER, isDone, nextTaskFor, onProgress, stat, TASKS } from '../game/cosmetics.js';
 import { FINISHES } from '../weapons/finishes.js';
 import { MAP } from '../world/map.js';
+import { TEAM_NAMES, otherTeam } from '../game/sides.js';
 
 const TARGET_NAME = Object.fromEntries(LOCKER.map((l) => [l.id, l.name]));
 const skinName = (t) => `${TARGET_NAME[t.reward[0]]} · ${FINISHES[t.reward[1]].name}`;
@@ -15,6 +16,14 @@ const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt
 /** Verbindungsart und Ping als kurzer Text */
 export function netText(net) {
   if (net.bot) return `KI-Gegner · ${net.levelName}`;
+  // Team-Spiel: alle zusammen (der langsamste Weg zählt)
+  if (!net.partner && net.group) {
+    if (!net.group.size) return 'Nur mit KI';
+    const lost = [...net.group].filter((id) => net.lostPeer(id)).length;
+    if (lost) return `${lost} Mitspieler ohne Verbindung`;
+    const ms = net.ping ? ` · ${Math.round(net.ping)} ms` : '';
+    return net.mode === 'server' ? `Teils über Server${ms}` : `Direkt verbunden${ms}`;
+  }
   if (net.lost) return 'Verbindung unterbrochen …';
   const ms = net.ping ? ` · ${Math.round(net.ping)} ms` : '';
   if (net.mode === 'direkt') return `Direkt verbunden${ms}`;
@@ -48,8 +57,10 @@ export class Hud {
       special: $('special'), specialFill: $('special-fill'), specialHint: $('special-hint'),
       spectate: $('spectate'), specTag: $('spec-tag'), specWho: $('spec-who'), specHint: $('spec-hint'),
       specLeft: $('spec-left'), killbars: $('killbars'),
-      tasks: $('tasks-hud'), toast: $('task-toast'),
+      tasks: $('tasks-hud'), toast: $('task-toast'), tags: $('name-tags'),
     };
+    // Team-Spiel: Namensschild pro Mitspieler (Kennung -> Element)
+    this.tags = new Map();
     this.spectating = false;
     // Aufgaben: Fortschritt live mitzählen, neue Skins kurz einblenden
     this.recent = null;
@@ -122,6 +133,18 @@ export class Hud {
     const el = document.createElement('div');
     el.className = 'chat' + (mine ? ' mine' : '');
     el.innerHTML = `<b>${escapeHtml(name)}:</b> ${escapeHtml(text)}`;
+    this._chatEl(el);
+  }
+
+  /** kurzer Hinweis im Verlauf (z. B. wer das Spiel verlassen hat) */
+  notice(text) {
+    const el = document.createElement('div');
+    el.className = 'chat note';
+    el.textContent = text;
+    this._chatEl(el);
+  }
+
+  _chatEl(el) {
     this.el.chatLog.appendChild(el);
     this.chats.push({ el, t: 6 });
     if (this.chats.length > 4) this.chats.shift().el.remove();
@@ -255,6 +278,8 @@ export class Hud {
     this.el.chatLog.innerHTML = '';
     this.chats = [];
     this.toggleChat(false);
+    this.el.tags.innerHTML = '';
+    this.tags.clear();
   }
 
   setCrosshairColor(c) {
@@ -376,7 +401,7 @@ export class Hud {
     const s = m.stats;
     const acc = s.shots ? Math.round((s.hits / s.shots) * 100) : 0;
     const hs = s.kills ? Math.round((s.heads / s.kills) * 100) : 0;
-    const html = m.duel
+    const html = m.teamMode ? this._board(m, acc, hs) : m.duel
       ? `<h3>1 gegen 1 · ${escapeHtml(m.names[m.them])} · Runde ${m.round}</h3>
       <div class="row"><span>Rundensiege</span><b>${m.wins[m.me]} : ${m.wins[m.them]}</b></div>
       <div class="row"><span>Ausgeschaltet / Tode</span><b>${s.kills} / ${s.deaths}</b></div>
@@ -398,15 +423,94 @@ export class Hud {
     el.hidden = false;
   }
 
+  /** Tabelle im Team-Spiel (Tab): beide Teams mit Abschüssen, Toden und Ping */
+  _board(m, acc, hs) {
+    const rows = m.boardRows();
+    const mine = m.myTeam;
+    const table = (team) => {
+      const list = rows.filter((r) => r.team === team);
+      const body = list.map((r) => {
+        const tags = [r.host ? 'Host' : '', r.left ? 'weg' : ''].filter(Boolean).join(' · ');
+        const ping = r.ping ? `${r.ping} ms` : r.bot ? 'KI' : '';
+        return `<tr class="${r.me ? 'me' : ''}${r.alive ? '' : ' dead'}"><td>${escapeHtml(r.me ? `${r.name} (Du)` : r.name)}${tags ? `<small>${tags}</small>` : ''}</td>`
+          + `<td class="n">${r.kills}</td><td class="n">${r.deaths}</td><td class="n">${ping}</td></tr>`;
+      }).join('');
+      return `<tbody class="t-${team}"><tr><th class="tname">${TEAM_NAMES[team]} · ${m.wins[team]}</th><th class="n">Abschüsse</th><th class="n">Tode</th><th class="n">Ping</th></tr>${body}</tbody>`;
+    };
+    return `<h3>Team-Spiel · Runde ${m.round}</h3><table class="board">${table(mine)}${table(otherTeam(mine))}</table>
+      <div class="row"><span>Treffergenauigkeit · Kopfschüsse</span><b>${acc} % · ${hs} %</b></div>
+      <div class="row"><span>Verbindung</span><b>${netText(m.net)}</b></div>`;
+  }
+
+  // Team-Spiel: Teams oben mit Rundensiegen, darunter ein Punkt pro Spieler (voll = lebt)
+  _team(m) {
+    const el = this.el;
+    const mine = m.myTeam;
+    const their = otherTeam(mine);
+    this._text(el.duelMe, TEAM_NAMES[mine]);
+    this._text(el.duelThem, TEAM_NAMES[their]);
+    this._text(el.duelScore, `${m.wins[mine]} : ${m.wins[their]}`);
+    const pips = (team) => m.members(team).map((e) => (m.isAlive(e.key) ? '●' : '○')).join('');
+    this._text(el.livesMe, pips(mine));
+    this._text(el.livesThem, pips(their));
+    for (const [side, team] of [[el.duelMe.parentElement, mine], [el.duelThem.parentElement, their]]) {
+      if (side._team !== team) {
+        side._team = team;
+        side.classList.remove('t-rot', 't-blau');
+        side.classList.add(`t-${team}`);
+      }
+    }
+  }
+
+  // Namen über den Mitspielern (auch durch Wände, damit man sie nicht verwechselt)
+  _nameTags(m, camera) {
+    const el = this.el;
+    const w = window.innerWidth, h = window.innerHeight;
+    const seen = new Set();
+    if (m.teamMode && !this.spectating) {
+      for (const r of this.g.others) {
+        if (r.team !== m.myTeam || !r.alive || r.hidden || r.firstPerson) continue;
+        r.headPosition(_p).y += 0.32;
+        const d = camera.position.distanceTo(_p);
+        _p.project(camera);
+        if (_p.z > 1 || Math.abs(_p.x) > 1.05 || Math.abs(_p.y) > 1.05) continue;
+        let tag = this.tags.get(r.key);
+        if (!tag) {
+          tag = document.createElement('div');
+          tag.className = `tag t-${r.team}`;
+          tag.textContent = r.name;
+          el.tags.appendChild(tag);
+          this.tags.set(r.key, tag);
+        }
+        seen.add(r.key);
+        const x = Math.round((_p.x * 0.5 + 0.5) * w);
+        const y = Math.round((-_p.y * 0.5 + 0.5) * h);
+        this._set(tag.style, 'transform', `translate(-50%, -100%) translate(${x}px, ${y}px)`);
+        this._set(tag.style, 'opacity', String(d > 40 ? 0.55 : 0.95));
+        if (tag.hidden) tag.hidden = false;
+      }
+    }
+    for (const [key, tag] of this.tags) if (!seen.has(key) && !tag.hidden) tag.hidden = true;
+  }
+
   // Punktestand, Leben (Punkte unter den Namen) und Verbindung
   _duel(m) {
     const el = this.el;
-    this._text(el.duelMe, m.names[m.me]);
-    this._text(el.duelThem, m.names[m.them]);
-    this._text(el.duelScore, `${m.wins[m.me]} : ${m.wins[m.them]}`);
-    const pips = (n) => '●'.repeat(Math.max(0, n)) + '○'.repeat(Math.max(0, m.cfg.lives - n));
-    this._text(el.livesMe, m.cfg.lives > 1 ? pips(m.lives[m.me]) : '');
-    this._text(el.livesThem, m.cfg.lives > 1 ? pips(m.lives[m.them]) : '');
+    if (m.teamMode) this._team(m);
+    else {
+      this._text(el.duelMe, m.names[m.me]);
+      this._text(el.duelThem, m.names[m.them]);
+      this._text(el.duelScore, `${m.wins[m.me]} : ${m.wins[m.them]}`);
+      const pips = (n) => '●'.repeat(Math.max(0, n)) + '○'.repeat(Math.max(0, m.cfg.lives - n));
+      this._text(el.livesMe, m.cfg.lives > 1 ? pips(m.lives[m.me]) : '');
+      this._text(el.livesThem, m.cfg.lives > 1 ? pips(m.lives[m.them]) : '');
+      for (const side of [el.duelMe.parentElement, el.duelThem.parentElement]) {
+        if (side._team) {
+          side._team = null;
+          side.classList.remove('t-rot', 't-blau');
+        }
+      }
+    }
     this._text(el.net, netText(m.net));
     el.net.classList.toggle('bad', m.net.lost || m.net.mode === 'getrennt');
     el.net.classList.toggle('server', m.net.mode === 'server');
@@ -510,6 +614,7 @@ export class Hud {
     this._text(el.round, m.roundLabel);
     this._tasks(dt);
     if (m.duel) this._duel(m);
+    this._nameTags(m, camera);
     this._bomb(m, camera);
     this._special(m);
     let phase = '', time = m.timer;

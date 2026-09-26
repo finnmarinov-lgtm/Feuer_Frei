@@ -3,12 +3,18 @@ import { ARMS } from '../config.js';
 import { MAP } from '../world/map.js';
 import { session, setUrlLobby } from '../net/session.js';
 import { netText } from './hud.js';
+import { BOT_NAMES, LEVELS } from '../ai/bot.js';
+import { TEAM_IDS, TEAM_NAMES } from '../game/sides.js';
 
 const NAME_KEY = 'feuer-frei-name';
-const COUNTDOWN = 5;
+const COUNTDOWN = 3;
+const MAX_TEAM = 4;
+// so lange (ms) hält der Host den Platz für jemanden frei, der gerade neu lädt
+const AWAY_KEEP = 15000;
+const VERSION_PROBLEM = 'Ihr habt verschiedene Versionen des Spiels. Bitte alle die Seite neu laden (Strg + F5).';
 const MODE_INFO = {
-  kampf: () => 'Wer dem anderen alle Leben nimmt, gewinnt die Runde.',
-  bombe: (use) => `Die Rollen wechseln jede Runde: Einer legt die Bombe auf dem Platz des anderen (${use} halten), der andere verteidigt und entschärft sie.`,
+  kampf: () => 'Eine Runde gewinnt, wer alle Gegner ausschaltet (mit 3 Leben muss jeder dreimal fallen).',
+  bombe: (use) => `Die Seiten wechseln jede Runde: Wer angreift, legt die Bombe auf dem Platz der anderen (${use} halten), wer verteidigt, entschärft sie.`,
 };
 const $ = (id) => document.getElementById(id);
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -17,9 +23,11 @@ function cleanName(s) {
   return String(s || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 16);
 }
 
-// Lobby: erstellen (Host) oder mit Code/Link beitreten (Gast). Sobald beide da sind,
-// läuft ein Countdown und das Spiel startet von selbst. Wer die Seite neu lädt, kommt mit
-// derselben Rolle zurück, bei einem laufenden Duell auch zurück ins Spiel (rejoin).
+// Mehrspieler-Lobby: erstellen (Host) oder mit Code/Link beitreten. Wer beitritt, kommt ins kleinere
+// Team (Rot oder Blau) und kann wechseln. Nur wenn der Host "Mit KI auffüllen" oder "+ KI" drückt,
+// kommen KI-Spieler dazu. Der Host startet: Sind genau zwei Menschen da (einer pro Team), wird es das
+// 1 gegen 1 (Duell), sonst ein Team-Spiel. Wer die Seite neu lädt, kommt zurück (in die Lobby oder
+// ins laufende Spiel).
 export class Lobby {
   constructor({ show, onStart, netMode = null, keyName = () => 'E', looks = () => null }) {
     this.show = show;
@@ -27,18 +35,25 @@ export class Lobby {
     this.netMode = netMode;
     // Beschriftung der eigenen Taste für eine Aktion (Tastenbelegung)
     this.keyName = keyName;
-    // eigene Skins (werden mitgeschickt, damit der andere sie sieht)
+    // eigene Skins (werden mitgeschickt, damit die anderen sie sehen)
     this.looks = looks;
     this.net = null;
     this.role = null;
+    this.key = session.key();
+    // Stand einer laufenden Partie nach dem Neuladen: { kind: 'duel' | 'team', ... }
     this.rejoin = null;
     this.code = null;
+    // Aufstellung: beim Host die maßgebliche, beim Gast die zuletzt vom Host geschickte
+    this.roster = [];
+    this.hostPeer = null;
+    this.hostKey = null;
+    // 1 gegen 1: Name und Skins des anderen
     this.partnerName = '';
     this.partnerLooks = null;
-    this.opts = { mode: 'kampf', lives: 3, wins: 2, map: MAP.id, arms: 'alle' };
+    this.opts = { mode: 'kampf', lives: 3, wins: 2, map: MAP.id, arms: 'alle', level: 'mittel' };
     this.countdown = 0;
     this.cdTimer = null;
-    this.hiTimer = null;
+    this.tickTimer = null;
     this.problem = '';
     this.enteredAt = 0;
 
@@ -56,7 +71,13 @@ export class Lobby {
       } catch {
         // egal
       }
-      if (this.net?.partner) this._sayHi(this.net.partner, true);
+      if (this.role === 'host' && !this.rejoin) {
+        const me = this.roster.find((e) => e.key === this.key);
+        if (me) me.name = this.name;
+        this._changed();
+      } else if (this.hostPeer) {
+        this._sayHi(this.hostPeer);
+      }
       this._render();
     });
     $('btn-create').addEventListener('click', () => this.create());
@@ -67,18 +88,18 @@ export class Lobby {
     $('btn-copy').addEventListener('click', () => this._copy());
     $('btn-share').addEventListener('click', () => this._share());
     $('btn-lobby-back').addEventListener('click', () => this.back());
+    $('btn-fill').addEventListener('click', () => this.fillBots());
+    $('btn-go').addEventListener('click', () => this.startGame());
+    $('lobby-teams').addEventListener('click', (e) => this._onTeamClick(e));
     if (!navigator.share) $('btn-share').hidden = true;
     for (const seg of document.querySelectorAll('#lobby-opts .seg')) {
       seg.addEventListener('click', (e) => {
         const raw = e.target.dataset?.v;
-        if (!raw || this.role !== 'host') return;
-        const v = ['mode', 'map', 'arms'].includes(seg.dataset.opt) ? raw : Number(raw);
+        if (!raw || this.role !== 'host' || this.rejoin) return;
+        const v = ['mode', 'map', 'arms', 'level'].includes(seg.dataset.opt) ? raw : Number(raw);
         this.opts = { ...this.opts, [seg.dataset.opt]: v };
-        if (this.net?.partner) {
-          this.net.send({ t: 'cfg', cfg: this.opts });
-          this._startCountdown();
-        }
-        this._render();
+        this._stopCountdown();
+        this._changed();
       });
     }
   }
@@ -115,11 +136,15 @@ export class Lobby {
       $('lobby-code-input').value = '';
       return;
     }
-    // nach dem Neuladen: gleiche Rolle wie vorher, bei laufendem Duell mit dem eigenen Stand
+    // nach dem Neuladen: gleiche Rolle wie vorher, bei laufender Partie mit dem eigenen Stand
     const saved = session.lobby();
-    this.role = saved?.code === code ? saved.role : 'guest';
+    const same = saved?.code === code;
+    this.role = same ? saved.role : 'guest';
+    this.rejoin = null;
     const duel = session.duel();
-    this.rejoin = duel?.code === code && duel.role === this.role ? duel : null;
+    const team = session.team();
+    if (same && saved.kind === 'duel' && duel?.code === code && duel.role === this.role) this.rejoin = { kind: 'duel', ...duel };
+    else if (same && saved.kind === 'team' && team?.code === code && team.key === this.key) this.rejoin = { kind: 'team', ...team };
     this._enterRoom(code);
   }
 
@@ -132,14 +157,17 @@ export class Lobby {
     this._stopTimers();
     if (this.net) {
       const net = this.net;
-      net.send({ t: 'bye' });
+      net.send({ t: 'bye' }, this.role === 'host' ? undefined : this.hostPeer || undefined);
       setTimeout(() => net.close(), 300);
     }
     this.net = null;
     this.role = null;
     this.rejoin = null;
+    this.roster = [];
+    this.hostPeer = this.hostKey = null;
     this.partnerName = '';
     this.partnerLooks = null;
+    this.countdown = 0;
     this.problem = '';
     session.clear();
     setUrlLobby(null);
@@ -151,179 +179,526 @@ export class Lobby {
     this.role = role;
     this.rejoin = rejoin;
     this.code = code;
-    // Code in die Adresse und Rolle in den Tab-Speicher: Neuladen führt zurück in die Lobby
-    session.setLobby(code, role);
+    // Code in die Adresse und Rolle in den Tab-Speicher: Neuladen führt zurück
+    session.setLobby(code, role, rejoin?.kind ?? null);
     setUrlLobby(code);
     this.problem = '';
-    this.partnerName = '';
     this.countdown = 0;
+    this.hostPeer = this.hostKey = null;
+    this.partnerName = '';
+    this.partnerLooks = null;
     this.enteredAt = performance.now();
     const net = (this.net = new Net(code, { only: this.netMode }));
-    net.onPeer = (id) => this._sayHi(id);
+    this.roster = [];
+    if (role === 'host') {
+      this.hostKey = this.key;
+      this.roster = [{ key: this.key, peer: net.id, name: this.name, looks: this.looks(), team: 'rot', host: true }];
+    }
+    net.onPeer = (id) => this._greet(id);
     net.onMessage = (msg, from) => this._onMsg(msg, from);
     net.onChange = () => this._render();
-    // bis der Partner feststeht, regelmäßig "Hallo" an alle sagen
-    this.hiTimer = setInterval(() => {
-      if (!net.partner) for (const id of net.known) this._sayHi(id);
-      this._render();
-    }, 2000);
+    this.tickTimer = setInterval(() => this._tick(), 2000);
     $('lobby-choice').hidden = true;
     $('lobby-room').hidden = false;
     this._render();
+    // Host lädt mitten im Team-Spiel neu: gleich weiterspielen, die anderen finden ihn wieder
+    if (role === 'host' && rejoin?.kind === 'team') this._resumeTeamHost();
   }
 
+  // ---------- Nachrichten ----------
   _sayHi(id, ack = false) {
-    this.net?.send({ t: 'hi', v: PROTOCOL, name: this.name, looks: this.looks(), role: this.role, cfg: this.opts, ack, rejoin: !!this.rejoin }, id);
+    const msg = { t: 'hi', v: PROTOCOL, key: this.key, name: this.name, looks: this.looks(), role: this.role, cfg: this.opts, ack };
+    if (this.rejoin) {
+      msg.rejoin = true;
+      msg.kind = this.rejoin.kind;
+    }
+    this.net?.send(msg, id);
   }
 
-  _adopt(id, name, looks) {
+  /** neuer Mitspieler im Raum gesehen */
+  _greet(id) {
+    if (this.role === 'host' && !this.rejoin) this._sendLobby(id);
+    else this._sayHi(id);
+  }
+
+  /** alle 2 Sekunden: Plätze aufräumen, Stand schicken, "Hallo" wiederholen */
+  _tick() {
     const net = this.net;
-    if (looks && typeof looks === 'object') this.partnerLooks = looks;
-    if (net.partner === id) {
-      if (name) this.partnerName = cleanName(name);
-      return false;
+    if (!net) return;
+    if (this.rejoin?.kind === 'duel') {
+      if (!net.partner) for (const id of net.known) this._sayHi(id);
+    } else if (this.role === 'host') {
+      const now = performance.now();
+      const n = this.roster.length;
+      this.roster = this.roster.filter((e) => !e.away || now - e.away < AWAY_KEEP);
+      if (this.roster.length !== n) {
+        this._stopCountdown();
+        this._changed();
+      } else {
+        this._sendLobby();
+      }
+    } else {
+      // Gast: "Hallo" an alle, bis der Host einen aufgenommen hat (auch nach seinem Neuladen)
+      const inRoom = this.hostPeer && this.roster.some((e) => e.key === this.key) && !net.lostPeer(this.hostPeer);
+      if (!inRoom) for (const id of net.known) this._sayHi(id);
+      // laufendes Team-Spiel wieder aufnehmen: kommt keine Antwort, ist es wohl vorbei
+      if (this.rejoin?.kind === 'team' && performance.now() - this.enteredAt > 15000) {
+        this.rejoin = null;
+        session.setLobby(this.code, this.role);
+        this.problem = 'Das Spiel ist schon vorbei oder der Host ist weg.';
+      }
     }
-    net.setPartner(id);
-    this.partnerName = cleanName(name) || 'Mitspieler';
-    this.problem = '';
-    return true;
+    this._render();
   }
 
   _onMsg(msg, from) {
+    if (!this.net || !msg || typeof msg !== 'object') return;
+    if (this.rejoin?.kind === 'duel') this._duelRejoinMsg(msg, from);
+    else if (this.role === 'host') this._hostMsg(msg, from);
+    else this._guestMsg(msg, from);
+  }
+
+  // ---------- 1 gegen 1 nach dem Neuladen wieder aufnehmen ----------
+  _adopt(id, name, looks) {
     const net = this.net;
-    if (!net) return;
+    if (looks && typeof looks === 'object') this.partnerLooks = looks;
+    if (name) this.partnerName = cleanName(name);
+    if (net.partner !== id) net.setPartner(id);
+    this.problem = '';
+  }
+
+  _duelRejoinMsg(msg, from) {
+    const net = this.net;
+    const saved = this.rejoin;
     if (msg.t === 'hi') {
       if (msg.v !== PROTOCOL) {
-        this.problem = 'Ihr habt verschiedene Versionen des Spiels. Bitte beide die Seite neu laden (Strg + F5).';
+        this.problem = VERSION_PROBLEM;
         this._render();
         return;
       }
       if (msg.role === this.role) return;
-      if (net.partner && net.partner !== from) {
-        if (this.role === 'host') net.send({ t: 'full' }, from);
-        return;
-      }
-      const isNew = this._adopt(from, msg.name, msg.looks);
-      // Das Duell läuft beim anderen noch: mit dem geschickten Stand wieder einsteigen
+      if (net.partner && net.partner !== from) return;
+      this._adopt(from, msg.name, msg.looks);
+      // das Duell läuft beim anderen noch: mit dem geschickten Stand wieder einsteigen
       if (msg.resume) {
-        this._launch(msg.cfg || this.opts, msg.resume);
+        this._launchDuel(msg.cfg || saved.cfg, msg.resume);
         return;
       }
-      // Beide haben neu geladen: der Host hat den Stand der Partie in seinem Speicher
-      if (this.role === 'host' && this.rejoin?.phase && msg.rejoin) {
-        const saved = this.rejoin;
+      // beide haben neu geladen: der Host hat den Stand der Partie in seinem Speicher
+      if (this.role === 'host' && saved.phase && msg.rejoin) {
         net.send({ t: 'hi', v: PROTOCOL, ack: true, role: 'host', name: this.name, looks: this.looks(), cfg: saved.cfg, resume: saved.phase }, from);
-        this._launch(saved.cfg, saved.phase);
+        this._launchDuel(saved.cfg, saved.phase);
         return;
       }
-      // Der andere fängt neu an: alten Stand vergessen, ganz normal starten
-      if (this.rejoin && !msg.rejoin) this.rejoin = null;
-      if (!msg.ack) this._sayHi(from, true);
-      if (this.role === 'guest' && msg.cfg) this.opts = msg.cfg;
-      if (isNew && this.role === 'host' && !this.rejoin) this._startCountdown();
+      // der andere fängt neu an: alten Stand vergessen, ganz normal in der Lobby weiter
+      if (!msg.rejoin) {
+        this._dropRejoin();
+        this._onMsg(msg, from);
+      }
+      return;
+    }
+    // der Host spielt schon: seine Rundenmeldung ist der Stand für den Wiedereinstieg
+    if (msg.t === 'ph' && this.role === 'guest' && (from === net.partner || !net.partner)) {
+      this._adopt(from, null, null);
+      this._launchDuel(saved.cfg || this.opts, msg);
+      return;
+    }
+    // der andere ist schon in einer neuen Lobby
+    if (msg.t === 'lobby') {
+      this._dropRejoin();
+      this._onMsg(msg, from);
+    }
+  }
+
+  _dropRejoin() {
+    this.rejoin = null;
+    session.setLobby(this.code, this.role);
+    if (this.net) this.net.partner = null;
+    if (this.role === 'host') {
+      this.hostKey = this.key;
+      this.roster = [{ key: this.key, peer: this.net.id, name: this.name, looks: this.looks(), team: 'rot', host: true }];
+    }
+  }
+
+  // ---------- Host ----------
+  _hostMsg(msg, from) {
+    const e = this.roster.find((x) => !x.bot && x.peer === from && x.key !== this.key);
+    switch (msg.t) {
+      case 'hi': {
+        if (msg.v !== PROTOCOL) {
+          this.problem = 'Jemand mit einer anderen Version des Spiels will mitspielen. Bitte alle neu laden (Strg + F5).';
+          this._sendLobby(from);
+          this._render();
+          return;
+        }
+        // ein 1 gegen 1 läuft noch (man hat neu geladen, der eigene Stand fehlte): weiterspielen
+        if (msg.resume && msg.role === 'guest') {
+          this._adopt(from, msg.name, msg.looks);
+          this._launchDuel(msg.cfg || this.opts, msg.resume);
+          return;
+        }
+        if (msg.role === 'host' || !msg.key || msg.key === this.key) return;
+        let p = this.roster.find((x) => x.key === msg.key);
+        if (p) {
+          // schon da (z. B. nach dem Neuladen): neue Kennung, neuer Name
+          p.peer = from;
+          p.name = cleanName(msg.name) || p.name;
+          p.looks = msg.looks && typeof msg.looks === 'object' ? msg.looks : p.looks;
+          p.away = 0;
+        } else {
+          const team = this._freeTeam();
+          if (!team) {
+            this.net.send({ t: 'full' }, from);
+            return;
+          }
+          this._makeRoom(team);
+          p = { key: msg.key, peer: from, name: cleanName(msg.name) || 'Mitspieler', looks: msg.looks && typeof msg.looks === 'object' ? msg.looks : null, team };
+          this.roster.push(p);
+          this._stopCountdown();
+        }
+        this.problem = '';
+        this._changed();
+        return;
+      }
+      case 'team':
+        if (e && TEAM_IDS.includes(msg.team) && e.team !== msg.team && this._canJoin(msg.team)) {
+          this._makeRoom(msg.team);
+          e.team = msg.team;
+          this._stopCountdown();
+          this._changed();
+        }
+        return;
+      case 'bye':
+        if (e) {
+          this.roster.splice(this.roster.indexOf(e), 1);
+          this._stopCountdown();
+          this._changed();
+        }
+        return;
+      case 'away':
+        if (e) {
+          e.away = performance.now();
+          this._stopCountdown();
+          this._changed();
+        }
+        return;
+      default:
+        break;
+    }
+  }
+
+  _size(team) {
+    return this.roster.filter((e) => e.team === team).length;
+  }
+
+  /** ins Team passt noch jemand (notfalls muss ein KI-Spieler Platz machen) */
+  _canJoin(team) {
+    return this._size(team) < MAX_TEAM || this.roster.some((e) => e.team === team && e.bot);
+  }
+
+  /** Team für einen neuen Mitspieler: das kleinere (oder null, wenn alles voll ist) */
+  _freeTeam() {
+    const [a, b] = TEAM_IDS;
+    const order = this._size(a) <= this._size(b) ? [a, b] : [b, a];
+    return order.find((t) => this._size(t) < MAX_TEAM) || order.find((t) => this._canJoin(t)) || null;
+  }
+
+  /** ist das Team voll, macht ein KI-Spieler Platz */
+  _makeRoom(team) {
+    if (this._size(team) < MAX_TEAM) return;
+    const bots = this.roster.filter((e) => e.team === team && e.bot);
+    if (bots.length) this.roster.splice(this.roster.indexOf(bots[bots.length - 1]), 1);
+  }
+
+  _addBot(team) {
+    if (this._size(team) >= MAX_TEAM) return false;
+    const used = new Set(this.roster.map((e) => e.name));
+    const free = BOT_NAMES.filter((n) => !used.has(`${n} (KI)`));
+    const name = `${free.length ? free[Math.floor(Math.random() * free.length)] : 'Robo'} (KI)`;
+    const a = new Uint32Array(1);
+    crypto.getRandomValues(a);
+    this.roster.push({ key: 'k' + a[0].toString(36), name, team, bot: true });
+    return true;
+  }
+
+  /** "Mit KI auffüllen": das kleinere Team bekommt KI-Spieler, bis beide gleich groß sind */
+  fillBots() {
+    if (this.role !== 'host' || this.rejoin) return;
+    const target = Math.max(1, ...TEAM_IDS.map((t) => this._size(t)));
+    for (const t of TEAM_IDS) while (this._size(t) < target && this._addBot(t));
+    this._stopCountdown();
+    this._changed();
+  }
+
+  get canFill() {
+    const target = Math.max(1, ...TEAM_IDS.map((t) => this._size(t)));
+    return TEAM_IDS.some((t) => this._size(t) < target);
+  }
+
+  _onTeamClick(e) {
+    const b = e.target.closest('button');
+    if (!b || !this.net || this.rejoin) return;
+    const act = b.dataset.act;
+    if (act === 'join') {
+      if (this.role === 'host') return;
+      this.net.send({ t: 'team', team: b.dataset.team }, this.hostPeer);
+    } else if (this.role === 'host' && act === 'bot') {
+      if (this._addBot(b.dataset.team)) {
+        this._stopCountdown();
+        this._changed();
+      }
+    } else if (this.role === 'host' && act === 'kick') {
+      const i = this.roster.findIndex((x) => x.key === b.dataset.key && x.bot);
+      if (i >= 0) {
+        this.roster.splice(i, 1);
+        this._stopCountdown();
+        this._changed();
+      }
+    }
+  }
+
+  /** Aufstellung fürs Netz (ohne interne Angaben) */
+  _publicRoster() {
+    return this.roster.map((e) => ({
+      key: e.key, name: e.name, team: e.team, looks: e.looks || null, bot: !!e.bot, host: !!e.host,
+      peer: e.bot ? null : e.peer, away: e.away ? 1 : 0, slot: e.slot || 0,
+    }));
+  }
+
+  _sendLobby(to = undefined) {
+    const net = this.net;
+    if (!net || this.role !== 'host') return;
+    const msg = { t: 'lobby', v: PROTOCOL, host: this.key, cfg: this.opts, roster: this._publicRoster(), cd: this.countdown };
+    net.send(msg, to);
+  }
+
+  /** Host: Aufstellung geändert, an alle schicken */
+  _changed() {
+    if (this.role !== 'host' || !this.net || this.rejoin) {
       this._render();
       return;
     }
-    if (msg.t === 'away' && from === net.partner) {
-      // Partner lädt neu: Platz für seine neue Kennung freimachen
-      net.partner = null;
-      this.partnerName = '';
-      this.countdown = 0;
-      this._stopCountdown();
-      this._render();
-      return;
-    }
-    if (msg.t === 'full' && this.role === 'guest' && !net.partner) {
-      this.problem = 'Diese Lobby ist schon voll.';
-      this._render();
-      return;
-    }
-    // der Gast übernimmt den Host auch über Countdown oder Start, falls ein "Hallo" fehlte
-    if (this.role === 'guest' && !net.partner && ['cd', 'start', 'ph'].includes(msg.t)) this._adopt(from, msg.name, msg.looks);
-    else if (from === net.partner && msg.looks && typeof msg.looks === 'object') this.partnerLooks = msg.looks;
-    if (from !== net.partner) return;
-    if (msg.t === 'cfg' && this.role === 'guest') {
-      this.opts = msg.cfg;
-    } else if (msg.t === 'cd' && this.role === 'guest') {
-      this.countdown = msg.n;
-      if (msg.cfg) this.opts = msg.cfg;
-    } else if (msg.t === 'ph' && this.rejoin) {
-      // Host spielt schon: seine Rundenmeldung ist der Stand für den Wiedereinstieg
-      this._launch(this.rejoin.cfg || this.opts, msg);
-      return;
-    } else if ((msg.t === 'start' || msg.t === 'ph') && this.role === 'guest') {
-      // "ph" heißt: der Host spielt schon (Startmeldung verloren gegangen)
-      this.rejoin = null;
-      this._launch(msg.cfg || this.opts);
-      if (msg.t === 'ph') net.onMessage?.(msg, from);
-      return;
-    } else if (msg.t === 'bye') {
-      net.partner = null;
-      this.partnerName = '';
-      this.countdown = 0;
-      this._stopCountdown();
-      this.problem = this.role === 'host'
-        ? 'Dein Freund hat die Lobby verlassen. Der Link gilt weiter.'
-        : 'Dein Freund hat die Lobby verlassen.';
-    }
+    const me = this.roster.find((e) => e.key === this.key);
+    if (me) me.looks = this.looks();
+    this.net.setGroup(this.roster.filter((e) => !e.bot && e.key !== this.key && e.peer).map((e) => e.peer));
+    this._sendLobby();
     this._render();
   }
 
-  _startCountdown() {
-    this._stopCountdown();
-    const send = () => {
-      this.net.send({ t: 'cd', n: this.countdown, cfg: this.opts, name: this.name, looks: this.looks() });
-      this._render();
-    };
+  /** in jedem Team ist jemand */
+  get startable() {
+    return TEAM_IDS.every((t) => this._size(t) > 0);
+  }
+
+  /** "1 gegen 1", "2 gegen 2", "3 gegen 2" … */
+  get sizeLabel() {
+    const [a, b] = TEAM_IDS.map((t) => this._size(t));
+    return `${a} gegen ${b}`;
+  }
+
+  /** Knopf "Starten": kurzer Countdown für alle, dann geht es los */
+  startGame() {
+    if (this.role !== 'host' || this.rejoin || !this.startable || this.cdTimer) return;
     this.countdown = COUNTDOWN;
-    send();
+    this._changed();
     this.cdTimer = setInterval(() => {
-      const net = this.net;
-      if (!net?.partner) {
+      if (!this.net || !this.startable) {
         this._stopCountdown();
-        this.countdown = 0;
-        this._render();
+        this._changed();
         return;
       }
       this.countdown--;
       if (this.countdown > 0) {
-        send();
+        this._changed();
         return;
       }
       this._stopCountdown();
-      net.send({ t: 'start', cfg: this.opts, name: this.name, looks: this.looks() });
-      this._launch(this.opts);
+      this._go();
     }, 1000);
+  }
+
+  _go() {
+    const net = this.net;
+    // Startplätze im Spawn der Reihe nach
+    for (const t of TEAM_IDS) this.roster.filter((e) => e.team === t).forEach((e, i) => { e.slot = i; });
+    const humans = this.roster.filter((e) => !e.bot);
+    const bots = this.roster.filter((e) => e.bot);
+    // zwei Menschen, einer pro Team, keine KI: das 1 gegen 1
+    if (humans.length === 2 && !bots.length && humans[0].team !== humans[1].team) {
+      const other = humans.find((e) => e.key !== this.key);
+      net.setPartner(other.peer);
+      this.partnerName = other.name;
+      this.partnerLooks = other.looks;
+      net.send({ t: 'start', kind: 'duel', v: PROTOCOL, cfg: this.opts, host: this.key }, other.peer);
+      this._launchDuel(this.opts);
+      return;
+    }
+    const start = { t: 'start', kind: 'team', v: PROTOCOL, cfg: this.opts, roster: this._publicRoster(), host: this.key };
+    net.send(start);
+    this._launchTeam(start);
+  }
+
+  // ---------- Gast ----------
+  _guestMsg(msg, from) {
+    const net = this.net;
+    switch (msg.t) {
+      case 'hi':
+        // ein 1 gegen 1 läuft noch (man hat neu geladen, der eigene Stand fehlte): weiterspielen
+        if (msg.v === PROTOCOL && msg.resume && msg.role === 'host') {
+          this._adopt(from, msg.name, msg.looks);
+          this._launchDuel(msg.cfg || this.opts, msg.resume);
+        }
+        return;
+      case 'lobby': {
+        if (msg.v !== PROTOCOL) {
+          this.problem = VERSION_PROBLEM;
+          this._render();
+          return;
+        }
+        // läuft schon ein Team-Spiel, kommt gleich dessen Stand
+        if (this.rejoin?.kind === 'team') return;
+        // ein anderer Host im selben Raum? den ersten behalten, außer er ist weg
+        if (this.hostPeer && from !== this.hostPeer && msg.host !== this.hostKey && !net.lostPeer(this.hostPeer)) return;
+        const first = !this.hostPeer || this.hostPeer !== from;
+        this.hostPeer = from;
+        this.hostKey = msg.host;
+        net.setGroup([from]);
+        this.roster = Array.isArray(msg.roster) ? msg.roster : [];
+        if (msg.cfg) this.opts = msg.cfg;
+        this.countdown = msg.cd || 0;
+        if (this.roster.some((e) => e.key === this.key)) this.problem = '';
+        else if (first) this._sayHi(from);
+        this._render();
+        return;
+      }
+      case 'full':
+        if (!this.roster.some((e) => e.key === this.key)) {
+          this.problem = 'Diese Lobby ist schon voll (4 gegen 4).';
+          this._render();
+        }
+        return;
+      case 'busy':
+        this.problem = 'Dort läuft gerade schon ein Spiel. Warte, bis es vorbei ist, oder erstelle eine eigene Lobby.';
+        this._render();
+        return;
+      case 'start':
+        if (msg.v !== PROTOCOL || (this.hostPeer && from !== this.hostPeer)) return;
+        this.hostPeer = from;
+        if (msg.kind === 'duel') {
+          const host = this.roster.find((e) => e.key === msg.host);
+          this.partnerName = host?.name || 'Mitspieler';
+          this.partnerLooks = host?.looks || null;
+          net.setPartner(from);
+          this._launchDuel(msg.cfg || this.opts);
+        } else if (Array.isArray(msg.roster) && msg.roster.some((e) => e.key === this.key)) {
+          this._launchTeam(msg);
+        }
+        return;
+      case 'ph':
+        // der Host spielt schon ein 1 gegen 1 mit einem (die Startmeldung ging verloren)
+        if (from === this.hostPeer && this._duelRoster()) {
+          const host = this.roster.find((e) => e.key === this.hostKey);
+          this.partnerName = host?.name || 'Mitspieler';
+          this.partnerLooks = host?.looks || null;
+          net.setPartner(from);
+          this._launchDuel(this.opts);
+          net.onMessage?.(msg, from);
+        }
+        return;
+      case 'resume':
+        // Stand eines laufenden Team-Spiels (nach dem Neuladen oder weil der Start verloren ging)
+        if (msg.v === PROTOCOL && msg.kind === 'team' && Array.isArray(msg.roster) && msg.roster.some((e) => e.key === this.key)) {
+          this.hostPeer = from;
+          this._launchTeam(msg, msg.phase);
+        }
+        return;
+      case 'bye':
+        if (from === this.hostPeer) {
+          this.problem = 'Der Host hat die Lobby verlassen.';
+          this.roster = [];
+          this.hostPeer = null;
+          this.countdown = 0;
+          this._render();
+        }
+        return;
+      case 'away':
+        if (from === this.hostPeer) {
+          this.countdown = 0;
+          this._render();
+        }
+        return;
+      default:
+        break;
+    }
+  }
+
+  /** Aufstellung ist ein 1 gegen 1 unter Menschen */
+  _duelRoster() {
+    const humans = this.roster.filter((e) => !e.bot);
+    return humans.length === 2 && humans.length === this.roster.length && humans[0].team !== humans[1].team;
   }
 
   _stopCountdown() {
     clearInterval(this.cdTimer);
     this.cdTimer = null;
+    this.countdown = 0;
   }
 
   _stopTimers() {
     this._stopCountdown();
-    clearInterval(this.hiTimer);
-    this.hiTimer = null;
+    clearInterval(this.tickTimer);
+    this.tickTimer = null;
   }
 
-  /** resume: Stand einer laufenden Partie (Wiedereinstieg), sonst beginnt eine neue */
-  _launch(cfg, resume = null) {
+  // ---------- Start ----------
+  _detach() {
     const net = this.net;
-    const saved = resume ? this.rejoin : null;
     this._stopTimers();
     this.net = null;
-    this.rejoin = null;
     net.onPeer = null;
     net.onChange = null;
     net.onMessage = null;
     $('lobby-choice').hidden = false;
     $('lobby-room').hidden = true;
+    return net;
+  }
+
+  /** 1 gegen 1 starten; resume: Stand einer laufenden Partie (Wiedereinstieg) */
+  _launchDuel(cfg, resume = null) {
+    const saved = resume && this.rejoin?.kind === 'duel' ? this.rejoin : null;
+    this.rejoin = null;
+    session.setLobby(this.code, this.role, 'duel');
+    const net = this._detach();
     this.onStart(net, {
-      role: this.role, lives: cfg.lives, wins: cfg.wins, mode: cfg.mode, map: cfg.map, arms: cfg.arms,
+      kind: 'duel', role: this.role, lives: cfg.lives, wins: cfg.wins, mode: cfg.mode, map: cfg.map, arms: cfg.arms,
       myName: this.name, theirName: this.partnerName || 'Mitspieler', theirLooks: this.partnerLooks,
       resume, saved,
     });
+  }
+
+  /** Team-Spiel starten; start: Startmeldung (cfg, roster, host), resume: Stand einer laufenden Partie */
+  _launchTeam(start, resume = null) {
+    const saved = resume && this.rejoin?.kind === 'team' ? this.rejoin : null;
+    this.rejoin = null;
+    session.setLobby(this.code, this.role, 'team');
+    const isHost = this.role === 'host';
+    const net = this._detach();
+    this.onStart(net, {
+      kind: 'team', key: this.key, isHost, hostKey: start.host, hostPeer: isHost ? net.id : this.hostPeer,
+      cfg: start.cfg, roster: start.roster, myName: this.name,
+      startMsg: isHost && !resume ? start : null, resume, saved,
+    });
+  }
+
+  // Host lädt mitten im Team-Spiel neu: mit dem gespeicherten Stand weiter
+  _resumeTeamHost() {
+    const saved = this.rejoin;
+    if (!saved.roster || !saved.phase) {
+      this._dropRejoin();
+      this._render();
+      return;
+    }
+    this._launchTeam({ cfg: saved.cfg, roster: saved.roster, host: this.key }, saved.phase);
   }
 
   get link() {
@@ -343,46 +718,91 @@ export class Lobby {
   }
 
   _share() {
-    navigator.share?.({ title: 'Feuer Frei – 1 gegen 1', text: `Spiel mit mir! Code ${this.code}`, url: this.link }).catch(() => {});
+    navigator.share?.({ title: 'Feuer Frei – Mehrspieler', text: `Spiel mit mir! Code ${this.code}`, url: this.link }).catch(() => {});
+  }
+
+  // ---------- Anzeige ----------
+  _teamHtml(t) {
+    const host = this.role === 'host';
+    const list = this.roster.filter((e) => e.team === t);
+    const mine = this.roster.find((e) => e.key === this.key);
+    const level = LEVELS[this.opts.level]?.name ?? '';
+    const rows = list.map((e) => {
+      const tags = [];
+      if (e.key === this.key) tags.push('Du');
+      if (e.host) tags.push('Host');
+      if (e.bot) tags.push(`KI · ${level}`);
+      if (e.away) tags.push('lädt neu …');
+      const kick = host && e.bot ? `<button class="x" data-act="kick" data-key="${escapeHtml(e.key)}" title="KI entfernen">✕</button>` : '';
+      const cls = [e.key === this.key ? 'me' : '', e.bot ? 'bot' : '', e.away ? 'away' : ''].join(' ');
+      return `<li class="${cls}"><span>${escapeHtml(e.name)}</span><small>${tags.join(' · ')}</small>${kick}</li>`;
+    });
+    if (list.length < MAX_TEAM) rows.push('<li class="free">frei</li>');
+    const btns = [];
+    const roomy = list.length < MAX_TEAM || list.some((e) => e.bot);
+    if (mine && mine.team !== t && !host && roomy) btns.push(`<button data-act="join" data-team="${t}">Hierher wechseln</button>`);
+    if (host && list.length < MAX_TEAM) btns.push(`<button data-act="bot" data-team="${t}">+ KI</button>`);
+    return `<div class="team t-${t}"><h3>${TEAM_NAMES[t]} <small>${list.length}/${MAX_TEAM}</small></h3>`
+      + `<ul>${rows.join('')}</ul><div class="team-btns">${btns.join('')}</div></div>`;
   }
 
   _render() {
     const net = this.net;
     if (!net) return;
     const host = this.role === 'host';
+    const rejoining = !!this.rejoin;
     $('lobby-code').textContent = this.code;
     $('lobby-link').value = this.link;
-    $('lobby-link-row').hidden = !host;
     for (const seg of document.querySelectorAll('#lobby-opts .seg')) {
       const key = seg.dataset.opt;
-      seg.classList.toggle('locked', !host);
-      const def = { mode: 'kampf', map: 'hof', arms: 'alle' }[key];
+      seg.classList.toggle('locked', !host || rejoining);
+      const def = { mode: 'kampf', map: 'hof', arms: 'alle', level: 'mittel' }[key];
       for (const b of seg.children) b.classList.toggle('on', b.dataset.v === String(this.opts[key] ?? def));
     }
     $('lobby-mode-info').textContent = (MODE_INFO[this.opts.mode] || MODE_INFO.kampf)(this.keyName('use'));
     $('lobby-arms-info').textContent = (ARMS[this.opts.arms] || ARMS.alle).info;
-    const me = `${escapeHtml(this.name)}<small>${host ? 'Host · Westen' : 'Gast · Osten'}</small>`;
-    const partner = net.partner
-      ? `${escapeHtml(this.partnerName)}<small>${host ? 'Gast · Osten' : 'Host · Westen'}</small>`
-      : 'wartet …';
-    $('lobby-p1').innerHTML = me;
-    $('lobby-p2').innerHTML = partner;
-    $('lobby-p2').classList.toggle('empty', !net.partner);
+    const bots = this.roster.some((e) => e.bot);
+    $('lobby-level').hidden = !bots;
+    $('lobby-teams').hidden = rejoining;
+    if (!rejoining) {
+      const html = TEAM_IDS.map((t) => this._teamHtml(t)).join('<div class="vs">gegen</div>');
+      const el = $('lobby-teams');
+      if (el._html !== html) {
+        el._html = html;
+        el.innerHTML = html;
+      }
+    }
+    const humans = this.roster.filter((e) => !e.bot).length;
+    $('lobby-actions').hidden = !host || rejoining;
+    $('btn-fill').hidden = !this.canFill;
+    const go = $('btn-go');
+    go.disabled = !this.startable || this.countdown > 0;
+    const duel = this._duelRoster();
+    go.textContent = this.startable ? `${duel ? '1 gegen 1' : this.sizeLabel} starten` : 'Starten';
+    $('lobby-title').textContent = this.startable && !rejoining ? (duel ? '1 gegen 1' : `Mehrspieler · ${this.sizeLabel}`) : 'Mehrspieler';
 
     let status;
     const waited = (performance.now() - this.enteredAt) / 1000;
+    const inRoom = host || this.roster.some((e) => e.key === this.key);
+    const hostName = this.roster.find((e) => e.host)?.name || 'der Host';
     if (this.problem) status = this.problem;
-    else if (this.rejoin) status = 'Zurück ins laufende Duell …';
-    else if (net.partner && this.countdown > 0) status = `Spiel startet in ${this.countdown} …`;
-    else if (net.partner) status = 'Gleich geht’s los …';
-    else if (host) status = 'Warte auf deinen Freund …';
-    else status = 'Verbinde mit der Lobby …';
+    else if (this.rejoin?.kind === 'duel') status = 'Zurück ins laufende Duell …';
+    else if (this.rejoin) status = 'Zurück ins laufende Spiel …';
+    else if (this.countdown > 0) status = `${duel ? '1 gegen 1' : this.sizeLabel} startet in ${this.countdown} …`;
+    else if (!inRoom) status = 'Verbinde mit der Lobby …';
+    else if (host) status = humans < 2 && !bots ? 'Warte auf deine Freunde …' : this.startable ? 'Alle da? Dann starte das Spiel.' : 'Im anderen Team fehlt noch jemand.';
+    else status = `Warte, bis ${hostName} startet …`;
     $('lobby-status').textContent = status;
 
     let info = '';
-    if (net.partner) info = netText(net);
-    else if (!host && waited > 12) info = 'Noch keine Lobby gefunden. Stimmt der Code, und ist dein Freund noch in der Lobby?';
-    else if (host) info = 'Schick deinem Freund den Code oder den Link. Sobald er drin ist, startet das Spiel von selbst.';
+    if (this.rejoin?.kind === 'duel' && net.partner) info = netText(net);
+    else if (!host && this.hostPeer) info = netText(net);
+    else if (host && humans > 1) {
+      const peers = this.roster.filter((e) => !e.bot && e.key !== this.key && e.peer);
+      const server = peers.filter((e) => net.modeOf(e.peer) === 'server').length;
+      info = `${peers.length} ${peers.length === 1 ? 'Freund' : 'Freunde'} verbunden${server ? ` · ${server} über Server` : ''}`;
+    } else if (!host && waited > 12) info = 'Noch keine Lobby gefunden. Stimmt der Code, und ist der Host noch in der Lobby?';
+    else if (host) info = 'Schick deinen Freunden den Code oder den Link. Bis zu 8 Spieler (4 gegen 4), zu zweit wird es ein 1 gegen 1.';
     else if (waited > 6 && !net.serverReady) info = 'Der Server antwortet noch nicht, versuche es direkt …';
     $('lobby-net').textContent = info;
   }

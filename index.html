@@ -21,6 +21,8 @@
     <div id="crosshair"><i class="t"></i><i class="b"></i><i class="l"></i><i class="r"></i><i class="dot"></i></div>
     <div id="hitmarker"><i></i><i></i><i></i><i></i></div>
     <div id="damage-layer"></div>
+    <!-- Team-Spiel: Namen über den Mitspielern -->
+    <div id="name-tags"></div>
     <!-- Kill-Cam: Balken oben und unten wie im Kino -->
     <div id="killbars" hidden><i></i><i></i></div>
 
@@ -121,9 +123,9 @@
 
   <div id="menu" class="screen" hidden>
     <div class="logo">FEUER <span>FREI</span></div>
-    <div class="tagline">1 gegen 1 mit einem Freund, gegen die KI oder Training</div>
+    <div class="tagline">Mit Freunden online (1 gegen 1 bis 4 gegen 4), gegen die KI oder Training</div>
     <div class="buttons">
-      <button class="primary" id="btn-duel">1 gegen 1</button>
+      <button class="primary" id="btn-duel">Mehrspieler</button>
       <button id="btn-bots">Gegen KI</button>
       <button id="btn-start">Training</button>
       <button id="btn-locker">Skins &amp; Aufgaben</button>
@@ -135,12 +137,12 @@
   </div>
 
   <div id="lobby" class="screen dim" hidden>
-    <h1>1 gegen 1</h1>
+    <h1 id="lobby-title">Mehrspieler</h1>
     <label class="lobby-name">Dein Name <input id="lobby-name" maxlength="16" spellcheck="false" autocomplete="off"></label>
     <div id="lobby-choice" class="lobby-choice">
       <div class="card">
         <h3>Lobby erstellen</h3>
-        <p>Du bekommst einen Code und einen Link. Den schickst du deinem Freund.</p>
+        <p>Du bekommst einen Code und einen Link für deine Freunde. Zu zweit wird es ein 1 gegen 1, mit mehr Leuten ein Team-Spiel bis 4 gegen 4.</p>
         <button class="primary" id="btn-create">Lobby erstellen</button>
       </div>
       <div class="card">
@@ -157,6 +159,14 @@
         <button id="btn-copy">Link kopieren</button>
         <button id="btn-share">Teilen</button>
       </div>
+      <!-- Teams: wird aus der Aufstellung erzeugt (lobby.js) -->
+      <div class="teams" id="lobby-teams"></div>
+      <div class="lobby-actions" id="lobby-actions" hidden>
+        <button id="btn-fill" title="Das kleinere Team bekommt KI-Spieler, bis beide gleich groß sind">Mit KI auffüllen</button>
+        <button class="primary" id="btn-go" disabled>Starten</button>
+      </div>
+      <div class="status" id="lobby-status"></div>
+      <div class="net" id="lobby-net"></div>
       <div class="opts" id="lobby-opts">
         <div class="opt">Modus <div class="seg" data-opt="mode"><button data-v="kampf">Kampf</button><button data-v="bombe">Bombe</button></div>
           <small id="lobby-mode-info"></small></div>
@@ -165,14 +175,8 @@
           <small id="lobby-arms-info"></small></div>
         <div class="opt">Leben pro Runde <div class="seg" data-opt="lives"><button data-v="1">1</button><button data-v="3">3</button></div></div>
         <div class="opt">Gewonnen hat, wer zuerst <div class="seg" data-opt="wins"><button data-v="2">2</button><button data-v="3">3</button><button data-v="5">5</button></div> Runden gewinnt</div>
+        <div class="opt" id="lobby-level" hidden>KI-Stärke <div class="seg" data-opt="level"><button data-v="anfaenger">Anfänger</button><button data-v="leicht">Leicht</button><button data-v="mittel">Mittel</button><button data-v="schwer">Schwer</button></div></div>
       </div>
-      <div class="players">
-        <div class="pl" id="lobby-p1"></div>
-        <div class="vs">gegen</div>
-        <div class="pl" id="lobby-p2"></div>
-      </div>
-      <div class="status" id="lobby-status"></div>
-      <div class="net" id="lobby-net"></div>
     </div>
     <div class="buttons"><button id="btn-lobby-back">Zurück</button></div>
   </div>
@@ -198,7 +202,7 @@
 
   <div id="pause" class="screen dim" hidden>
     <h1>Pause</h1>
-    <div class="hint" id="pause-note" hidden>Das Duell läuft weiter – du stehst gerade still.</div>
+    <div class="hint" id="pause-note" hidden>Das Spiel läuft weiter – du stehst gerade still.</div>
     <div class="buttons">
       <button class="primary" id="btn-resume">Weiter</button>
       <button id="btn-settings2">Einstellungen</button>
@@ -285,6 +289,8 @@
       <div><b id="res-gift-title">Neuer Skin freigeschaltet!</b><span id="res-gift-text"></span></div>
     </div>
     <div class="res-grid" id="res-grid"></div>
+    <!-- Team-Spiel: alle Spieler mit Abschüssen und Toden -->
+    <div class="res-board" id="res-board" hidden></div>
     <table class="res-rounds" id="res-rounds"></table>
     <div class="hint" id="res-status"></div>
     <div class="buttons">

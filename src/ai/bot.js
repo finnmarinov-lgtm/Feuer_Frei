@@ -3,12 +3,16 @@ import { ARMS, BOMB, DUEL, ECONOMY, GRENADES, KILLERS, MOVE, SPECIAL, WEAPONS, W
 import { BOMB_SITES, MAP, SPAWNS } from '../world/map.js';
 import { Player } from '../player/player.js';
 import { FLAG } from '../game/remote.js';
-import { attackerOf, shotEnd } from '../game/duel.js';
+import { shotEnd } from '../game/duel.js';
 
-// KI-Gegner für das 1 gegen 1. Er spielt wie ein zweiter Mensch: eigener Körper mit derselben
-// Bewegung, Kaufen in der Kaufzeit, Sehen (Blickfeld, Wände, Rauch) und Hören (Schritte, Schüsse),
-// Zielen mit Reaktionszeit und Zielfehler, Feuerstöße, Nachladen, Bombe legen und entschärfen,
-// Luftschlag. Mit dem Spiel spricht er über dieselben Nachrichten wie ein Gast im Duell.
+// KI-Spieler. Er spielt wie ein Mensch: eigener Körper mit derselben Bewegung, Kaufen in der
+// Kaufzeit, Sehen (Blickfeld, Wände, Rauch) und Hören (Schritte, Schüsse), Zielen mit Reaktionszeit
+// und Zielfehler, Feuerstöße, Nachladen, Bombe legen und entschärfen, Luftschlag. Mit dem Spiel
+// spricht er über dieselben Nachrichten wie ein Mensch übers Netz.
+//
+// Wer Gegner und Mitspieler sind, sagt ihm seine "Welt" (world): im 1 gegen 1 gegen die KI nur der
+// Mensch (botnet.js), im Team-Spiel alle anderen (squad.js). Gegner sind "Figuren" mit key, team,
+// alive, feet, eyeHeight, running (rennt hörbar) und protected (Spawn-Schutz).
 
 // weak: kauft keine Gewehre und läuft etwas langsamer (Anfänger)
 export const LEVELS = {
@@ -40,8 +44,8 @@ const _c = new THREE.Vector3();
 const _end = new THREE.Vector3();
 
 /**
- * Strahl gegen den menschlichen Spieler: Kopf als Kugel, Körper und Beine als stehende Zylinder
- * (geduckt entsprechend kleiner). Liefert den nächsten Treffer bis maxDist oder null.
+ * Strahl gegen einen Gegner (feet, eyeHeight): Kopf als Kugel, Körper und Beine als stehende
+ * Zylinder (geduckt entsprechend kleiner). Liefert den nächsten Treffer bis maxDist oder null.
  */
 function hitPlayer(o, d, maxDist, p) {
   const s = p.eyeHeight / MOVE.eyeStand;
@@ -91,9 +95,18 @@ function segDist(a, b, p) {
 }
 
 export class Bot {
-  constructor(game, nav, level, name) {
+  /** key/team: eigene Kennung und eigenes Team, slot: Startplatz im Team, world: siehe oben */
+  constructor(game, nav, level, name, { key = 'guest', team = 'guest', slot = 0, world }) {
     this.g = game;
     this.nav = nav;
+    this.key = key;
+    this.team = team;
+    this.slot = slot;
+    this.world = world;
+    // Gegner, den sie gerade im Blick hat
+    this.foe = null;
+    // eigene Seite: 1 = Osten (wie der Gast im 1 gegen 1), -1 = Westen (Karten sind punktsymmetrisch)
+    this.dir = world.homeSide(team) === 'east' ? 1 : -1;
     this.level = LEVELS[level] ? level : 'mittel';
     this.L = { ...LEVELS[this.level] };
     // auf dem Touchscreen zielt man langsamer: dort reagiert und trifft die KI in jeder Stufe schlechter
@@ -241,10 +254,38 @@ export class Bot {
     this.heardAt = this.time;
   }
 
-  // ---------- Nachrichten vom Spiel des Menschen (wie beim Gast im Duell) ----------
-  receive(msg) {
+  // ---------- Seiten (die Karten sind punktsymmetrisch: Westen = Osten gespiegelt) ----------
+  get homeSide() {
+    return this.dir > 0 ? 'east' : 'west';
+  }
+
+  get foeSide() {
+    return this.dir > 0 ? 'west' : 'east';
+  }
+
+  /** Punkt [x, z] aus Sicht der Ostseite auf die eigene Seite drehen */
+  _mine(x, z) {
+    return this.dir > 0 ? [x, z] : [-x, -z];
+  }
+
+  /** nächster lebender Gegner (oder null) */
+  _nearestFoe() {
+    let best = null, bestD = Infinity;
+    for (const a of this.world.foes(this)) {
+      if (!a.alive) continue;
+      const d = this._dist(a.feet);
+      if (d < bestD) {
+        bestD = d;
+        best = a;
+      }
+    }
+    return best;
+  }
+
+  // ---------- Nachrichten der anderen (from: Kennung des Absenders) ----------
+  receive(msg, from = null) {
     if (msg.t === 'ph') this._onPhase(msg);
-    else if (msg.t === 's' && msg.ev) for (const ev of msg.ev) this._onEvent(ev);
+    else if (msg.t === 's' && msg.ev) for (const ev of msg.ev) this._onEvent(ev, from);
     else if (msg.t === 'start') this.resetMatch();
     else if (msg.t === 'chat') this._onChat(msg.i);
   }
@@ -253,7 +294,7 @@ export class Bot {
     // neue Partie (Nochmal): alles zurück auf Anfang
     if (msg.r < this.round || (this.phase === 'over' && msg.ph !== 'over')) this.resetMatch();
     const newRound = msg.r !== this.round;
-    this.lives = msg.lv[1];
+    this.lives = this.world.livesOf(msg, this.key);
     if (newRound) this._newRound(msg.r);
     if (msg.bm && msg.ph === 'live') {
       _t.set(msg.bm[0] / 100, msg.bm[1] / 100, msg.bm[2] / 100);
@@ -275,10 +316,11 @@ export class Bot {
     const b = this.body;
     this.round = r;
     this.bombMode = !!g.match.bombMode;
-    this.attacking = this.bombMode && attackerOf(r) === 'guest';
+    this.attacking = this.bombMode && this.world.attackerOf(r) === this.team;
     this.bomb = null;
     this.defused = false;
-    const sp = SPAWNS.east;
+    const sp = this.world.spawn(this);
+    this.homeYaw = sp.yaw;
     b.spawn(sp.pos, sp.yaw);
     b.health = 100;
     b.collider.setEnabled(true);
@@ -305,7 +347,7 @@ export class Bot {
   }
 
   _roundEnd(msg) {
-    const won = msg.win === 'guest';
+    const won = msg.win === this.team;
     if (won) {
       this._earn(ECONOMY.roundWin);
       this.lossStreak = 0;
@@ -322,33 +364,41 @@ export class Bot {
     this.plantT = this.defuseT = 0;
   }
 
-  _onEvent(ev) {
-    const p = this.g.player;
+  /** Ereignis aus dem Zustand eines anderen (from: sein Kennung; Treffer gelten nur, wenn sie an einen gehen) */
+  _onEvent(ev, from) {
     switch (ev.t) {
       case 'hit':
-        this._onHit(ev);
+        if ((ev.to ?? this.key) === this.key) this._onHit(ev, from);
         break;
       case 'ack':
         // Rückmeldung zu eigenen Treffern: lädt die Spezialleiste
-        if (ev.n > 0) this._charge(ev.n);
+        if ((ev.to ?? this.key) === this.key && ev.n > 0) this._charge(ev.n);
         break;
-      case 'dead':
-        // der Mensch ist ausgeschaltet: nicht an seinem Startpunkt warten (kein Spawn-Campen),
-        // sondern ein paar Sekunden zurück in Richtung Mitte
-        this.seeing = false;
-        this.retreatUntil = this.time + rand(6, 9);
-        this.retreat = this.nav.randomNear(rand(0, 8), rand(-6, 6), 4);
-        if (ev.by === 'guest' && ev.w !== 'bombe') {
+      case 'dead': {
+        const foe = this.world.teamOf(from) !== this.team;
+        if (foe && this.foe?.key === from) this.seeing = false;
+        // der letzte Gegner ist ausgeschaltet: nicht an seinem Startpunkt warten (kein
+        // Spawn-Campen), sondern ein paar Sekunden zurück in Richtung Mitte
+        if (foe && !this.world.foes(this).some((a) => a.alive && a.key !== from)) {
+          this.seeing = false;
+          this.retreatUntil = this.time + rand(6, 9);
+          const [x, z] = this._mine(rand(0, 8), rand(-6, 6));
+          this.retreat = this.nav.randomNear(x, z, 4);
+        }
+        if (ev.by === this.key && ev.w !== 'bombe') {
           const def = WEAPONS[ev.w] || KILLERS[ev.w];
           if (def) this._earn(def.reward);
           if (ev.w !== 'luftschlag') this._charge(SPECIAL.killBonus);
-          if (Math.random() < 0.15) this._chat(4);
+          if (Math.random() < (this.world.duel ? 0.15 : 0.06)) this._chat(4);
         }
         break;
+      }
       case 'f':
-      case 'k':
-        this._hear(p.feet, 45);
+      case 'k': {
+        const a = this.world.actor(from);
+        if (a && a.team !== this.team) this._hear(a.feet, 45);
         break;
+      }
       default:
         break;
     }
@@ -360,23 +410,28 @@ export class Bot {
     if (reply !== undefined && Math.random() < 0.45) this._chat(reply);
   }
 
-  // Treffer vom Menschen: selbst abziehen und zurückmelden (wie das Spiel eines Gasts)
-  _onHit(ev) {
+  // Treffer von einem anderen: selbst abziehen und zurückmelden (wie das Spiel eines Menschen);
+  // Treffer von Mitspielern zählen nicht
+  _onHit(ev, from) {
     const b = this.body;
     let dealt = 0;
-    if (b.alive && !this.immune) {
+    const friendly = from !== this.key && this.world.teamOf(from) === this.team;
+    if (b.alive && !this.immune && !friendly) {
       dealt = b.applyDamage(ev.d, { armorPen: ev.p, head: ev.z === 'head', legs: ev.z === 'legs' });
+      const shooter = this.world.actor(from);
       if (dealt > 0) {
         b.vel.x *= 0.55;
         b.vel.z *= 0.55;
         // wer getroffen wird, weiß, woher es kam
-        this.alertPos.copy(this.g.player.feet);
-        this.alertAt = this.time;
-        this._hear(this.g.player.feet, 999);
+        if (shooter) {
+          this.alertPos.copy(shooter.feet);
+          this.alertAt = this.time;
+          this._hear(shooter.feet, 999);
+        }
       }
     }
-    this._event({ t: 'ack', id: ev.id, n: dealt, z: ev.z, k: b.alive ? 0 : 1 });
-    if (dealt > 0 && !b.alive) this._die('host', ev.w, ev.z === 'head');
+    this._event({ t: 'ack', to: from, id: ev.id, n: dealt, z: ev.z, k: b.alive ? 0 : 1 });
+    if (dealt > 0 && !b.alive) this._die(from, ev.w, ev.z === 'head');
   }
 
   _die(by, w, head) {
@@ -387,19 +442,24 @@ export class Bot {
     this.plantT = this.defuseT = 0;
     this.seeing = false;
     this._event({ t: 'dead', by, w, h: head ? 1 : 0 });
-    if (by === 'host' && head && Math.random() < 0.3) this._chat(1);
+    if (this.world.duel && by !== this.key && head && Math.random() < 0.3) this._chat(1);
   }
 
-  /** Explosion in der Nähe (Granate, Luftschlag, Bombe): Schaden nach Abstand */
+  /**
+   * Explosion in der Nähe (Granate, Luftschlag, Bombe): Schaden nach Abstand. by: wer geworfen
+   * bzw. angefordert hat (Granaten und Luftschläge von Mitspielern schaden nicht, die Bombe allen)
+   */
   blast(pos, radius, damage, armorPen, exp, by, weapon, los) {
     const b = this.body;
     if (!b.alive || (weapon !== 'bombe' && this.immune)) return;
+    if (weapon !== 'bombe' && by !== this.key && this.world.teamOf(by) === this.team) return;
     _c.copy(b.feet);
     _c.y += 1.0;
     const d = _c.distanceTo(pos);
     if (d >= radius || (los && !this.g.physics.lineOfSight(pos, _c))) return;
     const dealt = b.applyDamage(damage * Math.pow(1 - d / radius, exp), { armorPen });
-    if (dealt > 0 && by === 'host') this._hear(this.g.player.feet, 999);
+    const a = this.world.actor(by);
+    if (dealt > 0 && a && a.team !== this.team) this._hear(a.feet, 999);
     if (!b.alive) this._die(by, weapon, false);
   }
 
@@ -465,7 +525,7 @@ export class Bot {
 
   _respawn() {
     const b = this.body;
-    const sp = SPAWNS.east;
+    const sp = this.world.spawn(this);
     b.spawn(sp.pos, sp.yaw);
     b.health = 100;
     b.armor = this.roundArmor.armor;
@@ -549,12 +609,24 @@ export class Bot {
     this.lookT -= dt;
     if (this.lookT > 0) return;
     this.lookT = 0.08;
-    const p = this.g.player;
-    const see = p.alive && this.blindT <= 0 && this._canSee(p);
-    if (see) {
-      if (!this.seeing) {
+    // den nächsten sichtbaren Gegner nehmen; wer schon im Blick ist, bleibt es (kein Hin und Her)
+    let p = null, bestD = Infinity;
+    const foes = this.world.foes(this);
+    if (this.blindT <= 0) {
+      for (const a of foes) {
+        if (!a.alive || !this._canSee(a)) continue;
+        const d = this._dist(a.feet) - (a === this.foe && this.seeing ? 4 : 0);
+        if (d < bestD) {
+          bestD = d;
+          p = a;
+        }
+      }
+    }
+    if (p) {
+      if (!this.seeing || p !== this.foe) {
         // neuer Blickkontakt: erst reagieren, Zielpunkt wählen, mit Anfangsfehler starten
         this.seeing = true;
+        this.foe = p;
         this.reactT = this.L.reaction * rand(0.8, 1.35);
         this.aimHead = Math.random() < this.L.head;
         const a = Math.random() * Math.PI * 2;
@@ -570,8 +642,7 @@ export class Bot {
       this.seeing = false;
     }
     // Hören: rennende Schritte (Schleichen und Ducken sind leise)
-    const running = p.alive && p.onGround && !p.ducked && p.horizontalSpeed > p.maxSpeed * 0.6 && !this.g.input.isDown('walk');
-    if (running) this._hear(p.feet, this.L.hear);
+    for (const a of foes) if (a.alive && a.running) this._hear(a.feet, this.L.hear);
   }
 
   _canSee(p) {
@@ -609,7 +680,7 @@ export class Bot {
     }
     this._maybeAirstrike();
     const flee = this._danger();
-    const fight = this.seeing && this.g.player.alive;
+    const fight = this.seeing && !!this.foe?.alive;
     // Legen oder Entschärfen kurz vor dem Ende wird durchgezogen, sonst geht der Kampf vor
     const finishing = (this.plantT > BOMB.plantTime - 0.6) || (this.defuseT > BOMB.defuseTime - 1.2);
     let wish = null, look = null, sprint = false, crouch = false;
@@ -659,11 +730,12 @@ export class Bot {
   // in der Kaufzeit ab und zu umschauen
   _lookAround(dt) {
     this.idleT = (this.idleT ?? 0) - dt;
+    const home = this.homeYaw ?? SPAWNS[this.homeSide].yaw;
     if (this.idleT <= 0) {
       this.idleT = rand(1, 2.5);
-      this.idleYaw = SPAWNS.east.yaw + rand(-0.8, 0.8);
+      this.idleYaw = home + rand(-0.8, 0.8);
     }
-    this._turn(dt, this.idleYaw ?? SPAWNS.east.yaw, 0, 90);
+    this._turn(dt, this.idleYaw ?? home, 0, 90);
   }
 
   _applyMove(wish, sprint, crouch) {
@@ -727,15 +799,15 @@ export class Bot {
   }
 
   _newPlan() {
-    const plan = { lane: pick(MAP.bot.lanes), hunt: null, huntT: 0, hold: null, holdT: 0, guard: null, watch: null };
+    const plan = { lane: this._mine(...pick(MAP.bot.lanes)), hunt: null, huntT: 0, hold: null, holdT: 0, guard: null, watch: null };
     if (this.bombMode) {
       if (this.attacking) {
-        const s = BOMB_SITES.west;
+        const s = BOMB_SITES[this.foeSide];
         plan.site = this.nav.randomNear(s.x, s.z, BOMB.siteRadius - 1);
       } else {
         // Verteidigen: nicht über die Gassen, sondern direkt zum eigenen Platz
         plan.lane = null;
-        plan.hold = this._holdSpot(BOMB_SITES.east, 7);
+        plan.hold = this._holdSpot(BOMB_SITES[this.homeSide], 7);
       }
     } else if (Math.random() < 0.2) {
       plan.lane = null;
@@ -771,14 +843,14 @@ export class Bot {
     const quiet = now - this.seenAt > 3;
     if (this.bombMode) {
       if (this.attacking && !this.bomb) {
-        const site = BOMB_SITES.west;
+        const site = BOMB_SITES[this.foeSide];
         if (this._dist(site) < BOMB.siteRadius - 0.4 && now - this.seenAt > 1.2 && b.onGround) {
           this.plantT += dt;
           if (this.plantT >= BOMB.plantTime) this._plant();
-          return { wish: null, look: this.g.player.feet };
+          return { wish: null, look: this._nearestFoe()?.feet ?? null };
         }
         this.plantT = 0;
-        if (plan.lane && this._dist({ x: plan.lane[0], z: plan.lane[1] }) > 3 && b.feet.x > plan.lane[0] - 2) {
+        if (plan.lane && this._dist({ x: plan.lane[0], z: plan.lane[1] }) > 3 && this.dir * (b.feet.x - plan.lane[0]) > -2) {
           return { wish: this._follow(plan.lane[0], plan.lane[1]), sprint: quiet };
         }
         plan.lane = null;
@@ -808,9 +880,10 @@ export class Bot {
         plan.holdT -= dt;
         if (plan.holdT <= 0) {
           plan.holdT = rand(6, 11);
-          if (Math.random() < 0.4) plan.hold = this._holdSpot(BOMB_SITES.east, 7);
+          if (Math.random() < 0.4) plan.hold = this._holdSpot(BOMB_SITES[this.homeSide], 7);
           const [x0, x1, z0, z1] = pick(MAP.bot.watch);
-          plan.watch = { x: rand(x0, x1), y: 1.2, z: rand(z0, z1) };
+          const [x, z] = this._mine(rand(x0, x1), rand(z0, z1));
+          plan.watch = { x, y: 1.2, z };
         }
         const w = this._follow(plan.hold.x, plan.hold.z);
         return { wish: w, look: w ? null : plan.watch, sprint: false };
@@ -819,7 +892,7 @@ export class Bot {
     // Kampf: nach einem Abschuss erst zurückziehen
     if (now < this.retreatUntil && this.retreat) {
       const w = this._follow(this.retreat.x, this.retreat.z);
-      return { wish: w, look: w ? null : SPAWNS.west.pos, sprint: false };
+      return { wish: w, look: w ? null : SPAWNS[this.foeSide].pos, sprint: false };
     }
     // erst zur letzten bekannten Stelle, sonst den Menschen suchen
     if (now - this.seenAt < 6) {
@@ -830,17 +903,20 @@ export class Bot {
       const w = this._follow(this.heard.x, this.heard.z);
       if (w) return { wish: w, look: w ? null : this.heard, sprint: false };
     }
-    if (plan.lane && this._dist({ x: plan.lane[0], z: plan.lane[1] }) > 3 && b.feet.x > plan.lane[0] - 2) {
+    if (plan.lane && this._dist({ x: plan.lane[0], z: plan.lane[1] }) > 3 && this.dir * (b.feet.x - plan.lane[0]) > -2) {
       return { wish: this._follow(plan.lane[0], plan.lane[1]), sprint: quiet };
     }
     plan.lane = null;
-    // die KI ahnt ungefähr, wo der Mensch steckt (je schwerer, desto genauer), sonst würde man ewig suchen
+    // die KI ahnt ungefähr, wo der nächste Gegner steckt (je schwerer, desto genauer), sonst würde
+    // man ewig suchen
     plan.huntT -= dt;
+    const near = this._nearestFoe();
+    if (!near) return { wish: null, sprint: false };
     if (!plan.hunt || plan.huntT <= 0) {
-      const p = this.g.player.feet;
+      const p = near.feet;
       let hx = p.x, hz = p.z;
       // nicht bis an seinen Startpunkt: dort höchstens bis auf 9 m heran
-      const sp = SPAWNS.west.pos;
+      const sp = SPAWNS[this.foeSide].pos;
       const ds = Math.hypot(hx - sp.x, hz - sp.z);
       if (ds < 9) {
         const l = ds || 1;
@@ -852,7 +928,7 @@ export class Bot {
     }
     const w = this._follow(plan.hunt.x, plan.hunt.z);
     if (!w) plan.huntT = Math.min(plan.huntT, 1.2);
-    return { wish: w, look: w ? null : this.g.player.feet, sprint: quiet && !!w && w.d > 10 };
+    return { wish: w, look: w ? null : near.feet, sprint: quiet && !!w && w.d > 10 };
   }
 
   _plant() {
@@ -971,7 +1047,7 @@ export class Bot {
   // ---------- Kampf ----------
   _fight(dt) {
     const b = this.body;
-    const p = this.g.player;
+    const p = this.foe;
     const L = this.L;
     let w = this.weapon;
     // leer: nachladen oder (ab Mittel) schnell zur Pistole
@@ -1003,9 +1079,9 @@ export class Bot {
     this._turn(dt, wantYaw, wantPitch, L.turn);
     const off = Math.hypot(wrap(wantYaw - b.yaw), wantPitch - b.pitch) / DEG;
     this.reactT -= dt;
-    // den bläulich schimmernden Spawn-Schutz des Menschen abwarten (außer auf Leicht);
+    // den bläulich schimmernden Spawn-Schutz des Gegners abwarten (außer auf Leicht);
     // danach braucht die KI trotzdem ihre Reaktionszeit, sonst schießt sie im selben Moment
-    const shielded = this.g.match.protectT > 0 && this.level !== 'leicht';
+    const shielded = p.protected && this.level !== 'leicht';
     if (shielded) this.reactT = Math.max(this.reactT, this.L.reaction);
     const ready = this.reactT <= 0 && this.drawT <= 0 && this.reloadT <= 0 && w.mag > 0 && !shielded;
     const sniper = !!w.def.scope;
@@ -1074,8 +1150,9 @@ export class Bot {
     _r.set(Math.cos(b.yaw), 0, -Math.sin(b.yaw));
     _u.crossVectors(_r, _d);
     const ends = [];
-    const zones = { head: 0, body: 0, legs: 0 };
-    let hitPoint = null;
+    // Schaden pro getroffenem Gegner und Zone (Weste und Helm schützen je Zone anders)
+    const hits = new Map();
+    const foes = this.world.foes(this);
     const rays = def.pellets || 1;
     const cone = def.pellets ? def.pelletSpread / 1000 : 0;
     const a0 = Math.random() * Math.PI * 2, r0 = spread * Math.random();
@@ -1088,11 +1165,20 @@ export class Bot {
       dir.normalize();
       const world = this.g.physics.raycast(eye, dir, 250);
       const wd = world ? world.distance : 250;
-      const hit = this.g.player.alive ? hitPlayer(eye, dir, wd, this.g.player) : null;
+      let hit = null, who = null;
+      for (const a of foes) {
+        if (!a.alive) continue;
+        const h = hitPlayer(eye, dir, hit ? hit.distance : wd, a);
+        if (h) {
+          hit = h;
+          who = a;
+        }
+      }
       if (hit) {
         const mul = hit.zone === 'head' ? def.headMul : hit.zone === 'legs' ? DUEL.legMul : 1;
-        zones[hit.zone] += def.damage * mul * Math.pow(def.rangeMod, hit.distance / 10);
-        hitPoint ||= hit.point;
+        let z = hits.get(who.key);
+        if (!z) hits.set(who.key, (z = { head: 0, body: 0, legs: 0 }));
+        z[hit.zone] += def.damage * mul * Math.pow(def.rangeMod, hit.distance / 10);
         ends.push(shotEnd(hit.point));
       } else {
         _end.copy(eye).addScaledVector(dir, wd);
@@ -1106,9 +1192,9 @@ export class Bot {
     }
     const tracer = def.tracer && this.shots++ % def.tracer === 0 ? 1 : 0;
     this._event({ t: 'f', w: def.id, m: pack(eye), e: ends, tr: tracer });
-    if (hitPoint) {
+    for (const [to, zones] of hits) {
       for (const zone of ['head', 'body', 'legs']) {
-        if (zones[zone] > 0) this._event({ t: 'hit', id: ++this.hitId, d: Math.round(zones[zone]), z: zone, w: def.id, p: def.armorPen ?? 0.5 });
+        if (zones[zone] > 0) this._event({ t: 'hit', to, id: ++this.hitId, d: Math.round(zones[zone]), z: zone, w: def.id, p: def.armorPen ?? 0.5 });
       }
     }
   }

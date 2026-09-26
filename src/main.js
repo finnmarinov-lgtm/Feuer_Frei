@@ -15,6 +15,7 @@ import { FINISHES } from './weapons/finishes.js';
 import { Locker } from './ui/locker.js';
 import { ARMS, TRAINING } from './config.js';
 import { MAP, MAPS, setMap } from './world/map.js';
+import { TEAM_NAMES, otherTeam } from './game/sides.js';
 
 const $ = (id) => document.getElementById(id);
 const SCREENS = ['loading', 'menu', 'lobby', 'bots', 'locker', 'pause', 'settings', 'controls', 'results', 'click-resume'];
@@ -100,6 +101,8 @@ function setupMenus(game, input, audio) {
   let controlsBack = 'menu';
   let duelOpts = null;
   let duelNet = null;
+  let teamOpts = null;
+  let teamNet = null;
 
   const leaveGuard = (e) => {
     e.preventDefault();
@@ -136,7 +139,7 @@ function setupMenus(game, input, audio) {
     const duel = game.mode === 'duel';
     const online = duel && game.match.online;
     $('pause-note').hidden = !online;
-    $('btn-quit').textContent = online ? 'Duell verlassen' : duel ? 'Spiel beenden' : 'Training beenden';
+    $('btn-quit').textContent = game.match.teamMode ? 'Spiel verlassen' : online ? 'Duell verlassen' : duel ? 'Spiel beenden' : 'Training beenden';
   }
 
   async function start() {
@@ -176,9 +179,36 @@ function setupMenus(game, input, audio) {
     ...duelOpts, lives: cfg.lives, wins: cfg.wins, mode: cfg.mode, map: cfg.map, arms: cfg.arms, resume: null, saved: null,
   });
 
+  // Team-Spiel (ab drei Spielern oder mit KI): startet wie das Duell, die Maus nach einem Klick
+  function startTeam(net, opts) {
+    if (!opts.resume) freshSkins = [];
+    teamNet = net;
+    teamOpts = opts;
+    audio.init();
+    game.startTeam(net, opts);
+    if (game.state !== 'playing') return;
+    input.enabled = true;
+    window.addEventListener('beforeunload', leaveGuard);
+    const m = game.match;
+    const tap = input.touch ? 'Tippen' : 'Klicken';
+    $('click-title').textContent = opts.resume ? `Zurück im Spiel – ${tap} zum Weiterspielen` : `${tap} zum Spielen`;
+    const place = `${MAPS[m.cfg.map].name}${m.arms.allow ? ` · ${m.arms.name}` : ''}`;
+    const size = `${m.members(m.team).length} gegen ${m.members(otherTeam(m.team)).length}`;
+    let hint = `${size} · Du bist in ${TEAM_NAMES[m.team]} · ${place} · Kaufzeit läuft, ${game.hint('buy')}`;
+    if (m.bombMode) hint = `${size} im Bombenmodus · Du bist in ${TEAM_NAMES[m.team]} · ${place} · Runde 1: ${m.attacking ? 'Ihr greift an' : 'Ihr verteidigt'}`;
+    if (opts.resume) hint = `Runde ${m.round} · ${TEAM_NAMES[m.team]}`;
+    $('click-hint').textContent = hint;
+    show('click-resume');
+  }
+  game.onTeamRematch = (msg) => startTeam(teamNet, {
+    ...teamOpts, cfg: msg.cfg, roster: msg.roster, hostPeer: game.match.hostPeer,
+    startMsg: teamOpts.isHost ? msg : null, resume: null, saved: null,
+  });
+
   const lobby = new Lobby({
     show,
-    onStart: startDuel,
+    // zwei Menschen: das 1 gegen 1, sonst das Team-Spiel
+    onStart: (net, opts) => (opts.kind === 'team' ? startTeam(net, opts) : startDuel(net, opts)),
     netMode: new URLSearchParams(location.search).get('netz'),
     keyName: (action) => input.label(action),
     // eigener Messer-Skin: der Gegner soll ihn auch sehen
@@ -322,6 +352,7 @@ function setupMenus(game, input, audio) {
     window.removeEventListener('beforeunload', leaveGuard);
     if (wasDuel) {
       duelNet = null;
+      teamNet = null;
       session.clear();
       setUrlLobby(null);
     }
@@ -609,10 +640,25 @@ function setupMenus(game, input, audio) {
   input.onBossKey = toggleNotes;
   syncBossKey();
 
-  // Nochmal im Duell: beide müssen zustimmen, dann startet der Host die neue Partie
+  // Nochmal im Duell: beide müssen zustimmen, dann startet der Host die neue Partie.
+  // Im Team-Spiel startet der Host, die anderen können ihm zeigen, dass sie nochmal wollen.
   function updateRematch() {
     const m = game.match;
     if (!m.duel) return;
+    if (m.teamMode) {
+      const host = m.name(m.hostKey);
+      let text;
+      if (m.hostLeft) text = 'Der Host hat das Spiel verlassen.';
+      else if (m.isHost) {
+        const want = [...m.again].map((k) => m.name(k));
+        if (!m.canRematch) text = 'Es sind zu wenige Spieler für eine neue Partie übrig.';
+        else if (want.length) text = `${want.join(', ')} ${want.length === 1 ? 'möchte' : 'möchten'} nochmal spielen!`;
+        else text = 'Mit „Nochmal“ startest du die nächste Partie für alle.';
+      } else text = m.again.has(m.me) ? `Warte auf ${host} (Host) …` : `${host} (Host) startet die nächste Partie.`;
+      $('res-status').textContent = text;
+      $('btn-again').disabled = m.left || (m.isHost ? !m.canRematch : m.again.has(m.me));
+      return;
+    }
     const them = m.names[m.them];
     let text = '';
     if (m.left) text = `${them} hat das Spiel verlassen.`;
@@ -658,6 +704,49 @@ function setupMenus(game, input, audio) {
     show('results');
   }
 
+  // Team-Spiel: Ergebnis der Teams, eigene Werte und die Tabelle mit allen Spielern
+  function teamResults(r) {
+    const m = game.match;
+    m.onAgainChange = updateRematch;
+    const acc = Math.round(r.accuracy * 100);
+    const hs = Math.round(r.headshots * 100);
+    const mine = TEAM_NAMES[r.myTeam];
+    $('res-title').textContent = r.reason === 'host' ? 'Der Host ist weg – Spiel vorbei'
+      : r.forfeit ? (r.won ? 'Die Gegner sind weg – dein Team gewinnt' : 'Dein Team ist nicht mehr da')
+      : r.won ? `Sieg für ${mine}!` : `Niederlage für ${mine}`;
+    $('res-score').hidden = false;
+    $('res-score').textContent = `${r.score[0]} : ${r.score[1]}`;
+    const tiles = [
+      [String(r.kills), 'Ausgeschaltet'],
+      [String(r.deaths), 'Tode'],
+      [`${acc} %`, 'Treffergenauigkeit'],
+      [`${hs} %`, 'Kopfschüsse'],
+      [String(r.damage), 'Schaden'],
+      [fmtMoney(r.earned), 'Geld verdient'],
+      r.bomb ? [String(r.planted), 'Bomben gelegt'] : [fmtMoney(r.spent), 'Geld ausgegeben'],
+      r.bomb ? [String(r.defused), 'Entschärft'] : [String(r.grenades), 'Granaten'],
+    ];
+    $('res-grid').innerHTML = tiles.map(([v, l]) => `<div><b>${v}</b><span>${l}</span></div>`).join('');
+    const table = (team) => {
+      const rows = r.board.filter((x) => x.team === team).map((x) => `<tr class="${x.me ? 'me' : ''}"><td>${escapeHtml(x.me ? `${x.name} (Du)` : x.name)}`
+        + `${x.left ? '<small>weg</small>' : ''}</td><td class="n">${x.kills}</td><td class="n">${x.deaths}</td></tr>`).join('');
+      return `<table class="board"><tbody class="t-${team}"><tr><th class="tname">${TEAM_NAMES[team]}</th><th class="n">Abschüsse</th><th class="n">Tode</th></tr>${rows}</tbody></table>`;
+    };
+    $('res-board').innerHTML = table(r.myTeam) + table(otherTeam(r.myTeam));
+    $('res-board').hidden = false;
+    const why = {
+      elim: 'Team ausgeschaltet', 'time-lives': 'Zeit · mehr Leben', 'time-hp': 'Zeit · mehr Lebenspunkte', 'time-draw': 'Zeit · Gleichstand',
+      bomb: 'Bombe explodiert', defuse: 'Bombe entschärft', 'time-bomb': 'Zeit · keine Bombe',
+    };
+    $('res-rounds').innerHTML = '<tr><th>Runde</th><th>Ergebnis</th><th>Wie</th><th>Ausgeschaltet</th><th>Tode</th></tr>' +
+      r.rounds.map((x, i) => `<tr><td>${i + 1}</td><td class="${x.won ? 'win' : x.draw ? '' : 'loss'}">${x.won ? 'Gewonnen' : x.draw ? 'Unentschieden' : 'Verloren'}</td>` +
+        `<td>${why[x.why] || ''}</td><td>${x.kills}</td><td>${x.deaths}</td></tr>`).join('');
+    $('btn-again').textContent = 'Nochmal';
+    updateRematch();
+    showNewSkins();
+    show('results');
+  }
+
   // Auswertung
   game.onMatchOverCb = (r) => {
     input.unlock();
@@ -666,6 +755,11 @@ function setupMenus(game, input, audio) {
     $('btn-again').disabled = false;
     $('res-status').textContent = '';
     $('res-gift').hidden = true;
+    $('res-board').hidden = true;
+    if (r.team) {
+      teamResults(r);
+      return;
+    }
     if (r.duel) {
       duelResults(r);
       return;

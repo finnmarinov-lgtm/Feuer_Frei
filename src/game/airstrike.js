@@ -189,11 +189,15 @@ export class Airstrikes {
 
   // ---------- Ablauf ----------
   /**
-   * Luftschlag starten. mine = eigener (trifft auch Klappziele), sonst der des Gegners.
+   * Luftschlag starten. owner: wer ihn angefordert hat (der eigene trifft auch Klappziele).
    * yaw: Flugrichtung (Blickrichtung des Anfordernden), seed: Lage der Einschläge.
    */
-  start(point, seed, yaw, mine) {
+  start(point, seed, yaw, owner) {
     const g = this.g;
+    const mine = owner === g.myKey;
+    // im Team-Spiel schadet der Luftschlag eines Mitspielers einem nicht
+    const m = g.match;
+    const friendly = !mine && !!m.teamOf && m.teamOf(owner) === m.myTeam;
     const rand = seeded(seed);
     const fly = new THREE.Vector3(-Math.sin(yaw), 0, -Math.cos(yaw));
     const R = SPECIAL.radius;
@@ -220,7 +224,7 @@ export class Airstrikes {
     hits.sort((p, q) => p.along - q.along);
     const pass = SPECIAL.delay + SPECIAL.burst + PASS_AFTER;
     const strike = {
-      point: point.clone(), fly, yaw, mine, hits, pass,
+      point: point.clone(), fly, yaw, mine, owner, hits, pass,
       t: 0, next: 0, fired: 0, smokeT: 0, jet: false, brrt: false,
       end: pass + 2.2,
     };
@@ -244,11 +248,14 @@ export class Airstrikes {
     if (mine) {
       g.audio.play('radio');
       g.hud.message('Luftschlag angefordert', `Der Jet feuert in ${Math.round(SPECIAL.delay)} Sekunden`, 2);
+    } else if (friendly) {
+      g.audio.play('radio');
+      g.hud.message('Luftschlag deines Teams', `${m.name(owner)} hat den Jet gerufen`, 2);
     } else {
       g.hud.message('Luftschlag!', near ? 'Raus aus dem roten Kreis!' : 'Achte auf den roten Rauch', 2.2);
       g.audio.play('airWarn');
     }
-    if (mine && near) g.audio.play('airWarn', { delay: 0.6 });
+    if ((mine || friendly) && near) g.audio.play('airWarn', { delay: 0.6 });
     return strike;
   }
 
@@ -346,9 +353,9 @@ export class Airstrikes {
     const d = _a.distanceTo(_b);
     if (p.alive && d < r && g.physics.lineOfSight(_a, _b)) {
       const dmg = SPECIAL.damage * Math.pow(1 - d / r, 1.2);
-      if (dmg >= 1) g.damagePlayer(dmg, { armorPen: SPECIAL.armorPen, from: _a, byOpponent: !s.mine, weapon: 'luftschlag' });
+      if (dmg >= 1) g.damagePlayer(dmg, { armorPen: SPECIAL.armorPen, from: _a, by: s.owner, weapon: 'luftschlag' });
     }
-    g.onBlast?.(_a, r, SPECIAL.damage, SPECIAL.armorPen, 1.2, s.mine ? 'host' : 'guest', 'luftschlag', true);
+    g.onBlast?.(_a, r, SPECIAL.damage, SPECIAL.armorPen, 1.2, s.owner, 'luftschlag', true);
     g.shake(Math.max(0, 0.45 - d / 40));
   }
 

@@ -4,8 +4,8 @@
 
 Drei Spielarten:
 
-- **1 gegen 1** über eine Lobby: einer erstellt sie und schickt Code oder Link, der Freund klickt drauf und ist drin. Kein Konto, keine Installation. Danach läuft alles von selbst: Countdown, Startpunkte, Runden, Ergebnis, Nochmal-Knopf.
-- **Gegen KI**: dasselbe 1 gegen 1 gegen einen Computer-Gegner (Anfänger, Leicht, Mittel, Schwer), ohne dass ein Freund online sein muss.
+- **Mehrspieler** über eine Lobby: einer erstellt sie und schickt Code oder Link, die Freunde klicken drauf und sind drin. Kein Konto, keine Installation. Zu zweit wird es ein **1 gegen 1**, mit mehr Leuten ein **Team-Spiel** (Rot gegen Blau, bis 4 gegen 4). Freie Plätze füllt der Host nur auf Knopfdruck mit KI-Spielern auf.
+- **Gegen KI**: das 1 gegen 1 gegen einen Computer-Gegner (Anfänger, Leicht, Mittel, Schwer), ohne dass ein Freund online sein muss.
 - **Training**: 5 Runden gegen Klappziele aus Stahl, danach eine Auswertung.
 
 Dazu zwei Karten (**Hof** und **Lagerhalle**), drei Waffen-Modi (**Alle Waffen**, **Nur Pistolen**, **Scharfschützen**) und **Skins** für alle Waffen, das Messer und die eigene Figur, die man über **Aufgaben** freischaltet (Menüpunkt **Skins & Aufgaben**).
@@ -19,16 +19,20 @@ npm install
 npm run dev
 ```
 
-Danach `http://localhost:5173` öffnen und auf **1 gegen 1**, **Gegen KI** oder **Training** klicken.
+Danach `http://localhost:5173` öffnen und auf **Mehrspieler**, **Gegen KI** oder **Training** klicken.
 
-## 1 gegen 1
+## Mehrspieler (1 gegen 1 bis 4 gegen 4)
 
-1. **1 gegen 1 → Lobby erstellen.** Es erscheinen ein Code (z. B. `K7P2QX`) und ein Link. Den Link mit **Link kopieren** oder **Teilen** an den Freund schicken.
-2. Der Freund öffnet den Link und ist sofort in der Lobby. Alternativ: **1 gegen 1 → Beitreten** und den Code eintippen.
-3. Wer die Lobby erstellt hat (Host), stellt ein: **Modus** (Kampf oder Bombe), **Karte** (Hof oder Lagerhalle), **Waffen** (Alle, Nur Pistolen, Scharfschützen), **1 oder 3 Leben pro Runde** und **Sieg bei 2, 3 oder 5 Rundensiegen**.
-4. Sind beide da, startet nach 5 Sekunden das Spiel. Einmal ins Bild klicken, damit die Maus gefangen wird.
+1. **Mehrspieler → Lobby erstellen.** Es erscheinen ein Code (z. B. `K7P2QX`) und ein Link. Den Link mit **Link kopieren** oder **Teilen** an die Freunde schicken (bis zu 7, also höchstens 8 Spieler).
+2. Wer den Link öffnet, ist sofort in der Lobby. Alternativ: **Mehrspieler → Beitreten** und den Code eintippen.
+3. Die Lobby zeigt zwei Spalten, **Team Rot** und **Team Blau** (je bis zu 4 Plätze). Der Host ist in Rot, wer beitritt, kommt ins kleinere Team und kann mit **Hierher wechseln** tauschen.
+4. **KI-Spieler nur auf Knopfdruck:** **Mit KI auffüllen** gibt dem kleineren Team so viele KI-Spieler, bis beide gleich groß sind. Mit **+ KI** kommt in ein bestimmtes Team ein KI-Spieler dazu, **✕** nimmt ihn wieder heraus. Tritt noch ein Freund bei, während ein Team voll ist, macht ein KI-Spieler Platz. Wie stark die KI-Spieler sind, stellt der Host unter **KI-Stärke** ein.
+5. Der Host stellt ein: **Modus** (Kampf oder Bombe), **Karte** (Hof oder Lagerhalle), **Waffen** (Alle, Nur Pistolen, Scharfschützen), **1 oder 3 Leben pro Runde** und **Sieg bei 2, 3 oder 5 Rundensiegen**.
+6. Sind alle da, drückt der Host **Starten** (der Knopf zeigt, was es wird, z. B. „2 gegen 2 starten“). Nach 3 Sekunden geht es los. Einmal ins Bild klicken, damit die Maus gefangen wird.
 
-Regeln:
+**Zu zweit (ein Mensch pro Team, keine KI) wird daraus das 1 gegen 1**, genau wie bisher. Sonst ist es ein Team-Spiel (siehe unten).
+
+Regeln im 1 gegen 1:
 
 - Host startet im Westen, Gast im Osten. Jeder hat seine eigene Kaufzone am Startpunkt. Vor beiden Startpunkten stehen Kisten als Deckung, damit niemand direkt durch die Lücke in der Mitte beschossen werden kann.
 - Pro Runde hat jeder so viele Leben wie eingestellt. Wer stirbt und noch Leben hat, ist nach 4 Sekunden am eigenen Startpunkt zurück (mit voller Gesundheit, eigener Ausrüstung und wieder voller Munition).
@@ -38,7 +42,21 @@ Regeln:
 - Geld wie im Training: 800 $ zum Start, Prämie pro Abschuss, Siegprämie, Niederlagenbonus. Wer am Rundenende tot ist, verliert seine Ausrüstung.
 - In der Pause (`Esc`) läuft das Duell weiter, man steht dann still. Wer das Duell über das Menü verlässt, verliert sofort.
 - **Zurück ins laufende Duell:** Lädt jemand die Seite neu oder reißt die Verbindung ab, hält das Duell für beide an: Die Zeit steht, niemand kann getroffen werden, eine Anzeige zählt die Sekunden herunter. Nach dem Neuladen ist man automatisch wieder drin, mit Runde, Leben, Siegen, Geld, Waffen und Lebenspunkten, am eigenen Startpunkt und mit 2 Sekunden Spawn-Schutz. Kommt der andere nicht innerhalb von 60 Sekunden zurück (etwa weil er den Tab geschlossen hat), gewinnt man kampflos.
-- **Schnellnachrichten:** `T` öffnet die Liste, `1` – `6` schickt „gg“, „Nice!“, „Sorry!“, „Glück gehabt!“, „Hahaha“ oder „Warte kurz“. Die Nachrichten erscheinen bei beiden unten links und verschwinden nach ein paar Sekunden.
+- **Schnellnachrichten:** `T` öffnet die Liste, `1` – `6` schickt „gg“, „Nice!“, „Sorry!“, „Glück gehabt!“, „Hahaha“ oder „Warte kurz“. Die Nachrichten erscheinen bei allen unten links und verschwinden nach ein paar Sekunden.
+
+### Team-Spiel
+
+Alles wie im 1 gegen 1 (Geld, Kaufen, Leben pro Runde, Kill-Cam, Bombenmodus, Luftschlag), nur mit Teams:
+
+- **Team Rot startet im Westen, Team Blau im Osten**, jeder Spieler auf seinem eigenen Platz im Spawn. Team Rot hat Karambits, Team Blau Butterflymesser.
+- **Kein Eigenbeschuss:** Kugeln fliegen an Mitspielern vorbei, Granaten und Luftschläge des eigenen Teams schaden einem nicht (die eigenen schon, wie bisher).
+- **Runde gewonnen** hat das Team, das alle Gegner ausschaltet (jeder hat so viele Leben wie eingestellt). Läuft die Zeit ab, gewinnt das Team mit mehr Leben übrig, danach mit mehr Lebenspunkten.
+- **Bombenmodus:** In ungeraden Runden greift Rot an, in geraden Blau. Jeder Angreifer kann die Bombe legen, jeder Verteidiger sie entschärfen (Geld und Aufgabe bekommt, wer es getan hat). Liegt die Bombe, tickt sie weiter, auch wenn alle Angreifer draußen sind.
+- **Anzeige:** Oben stehen die Teams mit den Rundensiegen und darunter ein Punkt pro Spieler (voll = lebt). Über den Mitspielern schweben ihre Namen, auch durch Wände. `Tab` zeigt die Tabelle mit allen Spielern (Abschüsse, Tode, Ping).
+- **Nach dem Tod:** Erst die Kill-Cam aus Sicht des Schützen (auch wenn es ein KI-Spieler war), danach schaut man den eigenen Mitspielern zu. `Leertaste` oder Klick wechselt zum nächsten Mitspieler und zurück zur Kill-Cam.
+- **KI-Spieler** spielen wie im Modus „Gegen KI“ (kaufen, hören Schritte, legen und entschärfen die Bombe, fordern Luftschläge an), nur mit mehreren Gegnern und Mitspielern. Sie laufen im Browser des Hosts mit.
+- **Verbindung:** Lädt ein Spieler neu, ist er gleich wieder drin (mit Geld, Waffen und Tabelle). Wer länger als 20 Sekunden weg ist, zählt in der Runde als ausgeschieden. Lädt der Host neu, warten alle anderen auf ihn (die Zeit steht), danach geht es weiter. Ist der Host länger als 60 Sekunden weg oder verlässt er das Spiel, ist die Partie vorbei. Ist ein ganzes Team 60 Sekunden lang weg, gewinnt das andere kampflos.
+- **Nochmal:** Der Host startet mit **Nochmal** die nächste Partie mit denselben Teams (wer gegangen ist, fehlt dann). Die anderen zeigen mit **Nochmal**, dass sie noch einmal wollen.
 
 ### Bombenmodus
 
@@ -54,7 +72,7 @@ Regeln:
 - Die Leiste rechts über der Munition füllt sich mit Schaden am Gegner oder an Klappzielen, dazu 50 Punkte pro Abschuss (350 Punkte = voll). Sie bleibt über die Runden erhalten.
 - Ist sie voll, **X** drücken und das Ziel anschauen: ein Kreis zeigt, wohin der Jet feuert. **Linksklick** bestätigt, **Rechtsklick** oder **X** bricht ab. Beim Zielen steht man still. Das Ziel muss unter freiem Himmel liegen (nicht im Tunnel). Auf der Karte Lagerhalle gibt es keinen Luftschlag.
 - Am Ziel steigt roter Rauch auf, alle hören eine Warnung. Der Warnkreis hat keinen Rand: in der Mitte ist er kräftig rot, nach außen immer blasser, genau so verteilt sich auch der Schaden. Nach 3,2 Sekunden kommt ein Jet im Sturzflug und feuert mit der **Bordkanone** („Drrrrrt“, 48 Granaten in 1,2 Sekunden). Die Einschläge wandern in Flugrichtung durch den Kreis, mit Leuchtspuren, Feuer und Sandfontänen. In der Mitte ist das fast immer tödlich, 3 m daneben kostet es im Schnitt gut 90 Lebenspunkte, am Rand kaum noch etwas. Deckung schützt. Wer rechtzeitig aus dem Kreis läuft, überlebt. Auch der eigene Luftschlag trifft einen selbst.
-- Ein Abschuss mit dem Luftschlag bringt 300 $, lädt die Leiste aber nicht wieder auf. Der Luftschlag geht im Training und im 1 gegen 1.
+- Ein Abschuss mit dem Luftschlag bringt 300 $, lädt die Leiste aber nicht wieder auf. Der Luftschlag geht im Training und im Mehrspieler. Den Luftschlag eines Mitspielers kündigt eine eigene Meldung an, er schadet einem nicht.
 
 ## Karten
 
@@ -89,11 +107,11 @@ Unter **Skins & Aufgaben** im Hauptmenü stehen links die Waffen (Natter, Kobra,
 | Messer | Gold (3 Messer-Abschüsse), Galaxie (10), Regenbogen (die KI auf „Schwer“ besiegen) |
 | Spieler | Wüstentarn (3 Siege), Waldtarn (5 Bomben legen), Nachttarn (3 Bomben entschärfen), Arktis (100 Klappziele im Training), Gold (3 Luftschlag-Abschüsse), Galaxie (3 Online-Siege) |
 
-- **Zählen:** Abschüsse und Kopfschüsse zählen im 1 gegen 1, gegen die KI oder einen Freund. Ein Kopfschuss ist hier ein Abschuss mit Kopftreffer. Siege zählen nicht, wenn der Gegner einfach geht.
+- **Zählen:** Abschüsse und Kopfschüsse zählen im Mehrspieler (auch gegen KI-Spieler) und gegen die KI. Ein Kopfschuss ist hier ein Abschuss mit Kopftreffer. Siege zählen nicht, wenn der Gegner einfach geht.
 - **Live im Spiel:** Links oben steht die nächste Aufgabe zur Waffe in der Hand mit Fortschritt (im Training die Klappziele). Tut sich etwas, leuchtet sie kurz auf. Wird ein Skin frei, erscheint oben eine Einblendung mit Regenbogen-Rahmen. Steht der Platz noch auf „Standard“, trägt man den neuen Skin sofort. Die Auswertung am Ende listet alle neuen Skins der Partie.
 - **Aussehen:** Tarnmuster (Wüste, Wald, Arktis und Nacht, die letzten beiden eckig wie Digitaltarn), Metall (Gold, Chrom, Kupfer), Lack (Kirschrot, Ozeanblau) und bewegte Muster: **Regenbogen** (Farben wandern über die Waffe), **Lava** (dunkles Gestein mit glühenden, fließenden Rissen), **Neon** (schwarz mit pulsierenden türkisen und pinken Linien) und **Galaxie** (tiefblaue Nebel mit funkelnden Sternen). Alles rechnet der Shader aus der Lage im Modell aus, ohne Texturen (`src/weapons/finishes.js`). Kleine Teile wie Visier, Lauf und Gummigriffe bleiben original.
 - **Spieler-Skins** färben die Uniform der eigenen Figur und die Ärmel in der Ego-Ansicht. Mit Spieler-Skin zeigt der Helm kräftig die Teamfarbe (Rot oder Blau).
-- **Der Gegner sieht sie:** Im 1 gegen 1 schickt die Lobby die eigenen Skins mit. Der Gegner sieht Waffen, Messer und Uniform so, wie man sie trägt, auch in der Kill-Cam.
+- **Die anderen sehen sie:** Im Mehrspieler schickt die Lobby die eigenen Skins mit. Gegner und Mitspieler sehen Waffen, Messer und Uniform so, wie man sie trägt, auch in der Kill-Cam und beim Zuschauen.
 - Gespeichert wird im Browser: der Fortschritt unter `feuer-frei-aufgaben`, die getragenen Skins in den Einstellungen. Wer das Regenbogen-Messer schon vor den Aufgaben geschenkt bekommen hatte, behält es.
 
 ## Gegen KI
@@ -139,10 +157,11 @@ Beim Start geht das Spiel in den Vollbildmodus und sperrt das Querformat, soweit
 
 Technik:
 
-- **Verbindung:** direkt von Rechner zu Rechner per WebRTC ([Trystero](https://github.com/dmotz/trystero), Vermittlung über öffentliche Nostr-Server). Parallel läuft ein Kanal über **Supabase Realtime**. Klappt die Direktverbindung nicht, geht alles über den Server. Oben links im Spiel steht, welcher Weg gerade genutzt wird, dazu der Ping.
-- **Treffer:** Der Schütze prüft den Treffer und meldet ihn, der Getroffene zieht sich die Lebenspunkte selbst ab (Weste und Helm zählen dabei). Granaten rechnet jeder für sich aus.
-- **Host:** bestimmt Rundenstart und Rundenende, Leben und Rundensiege.
-- **Bewegung des Gegners:** direkt 30, über den Server 12 Zustände pro Sekunde. Dazwischen wird mit etwa 0,1 s Verzögerung weich übergeblendet.
+- **Verbindung:** direkt von Rechner zu Rechner per WebRTC ([Trystero](https://github.com/dmotz/trystero), Vermittlung über öffentliche Nostr-Server). Parallel läuft ein Kanal über **Supabase Realtime**. Klappt die Direktverbindung nicht, geht alles über den Server (im Team-Spiel pro Mitspieler: jeder bekommt jede Nachricht genau einmal, direkt oder über den Server). Oben links im Spiel steht, welcher Weg gerade genutzt wird, dazu der Ping.
+- **Treffer:** Der Schütze prüft den Treffer und meldet ihn, der Getroffene zieht sich die Lebenspunkte selbst ab (Weste und Helm zählen dabei). Granaten rechnet jeder für sich aus. Im Team-Spiel geht jede Treffermeldung an einen bestimmten Spieler (`to`), Treffer von Mitspielern werden ignoriert.
+- **Host:** bestimmt Rundenstart und Rundenende, Leben (im Team-Spiel pro Spieler) und Rundensiege, prüft Legen und Entschärfen und rechnet die KI-Spieler. Ihre Zustände schickt er gesammelt an die anderen.
+- **Spieler-Kennung:** Jeder Tab hat eine feste Kennung (`sessionStorage`), die beim Neuladen bleibt, während die Kennung im Netz wechselt. Daran erkennt der Host einen zurückkehrenden Spieler.
+- **Bewegung der anderen:** direkt 30, über den Server 12 Zustände pro Sekunde (im Team-Spiel ab 5 Menschen 8, ab 7 Menschen 6). Dazwischen wird mit etwa 0,1 s Verzögerung weich übergeblendet.
 - **Kill-Cam:** Jedes Spiel merkt sich die letzten 6 Sekunden: die Zustände des Gegners samt seinen Schüssen und die eigenen, so wie sie an ihn gingen. Die eigene Figur läuft in der Wiederholung um Ping plus seinen Puffer verzögert, also so, wie er sie auf seinem Bildschirm gesehen hat. Dafür muss nichts Zusätzliches übers Netz.
 - **Wiedereinstieg:** Jeder Tab merkt sich Lobby, Rolle und den eigenen Stand im `sessionStorage` (übersteht das Neuladen, nicht das Schließen des Tabs). Auch beim Host steht der Lobby-Code in der Adresse. Beim Verlassen der Seite meldet sich der Tab ab, zusätzlich per `fetch` mit `keepalive` über die REST-Schnittstelle von Supabase, damit die Abmeldung auch bei schnellem Neuladen ankommt. Wer zurückkommt, bekommt vom anderen den Stand der Partie (Runde, Phase, Zeit, Leben, Siege).
 - Beide Browser brauchen dieselbe Protokollversion (`PROTOCOL` in `src/net/net.js`). Nach einem Update also beide die Seite neu laden.
@@ -168,7 +187,7 @@ Die Tabelle zeigt die Standardbelegung. **Eigene Tastenbelegung:** Unter *Steuer
 | `B` | Kaufmenü (im Spawn, in der Kaufzeit) |
 | `F` | Waffe begutachten |
 | `Tab` | Statistik |
-| `T`, dann `1` – `6` | Schnellnachricht (im 1 gegen 1) |
+| `T`, dann `1` – `6` | Schnellnachricht (im Mehrspieler) |
 | `E` halten | Bombe legen bzw. entschärfen (Bombenmodus) |
 | `X` | Luftschlag, wenn die Spezialleiste voll ist |
 | `Esc` | Pause |
@@ -216,9 +235,9 @@ Dazu Schutzweste, Weste mit Helm und drei Granaten (Splitter, Blend, Rauch) für
 
 Beim Nachladen einer Waffe mit Magazin kippt die Waffe zur Seite, das leere Magazin fällt heraus und die linke Hand steckt ein neues ein. Die Keiler lädt weiter Patrone für Patrone.
 
-**Messer:** Im 1 gegen 1 hat Team Rot (Host) ein **Karambit**, Team Blau (Gast, auch die KI) ein **Butterflymesser**. Im Training entscheidet der Zufall. Beim Ziehen und beim Begutachten (`F`) dreht sich das Karambit einmal um den Zeigefinger, das Butterfly klappt auf: Klinge und zweite Griffhälfte schwingen über die Faust, dann klappt die Griffhälfte unten herum zurück. Ein Hieb bricht das sofort ab. Beide Messer haben dieselben Werte. In der Waffenleiste heißt es weiter „Messer“, welches es ist, steht über der Munitionsanzeige und im Kill-Feed. Wer das Geschenk hat (Sieg gegen die KI auf Schwer), trägt eine Regenbogen-Klinge.
+**Messer:** Im Mehrspieler hat Team Rot (im 1 gegen 1 der Host) ein **Karambit**, Team Blau (Gast, auch die KI) ein **Butterflymesser**. Im Training entscheidet der Zufall. Beim Ziehen und beim Begutachten (`F`) dreht sich das Karambit einmal um den Zeigefinger, das Butterfly klappt auf: Klinge und zweite Griffhälfte schwingen über die Faust, dann klappt die Griffhälfte unten herum zurück. Ein Hieb bricht das sofort ab. Beide Messer haben dieselben Werte. In der Waffenleiste heißt es weiter „Messer“, welches es ist, steht über der Munitionsanzeige und im Kill-Feed. Wer das Geschenk hat (Sieg gegen die KI auf Schwer), trägt eine Regenbogen-Klinge.
 
-**Kill-Feed** oben rechts: Schütze, Waffen-Symbol (Kopfschüsse mit eigenem Zeichen), Opfer. Im 1 gegen 1 stehen die Namen in Teamfarben (Rot und Blau), eigene Abschüsse und der eigene Tod sind gelb umrandet.
+**Kill-Feed** oben rechts: Schütze, Waffen-Symbol (Kopfschüsse mit eigenem Zeichen), Opfer. Im Mehrspieler stehen die Namen in Teamfarben (Rot und Blau), eigene Abschüsse und der eigene Tod sind gelb umrandet. Wer durch die Bombe stirbt, wird dem angreifenden Team zugeschrieben.
 
 Trefferzonen: Kopf (Faktor je Waffe, meist 2,4), Körper und Arme (1), Beine (0,75, dort schützt die Weste nicht). Die Trefferzonen sind etwas größer als die sichtbaren Figuren und Klappziele, damit man leichter trifft.
 
@@ -238,9 +257,9 @@ Alle Werte (Waffen, Rückstoßmuster, Streuung, Preise, Rundenzeiten) stehen in 
 | Ordner / Datei | Zweck |
 |---|---|
 | `src/config.js` | Alle Spielwerte an einem Ort |
-| `src/game/` | Spielkern, Runden und Geld, Klappziele, 1 gegen 1 mit Bombenmodus (`duel.js`), der Gegner im eigenen Spiel (`remote.js`), Kill-Cam und Gegner-Sicht (`killcam.js`), der Luftschlag (`airstrike.js`) sowie Skins und Aufgaben (`cosmetics.js`) |
+| `src/game/` | Spielkern, Runden und Geld, Klappziele, 1 gegen 1 mit Bombenmodus (`duel.js`), Team-Spiel (`teams.js`, Teams und Startplätze in `sides.js`), die anderen Spieler im eigenen Spiel (`remote.js`), Kill-Cam und Zuschauen (`killcam.js`), der Luftschlag (`airstrike.js`) sowie Skins und Aufgaben (`cosmetics.js`) |
 | `src/net/` | Verbindung zwischen zwei Browsern (Trystero und Supabase Realtime), Tab-Speicher für den Wiedereinstieg |
-| `src/ai/` | KI-Gegner: Wegenetz (`nav.js`), Verhalten (`bot.js`) und die Verbindung zum Duell ohne Netz (`botnet.js`) |
+| `src/ai/` | KI-Spieler: Wegenetz (`nav.js`), Verhalten (`bot.js`), die Verbindung zum Duell ohne Netz (`botnet.js`) und die KI-Spieler im Team-Spiel beim Host (`squad.js`) |
 | `src/player/` | Bewegung wie in der Source-Engine (Beschleunigung, Reibung, Luftsteuerung, Ducken) |
 | `src/weapons/` | Inventar mit 5 Slots, Schießen, Rückstoß, Waffe in der Hand, Granaten, Oberflächen der Skins (`finishes.js`) |
 | `src/world/` | Karten Hof und Lagerhalle mit Auf- und Abbau (`map.js`), Himmel und Licht, Bombenplätze und Bombe (`bombsites.js`) |

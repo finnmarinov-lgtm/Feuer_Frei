@@ -80,7 +80,7 @@ export class Match {
     this.special = 0;
     this.stats.airstrikes++;
     this.onAttack?.();
-    g.airstrikes.start(point, seed, yaw, true);
+    g.airstrikes.start(point, seed, yaw, g.myKey);
     this.airFx?.(point, seed, yaw);
   }
 

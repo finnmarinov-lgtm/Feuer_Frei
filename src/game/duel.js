@@ -173,6 +173,47 @@ export class Duel extends Match {
     return role === this.me ? 'Du' : this.names[role];
   }
 
+  // ---------- Haken, die das Team-Spiel (teams.js) anders beantwortet ----------
+  /** eigenes Team: im 1 gegen 1 die eigene Rolle */
+  get myTeam() {
+    return this.me;
+  }
+
+  /** Team eines Spielers (im 1 gegen 1 ist die Rolle das Team) */
+  teamOf(k) {
+    return k;
+  }
+
+  /** Figur eines anderen Spielers (im 1 gegen 1 nur der Gegner) */
+  remoteOf(k) {
+    return k === this.them ? this.g.remote : null;
+  }
+
+  /** eigener Startpunkt */
+  _spawnPoint() {
+    return SPAWNS[this.side];
+  }
+
+  /** Leben und Siege aus einer Rundenmeldung übernehmen */
+  _readScores(msg) {
+    this.lives.host = msg.lv[0];
+    this.lives.guest = msg.lv[1];
+    this.wins.host = msg.w[0];
+    this.wins.guest = msg.w[1];
+  }
+
+  /** Leben zu Beginn einer neuen Runde (für die Rundenmeldung) */
+  _freshLives() {
+    return [this.cfg.lives, this.cfg.lives];
+  }
+
+  _maxWins() {
+    return Math.max(this.wins.host, this.wins.guest);
+  }
+
+  /** eigener Zustand, kurz bevor er gesendet wird */
+  _outgoing() {}
+
   start() {
     this.reset();
     const { player, weapons } = this.g;
@@ -216,10 +257,7 @@ export class Duel extends Match {
     const changed = newRound || msg.ph !== this.phase;
     this.lastPhase = msg;
     this.saveT = 0;
-    this.lives.host = msg.lv[0];
-    this.lives.guest = msg.lv[1];
-    this.wins.host = msg.w[0];
-    this.wins.guest = msg.w[1];
+    this._readScores(msg);
     const lat = this.isHost ? 0 : Math.min(0.3, this.net.ping / 2000);
     this.timer = Math.max(0, msg.tm - lat);
     if (!changed || this.phase === 'over') {
@@ -250,7 +288,7 @@ export class Duel extends Match {
     this.roundStats = { kills: 0, heads: 0, shots: 0, hits: 0, deaths: 0, reward: 0 };
     g.killcam.stop();
     g.grenades.clear();
-    const sp = SPAWNS[this.side];
+    const sp = this._spawnPoint();
     g.player.spawn(sp.pos, sp.yaw);
     g.player.health = 100;
     g.player.frozen = true;
@@ -431,13 +469,14 @@ export class Duel extends Match {
     this.phase = 'end';
     this.plantT = this.defuseT = 0;
     const draw = msg.win === 'draw';
-    const won = msg.win === this.me;
+    const won = msg.win === this.myTeam;
     if (msg.why === 'bomb') this._explodeBomb();
     else if (msg.why === 'defuse' && this.bomb) {
       this.bomb.done = true;
       this.bomb.defused = true;
       g.audio.play('bombDefused', { position: this.bomb.pos });
-      if (won) {
+      // im Team-Spiel bekommt nur, wer entschärft hat, Geld und Aufgabe
+      if (won && (msg.by === undefined || msg.by === this.me)) {
         this.stats.defused++;
         this.addMoney(BOMB.defuseReward);
         count('defuse');
@@ -518,8 +557,8 @@ export class Duel extends Match {
       if (this.bomb) this.g.bombSites.update(dt, this.bomb.t, this.g.audio, this.bomb.defused);
       this.timer = Math.max(0, this.timer - dt);
       if (this.isHost && this.timer <= 0) {
-        if (Math.max(this.wins.host, this.wins.guest) >= this.cfg.wins) this._hostPhase({ ph: 'over', tm: 0 });
-        else this._hostPhase({ ph: 'freeze', r: this.round + 1, tm: DUEL.freezeTime, lv: [this.cfg.lives, this.cfg.lives] });
+        if (this._maxWins() >= this.cfg.wins) this._hostPhase({ ph: 'over', tm: 0 });
+        else this._hostPhase({ ph: 'freeze', r: this.round + 1, tm: DUEL.freezeTime, lv: this._freshLives() });
       }
     }
   }
@@ -591,7 +630,7 @@ export class Duel extends Match {
     this.respawnT -= dt;
     if (this.respawnT > 0 || this.lives[this.me] <= 0) return;
     g.killcam.stop();
-    const sp = SPAWNS[this.side];
+    const sp = this._spawnPoint();
     const p = g.player;
     p.spawn(sp.pos, sp.yaw);
     p.health = 100;
@@ -609,11 +648,11 @@ export class Duel extends Match {
   _feed(killer, victim, w, head) {
     const def = WEAPONS[w] || KILLERS[w];
     // Messer: Karambit (Rot) oder Butterfly (Blau), je nach Team des Schützen
-    const knife = def?.slot === 'knife' ? TEAM_KNIFE[killer] : null;
+    const knife = def?.slot === 'knife' ? TEAM_KNIFE[this.teamOf(killer)] : null;
     this.g.hud.killfeed({
       weapon: knife || w, label: knife ? KNIFE_SKINS[knife].name : def?.name ?? '?', head,
       killer: this.name(killer), victim: this.name(victim), mine: killer === this.me || victim === this.me,
-      killerTeam: killer, victimTeam: victim,
+      killerTeam: this.teamOf(killer), victimTeam: this.teamOf(victim),
     });
   }
 
@@ -646,7 +685,8 @@ export class Duel extends Match {
   }
 
   // ---------- Meldungen der eigenen Waffen an den Gegner ----------
-  sendHit(damage, zone, def, point) {
+  /** Treffer melden (target: getroffene Figur, im 1 gegen 1 immer der Gegner) */
+  sendHit(damage, zone, def, point, target = null) {
     const id = ++this.hitId;
     this.hitPoints.set(id, point.clone());
     if (this.hitPoints.size > 64) this.hitPoints.delete(this.hitPoints.keys().next().value);
@@ -726,6 +766,7 @@ export class Duel extends Match {
     }
     this.urgent = false;
     this.sinceSend = 0;
+    this._outgoing(msg);
     this.net.send(msg);
   }
 
@@ -738,7 +779,7 @@ export class Duel extends Match {
         g.remote.push(msg);
         if (msg.ev) {
           for (const ev of msg.ev) {
-            g.killcam.noteEvent(msg.k, ev);
+            g.killcam.noteEvent(msg.k, ev, this.them);
             this._onEvent(ev);
           }
         }
@@ -801,23 +842,23 @@ export class Duel extends Match {
         break;
       // Luftschlag des Gegners: gleicher Ablauf wie beim eigenen, Schaden rechnet jeder für sich
       case 'air':
-        g.airstrikes.start(unpack(ev.p), ev.s, (ev.y || 0) / 1000, false);
+        g.airstrikes.start(unpack(ev.p), ev.s, (ev.y || 0) / 1000, this.them);
         break;
       case 'f': this._onFire(ev); break;
       case 'k':
         g.remote.jabMove();
-        g.killcam.liveEvent(ev);
+        g.killcam.liveEvent(ev, g.remote);
         g.audio.play('swing', { position: g.remote.position });
         break;
       case 'n': {
         const pos = unpack(ev.p);
-        g.grenades.throw(ev.k, pos, unpack(ev.v), { ghost: true, id: ev.id });
+        g.grenades.throw(ev.k, pos, unpack(ev.v), { ghost: true, id: ev.id, owner: this.them });
         g.remote.jabMove();
-        g.killcam.liveEvent(ev);
+        g.killcam.liveEvent(ev, g.remote);
         g.audio.play('throw', { position: pos });
         break;
       }
-      case 'b': g.grenades.remoteBoom(ev.id, ev.k, unpack(ev.p)); break;
+      case 'b': g.grenades.remoteBoom(ev.id, ev.k, unpack(ev.p), this.them); break;
       default: break;
     }
   }
@@ -851,15 +892,16 @@ export class Duel extends Match {
     if (point && ev.n > 0) this.g.hud.damageNumber(point, ev.n, ev.z === 'head');
   }
 
-  _onFire(ev) {
+  /** Schuss eines anderen (r: seine Figur, im 1 gegen 1 der Gegner) */
+  _onFire(ev, r = this.g.remote) {
     const g = this.g;
     const def = WEAPONS[ev.w];
     if (!def) return;
-    g.remote.fire(def);
+    r.fire(def);
     // in der Gegner-Sicht kommt die Leuchtspur aus der Waffe in der Hand
-    g.killcam.liveEvent(ev);
-    if (g.killcam.shown === 'live') g.viewmodel.muzzleWorld(_muzzle, g.camera.position, g.camera);
-    else g.remote.muzzlePosition(_muzzle);
+    g.killcam.liveEvent(ev, r);
+    if (g.killcam.watching(r)) g.viewmodel.muzzleWorld(_muzzle, g.camera.position, g.camera);
+    else r.muzzlePosition(_muzzle);
     g.audio.shot(def.sound, _muzzle);
     g.effects.muzzleFlash(_muzzle);
     let sound = true;
@@ -970,8 +1012,7 @@ export class Duel extends Match {
     this.round = sync.r;
     this.phase = sync.ph;
     this.timer = sync.tm;
-    this.lives = { host: sync.lv[0], guest: sync.lv[1] };
-    this.wins = { host: sync.w[0], guest: sync.w[1] };
+    this._readScores(sync);
     this.lastPhase = sync;
     g.airstrikes.clear();
     g.bombSites.remove();
@@ -980,7 +1021,7 @@ export class Duel extends Match {
     this.purchases = [];
     this.roundStats = { kills: 0, heads: 0, shots: 0, hits: 0, deaths: 0, reward: 0 };
     g.grenades.clear();
-    const sp = SPAWNS[this.side];
+    const sp = this._spawnPoint();
     p.spawn(sp.pos, sp.yaw);
     p.health = saved?.alive && saved.health > 0 ? saved.health : 100;
     g.viewmodel.root.visible = true;

@@ -8,6 +8,7 @@ import { Effects } from '../effects/effects.js';
 import { Targets } from './targets.js';
 import { Match } from './match.js';
 import { Duel } from './duel.js';
+import { TeamMatch } from './teams.js';
 import { RemotePlayer } from './remote.js';
 import { KillCam } from './killcam.js';
 import { Airstrikes } from './airstrike.js';
@@ -71,8 +72,15 @@ export class Game {
     this.mode = 'training';
     this.training = new Match(this);
     this.match = this.training;
+    // 1 gegen 1: der Gegner. Team-Spiel: eine Figur pro Mitspieler (Kennung -> Figur), dazu
+    // others (alle angezeigten Figuren) und foes (die Gegner, nur auf sie wird geschossen)
     this.remote = new RemotePlayer(this);
+    this.teamRemotes = new Map();
+    this.remotePool = [];
+    this.others = [];
+    this.foes = [];
     this.onRematch = null;
+    this.onTeamRematch = null;
     this.sprintFov = 0;
     this.hud = new Hud(this);
     this.buyMenu = new BuyMenu(this);
@@ -140,7 +148,7 @@ export class Game {
   _bakeShadows() {
     const hide = [];
     for (const t of this.targets.list) if (t.root.visible) hide.push(t.root);
-    if (this.remote.root.visible) hide.push(this.remote.root);
+    for (const r of [this.remote, ...this.teamRemotes.values()]) if (r.root.visible) hide.push(r.root);
     if (this.killcam.ghost?.root.visible) hide.push(this.killcam.ghost.root);
     for (const gr of this.grenades.list) if (gr.mesh.visible) hide.push(gr.mesh);
     if (this.bombSites.bomb.visible) hide.push(this.bombSites.bomb);
@@ -184,6 +192,11 @@ export class Game {
     else this.viewmodel.setLooks(this.looks);
   }
 
+  /** eigene Kennung in der laufenden Partie (Rolle im 1 gegen 1, Kennung im Team-Spiel) */
+  get myKey() {
+    return this.match.me ?? 'ich';
+  }
+
   /** Anzeigename einer Waffe; beim Messer das eigene (Karambit oder Butterfly) */
   weaponName(def, knifeSkin = this.viewmodel.knifeSkin) {
     return def.slot === 'knife' ? KNIFE_SKINS[knifeSkin].name : def.name;
@@ -215,8 +228,12 @@ export class Game {
   startDuel(net, opts) {
     this.loadMap(opts.map);
     this._setMode('duel');
+    this.match.dispose?.();
+    this._releaseTeamRemotes();
     this.killcam.reset();
     this.remote.setActive(true, opts.role === 'host' ? 'guest' : 'host');
+    this.others = [this.remote];
+    this.foes = [this.remote];
     this.remote.setLooks(cleanLooks(opts.theirLooks));
     // Team Rot (Host) hat das Karambit, Team Blau (Gast) das Butterflymesser
     this.viewmodel.knifeSkin = TEAM_KNIFE[opts.role];
@@ -237,10 +254,70 @@ export class Game {
     this.hud.onMoney(0);
   }
 
+  /**
+   * Team-Spiel starten (1 gegen 1 mit KI bis 4 gegen 4). opts: key (eigene Kennung), isHost,
+   * hostKey, hostPeer (Kennung des Hosts im Netz), cfg (Modus, Leben, Siege, Karte, Waffen,
+   * KI-Stärke), roster (alle Spieler mit Team, Name, Skins, KI ja/nein), myName; mit resume (Stand
+   * der Partie) und saved (eigener Stand) geht es in einer laufenden Partie weiter.
+   */
+  startTeam(net, opts) {
+    this.loadMap(opts.cfg.map);
+    this._setMode('duel');
+    this.match.dispose?.();
+    this.remote.setActive(false);
+    this.killcam.reset();
+    this._releaseTeamRemotes();
+    const me = opts.roster.find((e) => e.key === opts.key);
+    for (const e of opts.roster) {
+      if (e.key === opts.key) continue;
+      const r = this.remotePool.pop() || new RemotePlayer(this);
+      r.key = e.key;
+      r.name = e.name;
+      // KI-Spieler laufen beim Host: dort hat ihr eigener Körper die Kollision
+      r.local = !!e.bot && opts.isHost;
+      r.peer = e.bot ? opts.hostPeer : e.peer;
+      r.setActive(true, e.team);
+      r.setLooks(cleanLooks(e.looks));
+      r.solid = !r.local;
+      this.teamRemotes.set(e.key, r);
+    }
+    this.others = [...this.teamRemotes.values()];
+    this.foes = this.others.filter((r) => r.team !== me.team);
+    this.viewmodel.knifeSkin = TEAM_KNIFE[me.team];
+    this.viewmodel.looks = this.looks;
+    this.match = new TeamMatch(this, net, opts);
+    this.grenades.clear();
+    this.airstrikes.clear();
+    this.targets.clear();
+    this.hud.reset();
+    this.hud.show(true);
+    this.state = 'playing';
+    this.acc = 0;
+    if (opts.resume) this.match.resume(opts.resume, opts.saved);
+    else this.match.start();
+    this.hud.onMoney(0);
+  }
+
+  // Figuren der Mitspieler zurück in den Vorrat (werden beim nächsten Team-Spiel wieder benutzt)
+  _releaseTeamRemotes() {
+    for (const r of this.teamRemotes.values()) {
+      r.setActive(false);
+      r.key = r.peer = null;
+      r.local = false;
+      this.remotePool.push(r);
+    }
+    this.teamRemotes.clear();
+    this.others = [];
+    this.foes = [];
+  }
+
   _setMode(mode) {
     this.mode = mode;
     this.killcam.stop();
-    if (mode !== 'duel') this.remote.setActive(false);
+    if (mode !== 'duel') {
+      this.remote.setActive(false);
+      this._releaseTeamRemotes();
+    }
     // Bombenplätze zeigt nur der Bombenmodus (in jeder Runde neu)
     this.bombSites.show(null);
     this.bombSites.remove();
@@ -249,6 +326,7 @@ export class Game {
 
   quitToMenu() {
     if (this.mode === 'duel') this.match.leave();
+    this.match.dispose?.();
     this.viewmodel.clearDrops();
     this.state = 'menu';
     this.buyMenu.hide();
@@ -294,10 +372,13 @@ export class Game {
     if (this.state === 'playing') this.input.lock();
   }
 
-  /** Schaden durch eine Granate (eigene oder vom Gegner) */
-  damagePlayer(amount, { armorPen, from, byOpponent = false, weapon = 'he' }) {
+  /** Schaden durch Granate oder Luftschlag; by: wer sie geworfen bzw. angefordert hat */
+  damagePlayer(amount, { armorPen, from, by = null, weapon = 'he' }) {
     const p = this.player;
-    if (!p.alive || this.match.immune) return 0;
+    const m = this.match;
+    if (!p.alive || m.immune) return 0;
+    // Team-Spiel: Granaten und Luftschläge von Mitspielern schaden nicht (die eigenen schon)
+    if (by !== null && by !== this.myKey && m.teamOf && m.teamOf(by) === m.myTeam) return 0;
     const dealt = p.applyDamage(amount, { armorPen });
     if (dealt > 0) {
       this.hud.hurt(dealt);
@@ -306,8 +387,7 @@ export class Game {
     }
     if (!p.alive) {
       if (this.mode === 'duel') {
-        const m = this.match;
-        m.onLocalDeath({ by: byOpponent ? m.them : m.me, w: weapon, head: false });
+        m.onLocalDeath({ by: by ?? m.me, w: weapon, head: false });
       } else {
         this.hud.message('Ausgeschaltet', weapon === 'luftschlag' ? 'Dein eigener Luftschlag war zu nah' : 'Deine eigene Granate war zu nah', 3);
         this.viewmodel.root.visible = false;
@@ -448,7 +528,7 @@ export class Game {
       this.buyMenu.tick();
     }
     if (duel) {
-      this.remote.update(dt);
+      for (const r of this.others) r.update(dt);
       this.match.netUpdate(dt);
       if (simulate) this.killcam.update(dt);
     }
@@ -530,7 +610,7 @@ export class Game {
   _quickChat(input) {
     const hud = this.hud;
     if (input.consume('chat')) {
-      if (this.mode !== 'duel') hud.message('Schnellnachrichten', 'Gibt es im 1 gegen 1', 1.5);
+      if (this.mode !== 'duel') hud.message('Schnellnachrichten', 'Gibt es im Mehrspieler', 1.5);
       else hud.toggleChat(!hud.chatOpen);
     }
     if (!hud.chatOpen) return;

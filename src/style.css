@@ -45,6 +45,7 @@ kbd { display: inline-block; min-width: 1.6em; padding: 0 0.35em; border: 1px so
 .chat { background: var(--panel-strong); padding: 3px 10px; border-radius: 5px; font-size: 17px; font-weight: 600; }
 .chat b { color: #ff8a6b; }
 .chat.mine b { color: var(--money); }
+.chat.note { color: var(--muted); font-size: 15px; }
 #chat-menu { position: absolute; left: 22px; bottom: 214px; background: var(--panel-strong); padding: 8px 12px 10px; border-radius: 7px; font-size: 17px; font-weight: 600; display: flex; flex-direction: column; gap: 4px; min-width: 190px; box-shadow: inset 0 0 0 1px rgba(242, 179, 61, 0.4); }
 #chat-menu .head { color: var(--accent); font-size: 15px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; }
 #chat-menu kbd { margin-right: 8px; }
@@ -91,6 +92,13 @@ kbd { display: inline-block; min-width: 1.6em; padding: 0 0.35em; border: 1px so
 #topbar .duel .me { text-align: right; align-items: flex-end; color: var(--money); }
 #topbar .duel .them { text-align: left; align-items: flex-start; color: #ff8a6b; }
 #topbar .duel .side i { font-style: normal; font-size: 13px; letter-spacing: 2px; color: var(--text); opacity: 0.85; }
+#topbar .duel .side.t-rot { color: #ff8a6b; }
+#topbar .duel .side.t-blau { color: #8fb8ff; }
+/* Team-Spiel: Namen über den Mitspielern */
+#name-tags { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+#name-tags .tag { position: absolute; left: 0; top: 0; font-size: 14px; font-weight: 700; white-space: nowrap; text-shadow: 0 1px 2px #000, 0 0 4px #000; will-change: transform; }
+#name-tags .tag.t-rot { color: #ffb09c; }
+#name-tags .tag.t-blau { color: #a9c8ff; }
 #net-status { position: absolute; left: 22px; top: 106px; font-size: 14px; font-weight: 600; color: var(--money); background: var(--panel); padding: 2px 10px; border-radius: 5px; }
 #net-status.server { color: var(--accent); }
 #net-status.bad { color: var(--danger); }
@@ -130,8 +138,8 @@ kbd { display: inline-block; min-width: 1.6em; padding: 0 0.35em; border: 1px so
 .kill { display: flex; align-items: center; gap: 7px; background: var(--panel-strong); padding: 4px 12px; border-radius: 5px; font-size: 17px; font-weight: 600; box-shadow: inset 0 0 0 2px rgba(242, 179, 61, 0.55); animation: killIn 0.22s ease-out; }
 .kill.other { box-shadow: none; }
 .kill b { font-weight: 700; white-space: nowrap; }
-.kill b.t-host { color: #ff8a6b; }
-.kill b.t-guest { color: #8fb8ff; }
+.kill b.t-host, .kill b.t-rot { color: #ff8a6b; }
+.kill b.t-guest, .kill b.t-blau { color: #8fb8ff; }
 .kill .wicon { width: 44px; height: 18px; fill: #eceae4; flex-shrink: 0; }
 .kill .hs { width: 17px; height: 17px; fill: #ff8a5c; flex-shrink: 0; margin-left: -3px; }
 .kill .self { color: var(--muted); }
@@ -167,6 +175,17 @@ kbd { display: inline-block; min-width: 1.6em; padding: 0 0.35em; border: 1px so
 #stats-panel { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: var(--panel-strong); padding: 18px 28px; border-radius: 8px; min-width: 360px; font-size: 18px; }
 #stats-panel h3 { margin: 0 0 10px; font-size: 22px; }
 #stats-panel .row { display: flex; justify-content: space-between; gap: 30px; padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.07); }
+/* Team-Spiel: Tabelle mit allen Spielern (Tab) */
+.board { width: 100%; border-collapse: collapse; font-size: 17px; margin: 2px 0 10px; }
+.board th { text-align: left; font-size: 14px; color: var(--muted); font-weight: 600; padding: 3px 8px; }
+.board th.tname { font-size: 17px; font-weight: 700; }
+.board .t-rot th.tname { color: #ff8a6b; }
+.board .t-blau th.tname { color: #8fb8ff; }
+.board td { padding: 3px 8px; border-top: 1px solid rgba(255,255,255,0.07); white-space: nowrap; }
+.board td.n { text-align: right; font-variant-numeric: tabular-nums; }
+.board tr.me td { color: var(--accent); }
+.board tr.dead td { opacity: 0.5; }
+.board td small { color: var(--muted); font-size: 13px; margin-left: 6px; }
 
 #fps { position: absolute; left: 22px; top: 136px; font-size: 14px; color: var(--muted); }
 
@@ -246,6 +265,8 @@ kbd { display: inline-block; min-width: 1.6em; padding: 0 0.35em; border: 1px so
 .res-rounds td { padding: 5px 12px; border-top: 1px solid rgba(255,255,255,0.07); }
 .res-rounds .win { color: var(--money); }
 .res-rounds .loss { color: var(--danger); }
+.res-board { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; }
+.res-board .board { width: auto; min-width: 300px; background: rgba(255,255,255,0.04); border-radius: 8px; }
 #click-resume { cursor: pointer; }
 .res-score { font-size: 56px; font-weight: 700; letter-spacing: 2px; margin-top: -8px; font-variant-numeric: tabular-nums; }
 #res-status { min-height: 1.2em; font-size: 18px; font-weight: 600; color: var(--accent); }
@@ -289,12 +310,37 @@ kbd { display: inline-block; min-width: 1.6em; padding: 0 0.35em; border: 1px so
 .menu-map small { font-size: 15px; font-weight: 600; max-width: 420px; text-align: center; }
 .seg.locked button { cursor: default; opacity: 0.6; }
 .seg.locked button.on { opacity: 1; }
-.players { display: flex; align-items: center; gap: 18px; font-size: 24px; font-weight: 700; }
-.players .pl { min-width: 190px; text-align: center; background: rgba(255,255,255,0.05); border-radius: 8px; padding: 8px 14px; }
-.players .pl small { display: block; font-size: 14px; color: var(--muted); font-weight: 600; }
-.players .pl.empty { color: var(--muted); font-weight: 600; font-size: 18px; }
-.players .vs { color: var(--muted); font-size: 16px; }
 .lobby-room .status { font-size: 22px; font-weight: 700; color: var(--accent); text-align: center; min-height: 1.3em; }
+/* Mehrspieler-Lobby: zwei Teams nebeneinander */
+.teams { display: flex; align-items: flex-start; gap: 12px; width: 100%; }
+.teams .vs { align-self: center; color: var(--muted); font-size: 16px; font-weight: 700; }
+.team { flex: 1; min-width: 0; background: rgba(255,255,255,0.05); border-radius: 9px; padding: 8px 10px 10px; border-top: 3px solid; }
+.team.t-rot { border-color: #d0513a; }
+.team.t-blau { border-color: #4a7fd6; }
+.team h3 { margin: 0 0 6px; font-size: 20px; display: flex; justify-content: space-between; align-items: baseline; }
+.team.t-rot h3 { color: #ff8a6b; }
+.team.t-blau h3 { color: #8fb8ff; }
+.team h3 small { font-size: 14px; color: var(--muted); }
+.team ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.team li { display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.06); border-radius: 6px; padding: 4px 8px; font-size: 18px; font-weight: 700; min-height: 32px; }
+.team li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.team li small { margin-left: auto; font-size: 13px; color: var(--muted); font-weight: 600; white-space: nowrap; }
+.team li.me { box-shadow: inset 0 0 0 1px rgba(255,255,255,0.35); }
+.team li.bot span { color: #c8d0d9; }
+.team li.away { opacity: 0.55; }
+.team li.free { color: var(--muted); font-weight: 600; font-size: 15px; background: transparent; border: 1px dashed rgba(255,255,255,0.15); justify-content: center; }
+.team li .x { border: none; background: rgba(255,255,255,0.1); color: var(--text); border-radius: 5px; font-size: 13px; cursor: pointer; padding: 2px 7px; }
+.team li .x:hover { background: rgba(255,90,70,0.55); }
+.team-btns { display: flex; gap: 6px; margin-top: 7px; flex-wrap: wrap; }
+.team-btns:empty { display: none; }
+.team-btns button { font: 700 15px var(--font); padding: 5px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.08); color: var(--text); cursor: pointer; }
+.team-btns button:hover { background: rgba(255,255,255,0.16); }
+.lobby-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.lobby-actions button { font: 700 19px var(--font); padding: 9px 18px; border-radius: 7px; border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.08); color: var(--text); cursor: pointer; }
+.lobby-actions button:hover:not(:disabled) { background: rgba(255,255,255,0.15); }
+.lobby-actions button.primary { background: var(--accent); color: #1a1407; border-color: var(--accent); }
+.lobby-actions button.primary:hover:not(:disabled) { background: #ffc657; }
+.lobby-actions button:disabled { opacity: 0.45; cursor: default; }
 .lobby-room .net { font-size: 15px; color: var(--muted); text-align: center; min-height: 1.2em; max-width: 560px; }
 .form label.key { grid-template-columns: 1fr 180px; }
 .form label.key button { font: 700 18px var(--font); padding: 6px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.08); color: var(--text); cursor: pointer; }
@@ -375,7 +421,7 @@ body.touch .buy-foot { display: none; }
   .buttons button { font-size: 18px; padding: 7px 14px; }
   .lobby-room { gap: 8px; }
   .code-box b { font-size: 38px; }
-  .players .pl { min-width: 150px; font-size: 20px; }
+  .team li { font-size: 16px; min-height: 28px; }
   .res-score { font-size: 40px; }
   .res-grid b { font-size: 22px; }
   .keys { font-size: 15px; }
