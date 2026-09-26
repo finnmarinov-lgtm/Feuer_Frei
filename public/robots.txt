@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://finnmarinov-lgtm.github.io/Feuer_Frei/sitemap.xml
