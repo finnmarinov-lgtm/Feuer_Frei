@@ -95,6 +95,17 @@ function hafenLayout({ B, mirror, cap }) {
   box(-L / 2, 23.3, L, true, 0);
   // unter dem Kran: steht bereit, der hängende soll darauf (versperrt die Sicht längs der Kranbahn)
   container(B, -W / 2, -S / 2, S, false, 0, PAINT[6]);
+  // weniger Durchgänge, damit man nicht von überall erwischt wird (die Wege zu den Bombenplätzen
+  // bleiben gleich lang): Trennwand längs der Kranbahn mit einer schmalen Lücke am Kran, Kaiwege
+  // hinter dem Stapelfeld und an der Hafenmeisterei unterbrochen (der lange steckt halb im Haus),
+  // am Bombenplatz Rück- und Nordwand, hinter den Startblöcken kein Weg mehr zum Kai
+  box(-14.5, -W / 2, L, true, 0);
+  box(-19.4, 20.94, S, false, 0);
+  box(-24.5, -29.44, L, false, 0, -1);
+  box(-10.9, -23.2, S, true, 0);
+  box(-16.8, -12.4, S, true, 0);
+  box(-43.62, 9.6, S, false, 0);
+  box(-43.62, -15.66, S, false, 0, -1);
 
   // ---- Treppe auf den Ausguck (Container im Stapelfeld), aus Stahl, seitlich zu ----
   for (let k = 0; k < 10; k++) {
@@ -222,14 +233,14 @@ export const HAFEN = {
     ['Barrel_01', -22, 8.2, 0.3, 0], ['barrel_03', -21.3, 8.7, 1.4, 0],
     // Umschlagplatz und Bombenplatz
     ['Crate_L', -5.2, -12.6, 0.12, 0], ['Crate_S', -5.1, -12.5, -0.2, 1.3], ['Crate_S', -3.9, -12.9, 0.3, 0],
-    ['old_military_crate', -10, -12.8, 0.4, 0], ['wooden_crate_02', -7.2, -20.6, 0.2, 0],
-    ['Barrel_01', -5.3, -21.6, 0.5, 0], ['barrel_03', -4.6, -22.2, 1.8, 0], ['metal_jerrycan', -16.8, -13.6, 0.9, 0],
+    ['old_military_crate', -10, -12.8, 0.4, 0], ['wooden_crate_02', -7.1, -19.9, 0.2, 0],
+    ['Barrel_01', -10.3, -24.0, 0.5, 0], ['barrel_03', -9.7, -24.3, 1.8, 0], ['metal_jerrycan', -16.8, -13.6, 0.9, 0],
     ['concrete_road_barrier', -15.5, -21, Math.PI / 2, 0],
     // an den Kaikanten
     ['Crate_L', -9, 26.3, 0.05, 0], ['Crate_S', -9, 26.3, 0.4, 1.3], ['Crate_L', -7.7, 27.5, -0.1, 0],
     ['Crate_S', -7.6, 27.4, 0.2, 1.3],
     ['Barrel_01', -36.5, 22.4, 0.2, 0], ['barrel_03', -35.8, 22, 1, 0], ['wooden_crate_02', -26, 27.8, 0.3, 0],
-    ['Crate_L', -33.2, -27.3, 0.1, 0], ['Crate_S', -32, -27.6, 0.4, 0], ['Barrel_01', -24.2, -28.4, 0.6, 0],
+    ['Crate_L', -33.2, -27.3, 0.1, 0], ['Crate_S', -32, -27.6, 0.4, 0], ['Barrel_01', -25.3, -28.4, 0.6, 0],
   ],
   // Rundflug hinter dem Hauptmenü
   menu: { rx: 36, rz: 24, y: 17, look: [0, 3, 0] },
