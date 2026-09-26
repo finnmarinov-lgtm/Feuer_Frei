@@ -34,14 +34,13 @@ export const ECONOMY = {
   lossMax: 3400,
 };
 
+// Freies Training: so viele Klappziele (davon bewegen sich einige), nach so vielen Sekunden am
+// Boden klappen sie wieder hoch; wer sich selbst erwischt, ist nach respawn Sekunden zurück
 export const TRAINING = {
-  rounds: 5,
-  freezeTime: 10,
-  buyWindow: 20,
-  roundTime: 75,
-  roundEndTime: 5,
-  targets: [5, 6, 7, 8, 10],
-  moving: [0, 1, 2, 3, 4],
+  targets: 10,
+  moving: 3,
+  targetRespawn: 2,
+  respawn: 2,
 };
 
 // 1 gegen 1 über die Lobby. Die Rundenzeit wächst mit der Zahl der Leben.

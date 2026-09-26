@@ -6,7 +6,7 @@ import { Arena, MAP, MAPS, SPAWN, setMap } from '../world/map.js';
 import { BombSites } from '../world/bombsites.js';
 import { Effects } from '../effects/effects.js';
 import { Targets } from './targets.js';
-import { Match } from './match.js';
+import { Training } from './match.js';
 import { Duel } from './duel.js';
 import { TeamMatch } from './teams.js';
 import { RemotePlayer } from './remote.js';
@@ -71,7 +71,7 @@ export class Game {
     this.airstrikes = new Airstrikes(this);
     // Training oder 1 gegen 1: match ist die gerade laufende Partie
     this.mode = 'training';
-    this.training = new Match(this);
+    this.training = new Training(this);
     this.match = this.training;
     // 1 gegen 1: der Gegner. Team-Spiel: eine Figur pro Mitspieler (Kennung -> Figur), dazu
     // others (alle angezeigten Figuren) und foes (die Gegner, nur auf sie wird geschossen)

@@ -1,4 +1,4 @@
-import { ECONOMY, TRAINING, WEAPONS, ARMOR, SPECIAL } from '../config.js';
+import { DUEL, ECONOMY, TRAINING, WEAPONS, ARMOR, SPECIAL } from '../config.js';
 import { MAP, SPAWN } from '../world/map.js';
 import { count } from './cosmetics.js';
 
@@ -10,7 +10,8 @@ function shuffle(a) {
   return a;
 }
 
-// Trainingsmodus: Runden mit Kaufzeit, Klappzielen, Geld und Auswertung.
+// Grundlage jeder Partie: Geld, Kaufen, Spezialleiste (Luftschlag) und Statistik. Darauf bauen das
+// 1 gegen 1 (duel.js), das Team-Spiel (teams.js) und das freie Training (unten) auf.
 export class Match {
   constructor(game) {
     this.g = game;
@@ -34,7 +35,7 @@ export class Match {
   }
 
   get roundLabel() {
-    return `Runde ${this.round}/${TRAINING.rounds}`;
+    return `Runde ${this.round}`;
   }
 
   reset() {
@@ -86,40 +87,11 @@ export class Match {
 
   start() {
     this.reset();
-    const { player, weapons } = this.g;
-    weapons.inv.reset();
-    player.armor = 0;
-    player.helmet = false;
-    this._startRound();
   }
 
-  _startRound() {
-    const g = this.g;
-    this.round++;
-    this.phase = 'freeze';
-    this.timer = TRAINING.freezeTime;
-    this.purchases = [];
-    this.roundStats = { kills: 0, heads: 0, shots: 0, hits: 0, reward: 0 };
-    g.grenades.clear();
-    g.airstrikes.clear();
-    g.targets.clear();
-    g.player.spawn(SPAWN.pos, SPAWN.yaw);
-    g.player.health = 100;
-    g.player.frozen = true;
-    g.weapons.inv.refillAmmo();
-    g.weapons.resetForRound();
-    const n = TRAINING.targets[Math.min(this.round - 1, TRAINING.targets.length - 1)];
-    this.pendingSpots = shuffle([...g.arena.targetSpots]).slice(0, n);
-    this.pendingMoving = TRAINING.moving[Math.min(this.round - 1, TRAINING.moving.length - 1)];
-    g.hud.message(`Runde ${this.round} von ${TRAINING.rounds}`, `Kaufzeit – ${g.hint('buy')}`, 3);
-    g.hud.onWeaponChange();
-    this.lastBeep = Math.ceil(this.timer);
-  }
+  tick() {}
 
-  get isLastRound() {
-    return this.round >= TRAINING.rounds;
-  }
-
+  /** Kaufen nur in der Kaufzeit und in der eigenen Kaufzone */
   get canBuy() {
     const p = this.g.player;
     const inTime = this.phase === 'freeze' || (this.phase === 'live' && this.buyTimer > 0);
@@ -127,87 +99,9 @@ export class Match {
   }
 
   get buyTimeLeft() {
-    if (this.phase === 'freeze') return this.timer + TRAINING.buyWindow;
+    if (this.phase === 'freeze') return this.timer + DUEL.buyWindow;
     if (this.phase === 'live') return Math.max(0, this.buyTimer);
     return 0;
-  }
-
-  tick(dt) {
-    const g = this.g;
-    if (this.phase === 'freeze') {
-      this.timer -= dt;
-      g.player.frozen = true;
-      const s = Math.ceil(this.timer);
-      if (s !== this.lastBeep && s <= 3 && s > 0) g.audio.play('beep', { freq: 660 });
-      this.lastBeep = s;
-      if (this.timer <= 0) {
-        this.phase = 'live';
-        this.timer = TRAINING.roundTime;
-        this.buyTimer = TRAINING.buyWindow;
-        g.player.frozen = false;
-        g.targets.setup(this.pendingSpots, this.pendingMoving, g.player.feet);
-        g.audio.play('roundStart');
-        g.hud.message('Los!', `${this.pendingSpots.length} Ziele – triff sie alle`, 1.6);
-      }
-    } else if (this.phase === 'live') {
-      this.timer -= dt;
-      this.buyTimer -= dt;
-      if (g.targets.remaining === 0) this._endRound(true, 'Alle Ziele getroffen');
-      else if (!g.player.alive) this._endRound(false, 'Du hast dich selbst erwischt');
-      else if (this.timer <= 0) this._endRound(false, 'Die Zeit ist abgelaufen');
-    } else if (this.phase === 'end') {
-      this.timer -= dt;
-      if (this.timer <= 0) {
-        if (this.isLastRound) this._finish();
-        else this._startRound();
-      }
-    }
-  }
-
-  _endRound(won, reason) {
-    const g = this.g;
-    const used = TRAINING.roundTime - Math.max(0, this.timer);
-    this.phase = 'end';
-    this.timer = TRAINING.roundEndTime;
-    let bonus;
-    if (won) {
-      bonus = ECONOMY.roundWin;
-      this.lossStreak = 0;
-    } else {
-      bonus = Math.min(ECONOMY.lossMax, ECONOMY.lossBase + ECONOMY.lossStep * this.lossStreak);
-      this.lossStreak++;
-    }
-    this.addMoney(bonus);
-    this.rounds.push({
-      won, reason, time: used, kills: this.roundStats.kills, targets: g.targets.total,
-      heads: this.roundStats.heads, bonus, reward: this.roundStats.reward,
-    });
-    g.hud.roundEnd(won, reason, bonus, this.isLastRound);
-    g.audio.play(won ? 'roundWin' : 'roundLose');
-    g.player.frozen = true;
-    if (!g.player.alive) {
-      // wie in CS: wer stirbt, verliert seine Ausrüstung
-      g.weapons.inv.reset();
-      g.player.armor = 0;
-      g.player.helmet = false;
-    }
-  }
-
-  _finish() {
-    this.phase = 'over';
-    const s = this.stats;
-    this.g.onMatchOver({
-      rounds: this.rounds,
-      won: this.rounds.filter((r) => r.won).length,
-      kills: s.kills,
-      targets: this.rounds.reduce((a, r) => a + r.targets, 0),
-      accuracy: s.shots ? s.hits / s.shots : 0,
-      headshots: s.kills ? s.heads / s.kills : 0,
-      earned: s.earned,
-      spent: s.spent,
-      time: this.rounds.reduce((a, r) => a + r.time, 0),
-      grenades: s.grenades,
-    });
   }
 
   addMoney(v) {
@@ -242,14 +136,7 @@ export class Match {
       this.roundStats.reward += def.reward;
     }
     this.addMoney(def.reward);
-    const knife = def.slot === 'knife';
-    this.g.hud.killfeed({
-      weapon: knife ? this.g.viewmodel.knifeSkin : def.id, label: def.slot ? this.g.weaponName(def) : def.name,
-      head, reward: def.reward,
-    });
     if (def.id !== 'luftschlag') this.addCharge(SPECIAL.killBonus);
-    // Aufgabe: Klappziele im Training
-    count('targets');
   }
 
   onGrenade() {
@@ -341,5 +228,116 @@ export class Match {
 
   canRefund(id) {
     return this.canBuy && this.purchases.some((x) => x.id === id);
+  }
+}
+
+// Freies Training: keine Runden und keine Zeitgrenze, Geld ohne Ende (alles gratis, überall und
+// jederzeit kaufen), die Ersatzmunition geht nicht aus. Klappziele stehen an zufälligen Stellen der
+// Karte, einige bewegen sich, und jedes klappt kurz nach dem Umfallen wieder hoch. Wer sich selbst
+// erwischt (eigene Granate, eigener Luftschlag), ist nach kurzer Zeit wieder am Startpunkt.
+export class Training extends Match {
+  constructor(game) {
+    super(game);
+    this.free = true;
+  }
+
+  get roundLabel() {
+    return 'Freies Training';
+  }
+
+  get canBuy() {
+    return this.phase === 'live' && this.g.player.alive;
+  }
+
+  get buyTimeLeft() {
+    return Infinity;
+  }
+
+  reset() {
+    super.reset();
+    this.money = Infinity;
+    this.respawnT = 0;
+    // so lange läuft das Training schon (für die Anzeige auf Tab)
+    this.time = 0;
+  }
+
+  // alles gratis: das Geld bleibt unbegrenzt
+  priceOf() {
+    return 0;
+  }
+
+  addMoney(v) {
+    if (v > 0) this.stats.earned += v;
+  }
+
+  start() {
+    this.reset();
+    const g = this.g;
+    g.weapons.inv.reset();
+    g.player.armor = 0;
+    g.player.helmet = false;
+    this.round = 1;
+    this.phase = 'live';
+    this.timer = Infinity;
+    this.roundStats = { kills: 0, heads: 0, shots: 0, hits: 0, reward: 0 };
+    g.grenades.clear();
+    g.airstrikes.clear();
+    g.targets.clear();
+    this._spawn();
+    const spots = shuffle([...g.arena.targetSpots]).slice(0, TRAINING.targets);
+    g.targets.setup(spots, TRAINING.moving, g.player.feet, TRAINING.targetRespawn);
+    g.audio.play('roundStart');
+    g.hud.message('Freies Training', `Keine Zeitgrenze · ${g.hint('buy')}, alles gratis · Ziele klappen wieder hoch`, 3.5);
+    g.hud.onWeaponChange();
+  }
+
+  _spawn() {
+    const g = this.g;
+    const p = g.player;
+    p.spawn(SPAWN.pos, SPAWN.yaw);
+    p.health = 100;
+    p.frozen = false;
+    g.viewmodel.root.visible = true;
+    g.weapons.inv.refillAmmo();
+    g.weapons.resetForRound();
+  }
+
+  tick(dt) {
+    const g = this.g;
+    this.time += dt;
+    // Ersatzmunition geht nie aus (nachladen muss man trotzdem)
+    let refilled = false;
+    for (const w of Object.values(g.weapons.inv.slots)) {
+      if (w?.def.mag && w.reserve !== w.def.reserve) {
+        w.reserve = w.def.reserve;
+        refilled = true;
+      }
+    }
+    if (refilled) g.hud.onAmmo();
+    // selbst erwischt: kurz warten, dann mit allen Waffen zurück an den Startpunkt
+    if (!g.player.alive) {
+      this.respawnT += dt;
+      if (this.respawnT >= TRAINING.respawn) {
+        this.respawnT = 0;
+        this._spawn();
+        g.hud.message('Weiter geht’s', 'Deine Waffen hast du noch', 1.5);
+      }
+    }
+  }
+
+  onKill(def, head) {
+    this.stats.kills++;
+    if (head) this.stats.heads++;
+    if (this.roundStats) {
+      this.roundStats.kills++;
+      if (head) this.roundStats.heads++;
+    }
+    const knife = def.slot === 'knife';
+    this.g.hud.killfeed({
+      weapon: knife ? this.g.viewmodel.knifeSkin : def.id, label: def.slot ? this.g.weaponName(def) : def.name, head,
+    });
+    if (def.id !== 'luftschlag') this.addCharge(SPECIAL.killBonus);
+    // Aufgabe: Klappziele im Training
+    count('targets');
   }
 }

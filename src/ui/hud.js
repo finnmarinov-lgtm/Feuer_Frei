@@ -409,13 +409,13 @@ export class Hud {
       <div class="row"><span>Kopfschüsse</span><b>${hs} %</b></div>
       <div class="row"><span>Schaden</span><b>${s.damage}</b></div>
       <div class="row"><span>Verbindung</span><b>${netText(m.net)}</b></div>`
-      : `<h3>Training · Runde ${m.round}</h3>
+      : `<h3>Freies Training · ${fmtTime(m.time || 0)}</h3>
       <div class="row"><span>Ziele umgelegt</span><b>${s.kills}</b></div>
       <div class="row"><span>Treffergenauigkeit</span><b>${acc} %</b></div>
       <div class="row"><span>Kopfschüsse</span><b>${hs} %</b></div>
       <div class="row"><span>Schaden</span><b>${s.damage}</b></div>
       <div class="row"><span>Granaten geworfen</span><b>${s.grenades}</b></div>
-      <div class="row"><span>Geld ausgegeben</span><b>${fmtMoney(s.spent)}</b></div>`;
+      <div class="row"><span>Luftschläge</span><b>${s.airstrikes}</b></div>`;
     if (el._html !== html) {
       el._html = html;
       el.innerHTML = html;
@@ -624,12 +624,12 @@ export class Hud {
     else if (ticking) {
       phase = 'Bombe tickt';
       time = m.bomb.t;
-    } else if (m.phase === 'live') phase = m.bombMode ? (m.attacking ? 'Angriff' : 'Verteidigung') : 'Runde läuft';
+    } else if (m.phase === 'live') phase = m.free ? 'Keine Zeitgrenze' : m.bombMode ? (m.attacking ? 'Angriff' : 'Verteidigung') : 'Runde läuft';
     else if (m.phase === 'end') phase = 'Rundenende';
     this._text(el.phase, phase);
-    this._text(el.timer, fmtTime(time));
+    this._text(el.timer, Number.isFinite(time) ? fmtTime(time) : '∞');
     el.timer.classList.toggle('low', ticking || (m.phase === 'live' && time <= 10));
-    this._text(el.targets, m.phase === 'live' || m.phase === 'end'
+    this._text(el.targets, m.free ? `Umgelegt: ${m.stats.kills}` : m.phase === 'live' || m.phase === 'end'
       ? `Ziele: ${g.targets.total - g.targets.remaining} / ${g.targets.total}` : '');
     this._text(el.health, String(Math.ceil(p.health)));
     el.health.parentElement.classList.toggle('hurt', p.health <= 25);
@@ -640,7 +640,7 @@ export class Hud {
     const canBuy = m.canBuy;
     const hideHint = !canBuy || g.buyMenu.open;
     if (el.buyhint.hidden !== hideHint) el.buyhint.hidden = hideHint;
-    if (canBuy) this._text(el.buyhintTime, `· noch ${Math.ceil(m.buyTimeLeft)} s`);
+    if (canBuy) this._text(el.buyhintTime, Number.isFinite(m.buyTimeLeft) ? `· noch ${Math.ceil(m.buyTimeLeft)} s` : '· jederzeit, alles gratis');
 
     // Fadenkreuz spreizt sich mit der echten Streuung
     const def = ws.active?.def;

@@ -6,7 +6,7 @@ Drei Spielarten:
 
 - **Mehrspieler** über eine Lobby: einer erstellt sie und schickt Code oder Link, die Freunde klicken drauf und sind drin. Kein Konto, keine Installation. Zu zweit wird es ein **1 gegen 1**, mit mehr Leuten ein **Team-Spiel** (Rot gegen Blau, bis 4 gegen 4). Freie Plätze füllt der Host nur auf Knopfdruck mit KI-Spielern auf.
 - **Gegen KI**: das 1 gegen 1 gegen einen Computer-Gegner (Anfänger, Leicht, Mittel, Schwer), ohne dass ein Freund online sein muss.
-- **Training**: 5 Runden gegen Klappziele aus Stahl, danach eine Auswertung.
+- **Training**: freies Üben gegen Klappziele aus Stahl, ohne Zeitgrenze, alles gratis.
 
 Dazu drei Karten (**Hof**, **Lagerhalle** und der große, offene **Hafen** für Team-Spiele), drei Waffen-Modi (**Alle Waffen**, **Nur Pistolen**, **Scharfschützen**) und **Skins** für alle Waffen, das Messer und die eigene Figur, die man über **Aufgaben** freischaltet (Menüpunkt **Skins & Aufgaben**).
 
@@ -39,7 +39,7 @@ Regeln im 1 gegen 1:
 - **Kill-Cam und Gegner-Sicht:** Nach dem eigenen Tod sinkt der Blick kurz zu Boden, dann zeigt die **Kill-Cam** die letzten zwei Sekunden noch einmal durch die Augen des Gegners: mit seiner Waffe in der Hand, seinen Schüssen und Leuchtspuren und der eigenen Figur so, wie er sie gesehen hat (Kinobalken oben und unten). Danach sieht man bis zum Wiedereinstieg in der **Gegner-Sicht** live, was er gerade sieht. `Leertaste` oder ein Klick wechselt zwischen beiden (auf dem Handy der Feuer- oder Sprungknopf). Hat man keine Leben mehr, kann man dem Gegner bis zum Rundenende zuschauen, im Bombenmodus also auch beim Entschärfen.
 - **Spawn-Schutz:** 2 Sekunden nach dem Rundenstart und nach jedem Wiedereinstieg zählen keine Treffer (auch keine Granaten). Der Schutz endet sofort, wenn man selbst schießt, sticht oder wirft. Den eigenen Schutz zeigt ein Hinweis unten in der Mitte, ein geschützter Gegner schimmert bläulich und Treffer auf ihn werden blau markiert.
 - Die Runde gewinnt, wer dem anderen alle Leben nimmt. Läuft die Zeit ab, gewinnt, wer mehr Leben übrig hat, danach wer mehr Lebenspunkte hat.
-- Geld wie im Training: 800 $ zum Start, Prämie pro Abschuss, Siegprämie, Niederlagenbonus. Wer am Rundenende tot ist, verliert seine Ausrüstung.
+- Geld wie in CS: 800 $ zum Start, Prämie pro Abschuss, Siegprämie 2.000 $, Niederlagenbonus ab 1.400 $ (steigt mit jeder Niederlage in Folge). Wer am Rundenende tot ist, verliert seine Ausrüstung.
 - In der Pause (`Esc`) läuft das Duell weiter, man steht dann still. Wer das Duell über das Menü verlässt, verliert sofort.
 - **Zurück ins laufende Duell:** Lädt jemand die Seite neu oder reißt die Verbindung ab, hält das Duell für beide an: Die Zeit steht, niemand kann getroffen werden, eine Anzeige zählt die Sekunden herunter. Nach dem Neuladen ist man automatisch wieder drin, mit Runde, Leben, Siegen, Geld, Waffen und Lebenspunkten, am eigenen Startpunkt und mit 2 Sekunden Spawn-Schutz. Kommt der andere nicht innerhalb von 60 Sekunden zurück (etwa weil er den Tab geschlossen hat), gewinnt man kampflos.
 - **Schnellnachrichten:** `T` öffnet die Liste, `1` – `6` schickt „gg“, „Nice!“, „Sorry!“, „Glück gehabt!“, „Hahaha“ oder „Warte kurz“. Die Nachrichten erscheinen bei allen unten links und verschwinden nach ein paar Sekunden.
@@ -244,16 +244,16 @@ Beim Nachladen einer Waffe mit Magazin kippt die Waffe zur Seite, das leere Maga
 
 Trefferzonen: Kopf (Faktor je Waffe, meist 2,4), Körper und Arme (1), Beine (0,75, dort schützt die Weste nicht). Die Trefferzonen sind etwas größer als die sichtbaren Figuren und Klappziele, damit man leichter trifft.
 
-## Spielregeln im Training
+## Freies Training
 
-- Start mit 800 $, Natter (Pistole) und Messer.
-- 10 Sekunden Kaufzeit (eingefroren), danach 20 Sekunden Kaufen im Spawn.
-- Pro Runde 5 bis 10 Klappziele, ab Runde 2 bewegen sich einige.
+- Keine Runden und keine Zeitgrenze: Man übt, so lange man will, und beendet es über die Pause (`Esc` → *Training beenden*).
+- Geld ohne Ende: Alles ist gratis und lässt sich jederzeit und überall kaufen (`B`), auch mitten auf der Karte. Zurückgeben geht mit Rechtsklick.
+- Die Ersatzmunition geht nicht aus, nachladen muss man trotzdem.
+- 10 Klappziele an zufälligen Stellen der Karte, 3 davon bewegen sich. Jedes Ziel klappt etwa 2 Sekunden nach dem Umfallen wieder hoch. Oben steht, wie viele man schon umgelegt hat, `Tab` zeigt dazu Zeit, Treffergenauigkeit und Kopfschüsse.
 - 100 Lebenspunkte je Ziel, Kopftreffer zählen 2,4-fach (Sturmgewehr: 25 Körper, 60 Kopf).
-- Geld pro Treffer je nach Waffe, Siegprämie 2.000 $, Niederlagenbonus ab 1.400 $ (steigt mit jeder Niederlage in Folge).
-- Wer sich mit der eigenen Granate ausschaltet, verliert die Runde und seine Ausrüstung.
+- Wer sich mit der eigenen Granate oder dem eigenen Luftschlag ausschaltet, ist nach 2 Sekunden wieder am Startpunkt und behält seine Waffen.
 
-Alle Werte (Waffen, Rückstoßmuster, Streuung, Preise, Rundenzeiten) stehen in `src/config.js`.
+Alle Werte (Waffen, Rückstoßmuster, Streuung, Preise, Rundenzeiten, Training) stehen in `src/config.js`.
 
 ## Dateien
 

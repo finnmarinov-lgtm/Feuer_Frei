@@ -15,6 +15,8 @@ export class Targets {
     this.list = [];
     this.raycaster = new THREE.Raycaster();
     this.hitMeshes = [];
+    // so viele Sekunden nach dem Umfallen klappt ein Ziel wieder hoch (0 = bleibt liegen)
+    this.respawn = 0;
   }
 
   _create() {
@@ -63,9 +65,13 @@ export class Targets {
     this.hitMeshes = [];
   }
 
-  /** Stellt Ziele an den Standorten auf. moving = Anzahl beweglicher Ziele */
-  setup(spots, moving, facingFrom) {
+  /**
+   * Stellt Ziele an den Standorten auf. moving = Anzahl beweglicher Ziele, respawn = nach so vielen
+   * Sekunden am Boden klappt ein umgefallenes Ziel wieder hoch (0 = bleibt liegen)
+   */
+  setup(spots, moving, facingFrom, respawn = 0) {
     this.clear();
+    this.respawn = respawn;
     while (this.list.length < spots.length) this._create();
     spots.forEach((spot, i) => {
       const t = this.list[i];
@@ -125,7 +131,18 @@ export class Targets {
         t.timer += dt;
         const k = Math.min(1, t.timer / FALL_TIME);
         t.angle = DOWN_ANGLE * k * k;
-        if (k >= 1) t.state = 'down';
+        if (k >= 1) {
+          t.state = 'down';
+          t.timer = 0;
+        }
+      } else if (t.state === 'down' && this.respawn > 0) {
+        t.timer += dt;
+        if (t.timer >= this.respawn) {
+          t.hp = 100;
+          t.state = 'rising';
+          t.timer = 0;
+          this.audio.play('targetUp', { position: t.root.position });
+        }
       }
       if (t.move && (t.state === 'up' || t.state === 'rising')) {
         const off = Math.sin(time * t.move.speed + t.move.phase) * t.move.range;

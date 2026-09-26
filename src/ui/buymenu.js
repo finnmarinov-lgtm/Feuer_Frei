@@ -79,7 +79,7 @@ export class BuyMenu {
     const inv = this.g.weapons.inv;
     const p = this.g.player;
     this.money.textContent = fmtMoney(m.money);
-    this.time.textContent = m.canBuy ? `Kaufzeit noch ${Math.ceil(m.buyTimeLeft)} s` : 'Kaufen gerade nicht möglich';
+    this.time.textContent = this._timeText();
     for (const [id, b] of Object.entries(this.items)) {
       const why = m.blockReason(id);
       const owned = WEAPONS[id] && WEAPONS[id].slot !== 'utility'
@@ -87,13 +87,22 @@ export class BuyMenu {
         : id === 'vest' ? p.armor >= 100 : id === 'helmet' ? p.helmet && p.armor >= 100 : false;
       b.classList.toggle('owned', owned);
       b.classList.toggle('blocked', !!why && !owned);
-      b.querySelector('.p').textContent = fmtMoney(m.priceOf(id));
+      const price = m.priceOf(id);
+      b.querySelector('.p').textContent = price ? fmtMoney(price) : 'gratis';
       b.querySelector('.why').textContent = why && !owned ? why : '';
     }
   }
 
+  _timeText() {
+    const m = this.g.match;
+    if (!m.canBuy) return 'Kaufen gerade nicht möglich';
+    // freies Training: keine Kaufzeit
+    if (!Number.isFinite(m.buyTimeLeft)) return 'Kaufen jederzeit';
+    return `Kaufzeit noch ${Math.ceil(m.buyTimeLeft)} s`;
+  }
+
   tick() {
     if (!this.open) return;
-    this.time.textContent = this.g.match.canBuy ? `Kaufzeit noch ${Math.ceil(this.g.match.buyTimeLeft)} s` : 'Kaufen gerade nicht möglich';
+    this.time.textContent = this._timeText();
   }
 }

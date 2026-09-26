@@ -13,7 +13,7 @@ import { loadSettings, saveSettings } from './settings.js';
 import { LOCKER, cleanLooks, onProgress, skinOf } from './game/cosmetics.js';
 import { FINISHES } from './weapons/finishes.js';
 import { Locker } from './ui/locker.js';
-import { ARMS, TRAINING } from './config.js';
+import { ARMS } from './config.js';
 import { MAP, MAPS, setMap } from './world/map.js';
 import { TEAM_NAMES, otherTeam } from './game/sides.js';
 
@@ -29,7 +29,6 @@ const BOT_INFO = {
 };
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const fmtMoney = (v) => `${Math.round(v).toLocaleString('de-DE')} $`;
-const fmtTime = (s) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
 const nextFrame = () => new Promise((r) => setTimeout(r, 0));
 
 function show(name) {
@@ -768,30 +767,7 @@ function setupMenus(game, input, audio) {
       teamResults(r);
       return;
     }
-    if (r.duel) {
-      duelResults(r);
-      return;
-    }
-    $('res-score').hidden = true;
-    const acc = Math.round(r.accuracy * 100);
-    const hs = Math.round(r.headshots * 100);
-    $('res-title').textContent = r.won === TRAINING.rounds ? 'Alle Runden gewonnen!' : `Training beendet · ${r.won} von ${TRAINING.rounds} Runden gewonnen`;
-    const tiles = [
-      [`${r.kills} / ${r.targets}`, 'Ziele umgelegt'],
-      [`${acc} %`, 'Treffergenauigkeit'],
-      [`${hs} %`, 'Kopfschüsse'],
-      [fmtTime(r.time), 'Gesamtzeit'],
-      [fmtMoney(r.earned), 'Geld verdient'],
-      [fmtMoney(r.spent), 'Geld ausgegeben'],
-      [String(r.grenades), 'Granaten'],
-      [`${r.won} / ${TRAINING.rounds}`, 'Runden gewonnen'],
-    ];
-    $('res-grid').innerHTML = tiles.map(([v, l]) => `<div><b>${v}</b><span>${l}</span></div>`).join('');
-    $('res-rounds').innerHTML = '<tr><th>Runde</th><th>Ergebnis</th><th>Ziele</th><th>Kopfschüsse</th><th>Zeit</th><th>Geld</th></tr>' +
-      r.rounds.map((x, i) => `<tr><td>${i + 1}</td><td class="${x.won ? 'win' : 'loss'}">${x.won ? 'Gewonnen' : 'Verloren'}</td>` +
-        `<td>${x.kills} / ${x.targets}</td><td>${x.heads}</td><td>${fmtTime(x.time)}</td><td>+${fmtMoney(x.bonus + x.reward)}</td></tr>`).join('');
-    showNewSkins();
-    show('results');
+    duelResults(r);
   };
   return { lobby, touch };
 }
