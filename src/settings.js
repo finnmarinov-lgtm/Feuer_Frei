@@ -24,6 +24,8 @@ const DEFAULTS = {
   renderScale: 1,
   crosshairColor: '#5cff7a',
   showFps: false,
+  // Radar oben links (kleine Karte mit Mitspielern und entdeckten Gegnern)
+  radar: true,
   fullscreen: true,
   adsToggle: false,
   // Touch-Steuerung: 'auto' (an auf Handy und Tablet), 'an' oder 'aus'; Empfindlichkeit beim Wischen

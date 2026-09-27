@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { KNIFE_SKINS, MOVE, TEAM_KNIFE, WEAPONS, WEAPON_IDS } from '../config.js';
 import { GROUP, groups } from '../engine/physics.js';
-import { mergeByMaterial } from '../engine/merge.js';
+import { flattenParts, skinParts } from '../engine/merge.js';
 import { muzzleTexture } from '../effects/textures.js';
 import { applyFinish } from '../weapons/finishes.js';
 import { PAINT, emptyLooks, skinOf } from './cosmetics.js';
@@ -130,16 +130,16 @@ export class RemotePlayer {
       if (o.material.name === 'Uniform') this.uniform = o.material;
       else if (o.material.name === 'Helmet') this.helmet = o.material;
     });
-    // Körperteile am selben Gelenk mit gleichem Material zu einem Mesh (30 Teile -> 16)
-    mergeByMaterial(model);
-    // Materialien der Figur (ohne Waffen) für den Schimmer während des Spawn-Schutzes
-    this.bodyMeshes = [];
-    model.traverse((o) => { if (o.isMesh) this.bodyMeshes.push(o); });
+    // Körper als biegsame Modelle mit den Gelenken als Knochen: Uniform und Helm (Teamfarbe, Skins)
+    // für sich, alle anderen Teile zusammen, also 3 Zeichenaufrufe statt gut 20. Die Meshes und ihre
+    // Materialien braucht auch der Schimmer während des Spawn-Schutzes.
+    this.bodyMeshes = skinParts(model, ['Uniform', 'Helmet']);
     this.bodyMaterials = new Set();
     this._collectBody();
     this.glow = 0;
 
-    // Waffen in der Hand (ohne die Arme aus der Ego-Ansicht); das Messer je nach Team
+    // Waffen in der Hand (ohne die Arme aus der Ego-Ansicht); das Messer je nach Team. In der Hand
+    // hängt immer nur die Waffe, die der Spieler gerade trägt (siehe _setWeapon).
     this.weapons = {};
     this.knives = {};
     for (const id of WEAPON_IDS) {
@@ -230,8 +230,8 @@ export class RemotePlayer {
     for (const m of this.bodyMaterials ?? []) m.emissive.setRGB(0, 0, 0);
     // Waffe aus der letzten Partie weglegen, sonst bliebe sie in der Hand sichtbar, egal was
     // der Gegner gerade hält (weaponId fängt ja wieder bei null an)
-    for (const w of Object.values(this.weapons ?? {})) w.model.visible = false;
-    for (const k of Object.values(this.knives ?? {})) k.model.visible = false;
+    for (const w of Object.values(this.weapons ?? {})) w.model.removeFromParent();
+    for (const k of Object.values(this.knives ?? {})) k.model.removeFromParent();
     this.flash?.removeFromParent();
     this.fall?.rotation.set(0, 0, 0);
     this.fall?.position.set(0, 0, 0);
@@ -246,11 +246,11 @@ export class RemotePlayer {
       else if (o.isMesh) o.castShadow = true;
     });
     for (const o of remove) o.removeFromParent();
-    mergeByMaterial(w);
+    // in fremder Hand bewegt sich nichts an der Waffe: ganz zusammenfassen, nur Teile mit Skin
+    // (beim Messer je nach Messerart) und mit Textur bleiben für sich
+    flattenParts(w, PAINT[def.slot === 'knife' ? holdKey : def.id] || [], ['Muzzle']);
     const off = HOLD_OFFSET[holdKey];
     if (off) w.position.set(...off);
-    w.visible = false;
-    this.n.anchor.add(w);
     return { model: w, muzzle: w.getObjectByName('Muzzle'), def };
   }
 
@@ -393,14 +393,15 @@ export class RemotePlayer {
 
   _setWeapon(id) {
     if (id === this.weaponId) return;
-    if (this.weaponId) this.weapons[this.weaponId].model.visible = false;
+    if (this.weaponId) this.weapons[this.weaponId].model.removeFromParent();
     this.weaponId = id;
     const w = id && this.weapons[id];
     if (!w) return;
-    w.model.visible = true;
+    this.n.anchor.add(w.model);
+    // die Arme gehören zum biegsamen Körper: der unpassende wird auf Größe 0 gesetzt
     const long = !['pistol', 'knife', 'grenade'].includes(w.def.anim);
-    this.n.armLong.visible = long;
-    this.n.armShort.visible = !long;
+    this.n.armLong.scale.setScalar(long ? 1 : 0);
+    this.n.armShort.scale.setScalar(long ? 0 : 1);
     if (w.muzzle) w.muzzle.add(this.flash);
     else this.flash.removeFromParent();
   }

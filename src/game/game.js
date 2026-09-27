@@ -113,7 +113,12 @@ export class Game {
     }
     this.effects.muzzleLight.intensity = 1;
     this.effects.boomLight.intensity = 1;
+    // Waffen fremder Figuren hängen nur in der Hand, solange sie getragen werden: zum Übersetzen
+    // kurz alle anhängen, sonst ruckelt es, wenn ein Gegner eine Waffe zum ersten Mal zieht
+    const held = [...Object.values(this.remote.weapons), ...Object.values(this.remote.knives)].map((w) => w.model);
+    for (const w of held) this.remote.n.anchor.add(w);
     await r.compileAsync(this.scene, this.camera);
+    for (const w of held) w.removeFromParent();
     await r.compileAsync(this.viewScene, this.viewCamera);
     for (const m of Object.values(this.viewmodel.models)) m.model.visible = false;
   }

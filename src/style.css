@@ -107,6 +107,12 @@ kbd { display: inline-block; min-width: 1.6em; padding: 0 0.35em; border: 1px so
   -webkit-mask: radial-gradient(circle, transparent 62%, #000 63%, #000 71%, transparent 72%);
   mask: radial-gradient(circle, transparent 62%, #000 63%, #000 71%, transparent 72%); }
 
+#radar { position: absolute; left: 22px; top: 18px; width: 216px; height: 150px; background: rgba(14, 16, 20, 0.8); border-radius: 6px; }
+/* mit Radar rücken Geld, Kaufhinweis, Verbindung und Aufgaben darunter */
+body.radar #money { top: 178px; }
+body.radar #buyhint { top: 226px; }
+body.radar #net-status { top: 266px; }
+body.radar #tasks-hud { top: 328px; }
 #money { position: absolute; left: 22px; top: 18px; font-size: 30px; font-weight: 700; color: var(--money); background: var(--panel); padding: 2px 14px; border-radius: 6px; }
 #money-delta { font-size: 20px; margin-left: 8px; opacity: 0; transition: opacity 0.3s; }
 #money-delta.show { opacity: 1; transition: none; }
@@ -521,4 +527,10 @@ body.touch .buy-foot { display: none; }
 #task-toast .sub { font-size: 16px; font-weight: 600; }
 #task-toast.show { animation: giftIn 0.5s cubic-bezier(0.2, 1.4, 0.4, 1); }
 body.touch #tasks-hud { left: 50%; top: 86px; transform: translateX(-50%) scale(0.68); transform-origin: top center; }
+/* Handy: Radar klein oben links, Geld und Leben rechts daneben */
+body.touch #radar { left: 14px; top: 8px; transform: scale(0.55); transform-origin: top left; }
+body.touch.radar #money { left: 140px; top: 8px; }
+body.touch.radar #vitals { left: 140px; top: 50px; }
+body.touch.radar #net-status { top: 196px; }
+body.touch.radar #tasks-hud { top: 86px; }
 body.touch #task-toast { top: 22%; transform: translateX(-50%) scale(0.75); }

@@ -429,6 +429,10 @@ export class Arena {
     this.colliders = [];
     this.materials = [];
     this.mapId = null;
+    // Grundriss fürs Radar: alle Bauteile (wie in defineLayout) und die Requisiten
+    // ({ x, z, hx, hz, yaw, top, round }: Mitte, halbe Größe, Drehung, Oberkante, rund = Fass)
+    this.boxes = [];
+    this.props = [];
   }
 
   build() {
@@ -456,6 +460,8 @@ export class Arena {
     for (const m of this.materials) m.dispose();
     this.materials = [];
     this.targetSpots = [];
+    this.boxes = [];
+    this.props = [];
     this.mapId = null;
   }
 
@@ -474,7 +480,8 @@ export class Arena {
     const byMat = {};
     let seed = 7;
     const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-    for (const b of defineLayout(this.map)) {
+    this.boxes = defineLayout(this.map);
+    for (const b of this.boxes) {
       if (b.mat && b.mat !== 'ground') {
         const acc = (byMat[b.mat] ||= { pos: [], nrm: [], uv: [], col: [], idx: [] });
         // leichte Unterschiede von Bauteil zu Bauteil, beim Anstrich weniger
@@ -656,7 +663,9 @@ export class Arena {
       for (const [x, z, yaw, y] of list) {
         q.setFromAxisAngle(up, yaw);
         const center = localCenter.clone().applyQuaternion(q).add(p.set(x, y, z));
-        if (/^barrel/i.test(name)) {
+        const round = /^barrel/i.test(name);
+        this.props.push({ x: center.x, z: center.z, hx: size.x / 2, hz: size.z / 2, yaw, top: center.y + size.y / 2, round });
+        if (round) {
           this._collider(this.physics.addCylinder(center, size.y / 2, Math.max(size.x, size.z) / 2, surface));
         } else {
           this._collider(this.physics.addBox(center, { x: size.x / 2, y: size.y / 2, z: size.z / 2 }, surface, q.clone()));

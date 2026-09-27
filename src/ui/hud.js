@@ -5,6 +5,7 @@ import { LOCKER, isDone, nextTaskFor, onProgress, stat, TASKS } from '../game/co
 import { FINISHES } from '../weapons/finishes.js';
 import { MAP } from '../world/map.js';
 import { TEAM_NAMES, otherTeam } from '../game/sides.js';
+import { Radar } from './radar.js';
 
 const TARGET_NAME = Object.fromEntries(LOCKER.map((l) => [l.id, l.name]));
 const skinName = (t) => `${TARGET_NAME[t.reward[0]]} · ${FINISHES[t.reward[1]].name}`;
@@ -41,6 +42,7 @@ const _p = new THREE.Vector3();
 export class Hud {
   constructor(game) {
     this.g = game;
+    this.radar = new Radar(game);
     this.el = {
       root: $('hud'), cross: $('crosshair'), hit: $('hitmarker'), dmgLayer: $('damage-layer'),
       round: $('hud-round'), timer: $('hud-timer'), phase: $('hud-phase'), targets: $('hud-targets'),
@@ -264,6 +266,7 @@ export class Hud {
 
   reset() {
     this.spectate(null);
+    this.radar.reset();
     this.recent = null;
     this.toastT = 0;
     this.el.toast.hidden = true;
@@ -615,6 +618,7 @@ export class Hud {
     this._tasks(dt);
     if (m.duel) this._duel(m);
     this._nameTags(m, camera);
+    this.radar.update(dt);
     this._bomb(m, camera);
     this._special(m);
     let phase = '', time = m.timer;

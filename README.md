@@ -77,6 +77,19 @@ Alles wie im 1 gegen 1 (Geld, Kaufen, Leben pro Runde, Kill-Cam, Bombenmodus, Lu
 - Am Ziel steigt roter Rauch auf, alle hören eine Warnung. Der Warnkreis hat keinen Rand: in der Mitte ist er kräftig rot, nach außen immer blasser, genau so verteilt sich auch der Schaden. Nach 3,2 Sekunden kommt ein Jet im Sturzflug und feuert mit der **Bordkanone** („Drrrrrt“, 48 Granaten in 1,2 Sekunden). Die Einschläge wandern in Flugrichtung durch den Kreis, mit Leuchtspuren, Feuer und Sandfontänen. In der Mitte ist das fast immer tödlich, 3 m daneben kostet es im Schnitt gut 90 Lebenspunkte, am Rand kaum noch etwas. Deckung schützt. Wer rechtzeitig aus dem Kreis läuft, überlebt. Auch der eigene Luftschlag trifft einen selbst.
 - Ein Abschuss mit dem Luftschlag bringt 300 $, lädt die Leiste aber nicht wieder auf. Der Luftschlag geht im Training und im Mehrspieler. Den Luftschlag eines Mitspielers kündigt eine eigene Meldung an, er schadet einem nicht.
 
+## Radar
+
+Oben links zeigt ein **Radar** die ganze Karte von oben, wie in CS: Boden hell, Wände und Container dunkel, Kisten und halbhohe Mauern grau.
+
+- **Du** bist der gelbe Pfeil, er zeigt in deine Blickrichtung.
+- **Mitspieler** sind Punkte in der Teamfarbe mit einem kurzen Strich in ihre Blickrichtung.
+- **Gegner** erscheinen nur, solange du oder ein Mitspieler sie sehen (Blickfeld, freie Sicht, Rauch versteckt sie). Danach verblasst der Punkt noch 2,5 Sekunden an der Stelle, an der der Gegner zuletzt zu sehen war.
+- Die **Startbereiche** sind in den Teamfarben getönt. Im **Bombenmodus** zeigt ein oranger Ring den Bombenplatz der Runde, eine gelegte Bombe blinkt rot.
+- Im **Training** stehen die Klappziele als orange Punkte darauf.
+- Abschalten lässt es sich in den Einstellungen (*Radar anzeigen*). Auf dem Handy ist es kleiner, Geld und Leben stehen daneben.
+
+Gezeichnet wird es in `src/ui/radar.js` aus den Bauteilen der Karte (`arena.boxes`, `arena.props`), einmal pro Karte, darauf dann jedes Bild die Punkte. Welche Gegner zu sehen sind, prüft es zehnmal pro Sekunde mit denselben Sichtlinien wie die KI.
+
 ## Karten
 
 Im Hauptmenü wählt man die Karte für das Training (und für den Hintergrund des Menüs), bei **Gegen KI** und in der Lobby jeweils extra. Alle Karten sind punktsymmetrisch: Der Host startet im Westen, der Gast gespiegelt im Osten.
@@ -270,7 +283,7 @@ Alle Werte (Waffen, Rückstoßmuster, Streuung, Preise, Rundenzeiten, Training) 
 | `src/world/` | Karten Hof und Lagerhalle mit Auf- und Abbau (`map.js`), der Hafen (`hafen.js`), Bauteile für mehrere Karten wie Seecontainer und Gabelstapler (`parts.js`), Himmel und Licht, Bombenplätze und Bombe (`bombsites.js`) |
 | `src/effects/` | Einschusslöcher, Funken, Staub, Leuchtspuren, Explosionen |
 | `src/engine/` | Grafik, Physik, Steuerung, Ton (alle Geräusche werden per WebAudio erzeugt) |
-| `src/ui/` | HUD, Kaufmenü, Lobby, Touch-Steuerung (`touch.js`) und die Waffenkammer „Skins & Aufgaben“ (`locker.js`) |
+| `src/ui/` | HUD, Radar (`radar.js`), Kaufmenü, Lobby, Touch-Steuerung (`touch.js`) und die Waffenkammer „Skins & Aufgaben“ (`locker.js`) |
 | `blender/` | Python-Skripte, die alle eigenen 3D-Modelle in Blender bauen |
 | `scripts/` | Laden der Poly-Haven-Dateien und Aufruf von Blender |
 | `public/assets/` | Fertige Modelle, Texturen und Himmel, die das Spiel lädt |
@@ -306,6 +319,12 @@ Das Spiel startet auf **Niedrig**, damit es auch auf schwachen Laptops (Intel-Gr
 Dazu die **Auflösung** (100 %, 85 %, 70 %, 50 %): weniger Pixel sind der größte Hebel für schwache Grafikchips, das Bild wird dafür etwas unschärfer.
 
 Damit das Spiel sparsam bleibt: Teile, die sich gemeinsam bewegen und dasselbe Material haben, werden beim Laden zu einem Mesh zusammengefasst (`src/engine/merge.js`). Einschusslöcher und Rauchschwaden sind je ein Instanz-Mesh, also ein Zeichenaufruf statt vieler.
+
+**Figuren der anderen Spieler** sind besonders sparsam gebaut, damit auch 4 gegen 4 flüssig läuft:
+
+- Der Körper ist ein biegsames Modell (`SkinnedMesh`, `skinParts` in `merge.js`): Jedes Teil hängt fest an seinem Gelenk, die Gelenke sind die Knochen. Uniform und Helm haben eigene Materialien (Teamfarbe, Skins), alle anderen Teile teilen sich eins, das Farbe, Rauheit und Metall pro Ecke mitbringt. So braucht ein Körper 3 Zeichenaufrufe statt gut 20. Welcher Arm zur Waffe passt, entscheidet die Größe seines Gelenks (0 = unsichtbar).
+- Die Waffe in fremder Hand ist ganz zusammengefasst (`flattenParts`): nur Teile mit Skin oder Textur bleiben für sich, meist 2 bis 4 Zeichenaufrufe statt bis zu 15. In der Hand hängt nur die Waffe, die der Spieler gerade trägt, die anderen sind nicht im Szenengraph.
+- Die Geometrie teilen sich alle Figuren. Gemessen im 4 gegen 4 auf dem Hof: 87 statt 245 Zeichenaufrufe pro Bild, 312 statt 1.688 Knoten im Szenengraph, das Zeichnen selbst dauert etwa halb so lang.
 
 Die Leinwand ist auf geringe Verzögerung eingestellt (`desynchronized`). Dabei kann der Browser Zwischenstände anzeigen, deshalb wird jedes Bild erst im Hintergrund fertig zusammengesetzt und dann in einem Zug ausgegeben. Direkt in mehreren Durchgängen ins sichtbare Bild zu zeichnen führt zu Flackern.
 

@@ -64,6 +64,8 @@
     <div id="usebar" hidden><div id="usebar-label"></div><div class="track"><i id="usebar-fill"></i></div></div>
     <div id="special-hint" hidden>Luftschlag: Ziel anschauen · <kbd>Linksklick</kbd> bestätigen · <kbd>Rechtsklick</kbd> oder <kbd>X</kbd> abbrechen</div>
 
+    <!-- Radar: Karte von oben mit Mitspielern und entdeckten Gegnern (ui/radar.js) -->
+    <canvas id="radar" hidden></canvas>
     <div id="money">
       <span id="hud-money">800 $</span>
       <span id="money-delta"></span>
@@ -283,6 +285,7 @@
       <label><span>Touch-Empfindlichkeit <small>(Umsehen per Wischen)</small></span><input type="range" id="set-touchsens" min="0.3" max="2.5" step="0.05"><output id="out-touchsens"></output></label>
       <label class="check"><input type="checkbox" id="set-adstoggle"> Zielen per Klick umschalten (statt Taste halten)</label>
       <label class="check"><input type="checkbox" id="set-fullscreen"> Vollbild beim Start (schützt Strg+W)</label>
+      <label class="check"><input type="checkbox" id="set-radar"> Radar anzeigen (kleine Karte oben links)</label>
       <label class="check"><input type="checkbox" id="set-fps"> Bilder pro Sekunde anzeigen</label>
     </div>
     <div class="buttons"><button class="primary" id="btn-settings-back">Zurück</button></div>

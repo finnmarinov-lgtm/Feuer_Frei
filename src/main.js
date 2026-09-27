@@ -549,6 +549,7 @@ function setupMenus(game, input, audio) {
     bind('set-cross', 'crosshairColor', (v) => v, String),
     bind('set-adstoggle', 'adsToggle', () => ''),
     bind('set-fullscreen', 'fullscreen', () => ''),
+    bind('set-radar', 'radar', () => ''),
     bind('set-fps', 'showFps', () => ''),
     bind('set-touch', 'touch', (v) => v, String),
     bind('set-touchsens', 'touchSens', (v) => v.toFixed(2)),
