@@ -10,7 +10,7 @@ function shuffle(a) {
   return a;
 }
 
-// Grundlage jeder Partie: Geld, Kaufen, Spezialleiste (Luftschlag) und Statistik. Darauf bauen das
+// Grundlage jeder Partie: Geld, Kaufen, Abschussserie (Luftschlag) und Statistik. Darauf bauen das
 // 1 gegen 1 (duel.js), das Team-Spiel (teams.js) und das freie Training (unten) auf.
 export class Match {
   constructor(game) {
@@ -50,13 +50,13 @@ export class Match {
     this.roundStats = null;
     this.purchases = [];
     this.lastBeep = 0;
-    // Spezialleiste (Punkte bis SPECIAL.charge), bleibt über die Runden erhalten
+    // Abschussserie für den Luftschlag: Abschüsse in Folge (bis SPECIAL.streak), bleibt über die Runden
     this.special = 0;
   }
 
-  // ---------- Spezialleiste und Luftschlag ----------
+  // ---------- Abschussserie und Luftschlag ----------
   get specialReady() {
-    return this.special >= SPECIAL.charge;
+    return this.special >= SPECIAL.streak;
   }
 
   get canUseSpecial() {
@@ -64,13 +64,19 @@ export class Match {
     return MAP.airstrike && this.phase === 'live' && p.alive && !this.fireBlocked && !this.busy;
   }
 
-  addCharge(points) {
-    if (!MAP.airstrike || this.specialReady || !(points > 0)) return;
-    this.special = Math.min(SPECIAL.charge, this.special + points);
+  /** eigener Abschuss (nicht mit dem Luftschlag selbst): zählt für die Serie */
+  addStreak() {
+    if (!MAP.airstrike || this.specialReady) return;
+    this.special++;
     if (this.specialReady) {
       this.g.audio.play('specialReady');
       this.g.hud.specialReady();
     }
+  }
+
+  /** selbst gestorben: die Serie fängt von vorne an (ein schon verdienter Luftschlag bleibt) */
+  breakStreak() {
+    if (!this.specialReady) this.special = 0;
   }
 
   /** Luftschlag auf point anfordern: Flugrichtung ist die eigene Blickrichtung */
@@ -117,14 +123,12 @@ export class Match {
     if (this.roundStats) this.roundStats.shots++;
   }
 
-  /** charge = false: Schaden lädt die Spezialleiste nicht (z. B. vom Luftschlag selbst) */
-  onHit(damage, head, bullet = true, charge = true) {
+  onHit(damage, head, bullet = true) {
     if (bullet) {
       this.stats.hits++;
       if (this.roundStats) this.roundStats.hits++;
     }
     this.stats.damage += damage;
-    if (charge) this.addCharge(damage);
   }
 
   onKill(def, head) {
@@ -136,7 +140,7 @@ export class Match {
       this.roundStats.reward += def.reward;
     }
     this.addMoney(def.reward);
-    if (def.id !== 'luftschlag') this.addCharge(SPECIAL.killBonus);
+    if (def.id !== 'luftschlag') this.addStreak();
   }
 
   onGrenade() {
@@ -337,7 +341,7 @@ export class Training extends Match {
     this.g.hud.killfeed({
       weapon: knife ? this.g.viewmodel.knifeSkin : def.id, label: def.slot ? this.g.weaponName(def) : def.name, head,
     });
-    if (def.id !== 'luftschlag') this.addCharge(SPECIAL.killBonus);
+    if (def.id !== 'luftschlag') this.addStreak();
     // Aufgabe: Klappziele im Training
     count('targets');
   }

@@ -65,17 +65,17 @@ Alles wie im 1 gegen 1 (Geld, Kaufen, Leben pro Runde, Kill-Cam, Bombenmodus, Lu
 
 - Die Rollen wechseln jede Runde: In ungeraden Runden greift der Host an, in geraden der Gast.
 - Jede Seite hat einen **Bombenplatz** in der Gasse ihrer Hälfte, nah an der Mitte vor dem Container (rot aufgemalt). Wer angreift, legt die Bombe auf dem Platz des anderen: im Kreis stehen und **E halten** (3,2 s, man steht dabei still). Eine Wegmarke zeigt, wo der Platz ist. Vom Startpunkt des Verteidigers sieht man den Platz nicht, der Weg dorthin ist für beide fast gleich lang (Verteidiger rund 29 m, Angreifer 33 m). Wer den Verteidiger erwischt, hat also Zeit zum Legen, bevor er wieder da ist.
-- Die gelegte Bombe tickt 35 Sekunden und piept immer schneller. Wer verteidigt, entschärft sie direkt an der Bombe mit **E halten** (5 s).
+- Die gelegte Bombe tickt 35 Sekunden und piept immer schneller. Wer verteidigt, entschärft sie direkt an der Bombe mit **E halten** (10 s, wie in CS ohne Entschärfungskit). So hat das angreifende Team nach einem Tod am Platz noch Zeit, zurückzukommen und das Entschärfen zu stören.
 - Die Runde gewinnt, wer angreift, wenn die Bombe explodiert oder der Verteidiger keine Leben mehr hat. Wer verteidigt, gewinnt beim Entschärfen, wenn die Zeit ohne gelegte Bombe abläuft oder der Angreifer vor dem Legen keine Leben mehr hat. Liegt die Bombe schon, tickt sie auch weiter, wenn der Angreifer ausgeschaltet ist.
 - Die Explosion ist bis etwa 10 m tödlich (auch für den, der sie gelegt hat). Wer dabei stirbt, verliert wie sonst am Rundenende seine Ausrüstung.
 - Legen und Entschärfen bringen je 300 $.
 
-### Spezialleiste und Luftschlag
+### Abschussserie und Luftschlag
 
-- Die Leiste rechts über der Munition füllt sich mit Schaden am Gegner oder an Klappzielen, dazu 50 Punkte pro Abschuss (350 Punkte = voll). Sie bleibt über die Runden erhalten.
-- Ist sie voll, **X** drücken und das Ziel anschauen: ein Kreis zeigt, wohin der Jet feuert. **Linksklick** bestätigt, **Rechtsklick** oder **X** bricht ab. Beim Zielen steht man still. Das Ziel muss unter freiem Himmel liegen (nicht im Tunnel). Auf der Karte Lagerhalle gibt es keinen Luftschlag.
+- Den **Luftschlag** gibt es für eine **Abschussserie**: 3 Abschüsse hintereinander, ohne selbst zu sterben (im Training zählen die Klappziele). Rechts über der Munition zeigen drei Punkte, wie weit man ist. Stirbt man, fängt die Serie von vorne an. Ein schon verdienter Luftschlag bleibt aber, bis man ihn einsetzt. Die Serie läuft über die Runden weiter, Abschüsse mit dem Luftschlag selbst zählen nicht.
+- Ist die Serie geschafft, **X** drücken und das Ziel anschauen: ein Kreis zeigt, wohin der Jet feuert. **Linksklick** bestätigt, **Rechtsklick** oder **X** bricht ab. Beim Zielen steht man still. Das Ziel muss unter freiem Himmel liegen (nicht im Tunnel). Auf der Karte Lagerhalle gibt es keinen Luftschlag.
 - Am Ziel steigt roter Rauch auf, alle hören eine Warnung. Der Warnkreis hat keinen Rand: in der Mitte ist er kräftig rot, nach außen immer blasser, genau so verteilt sich auch der Schaden. Nach 3,2 Sekunden kommt ein Jet im Sturzflug und feuert mit der **Bordkanone** („Drrrrrt“, 48 Granaten in 1,2 Sekunden). Die Einschläge wandern in Flugrichtung durch den Kreis, mit Leuchtspuren, Feuer und Sandfontänen. In der Mitte ist das fast immer tödlich, 3 m daneben kostet es im Schnitt gut 90 Lebenspunkte, am Rand kaum noch etwas. Deckung schützt. Wer rechtzeitig aus dem Kreis läuft, überlebt. Auch der eigene Luftschlag trifft einen selbst.
-- Ein Abschuss mit dem Luftschlag bringt 300 $, lädt die Leiste aber nicht wieder auf. Der Luftschlag geht im Training und im Mehrspieler. Den Luftschlag eines Mitspielers kündigt eine eigene Meldung an, er schadet einem nicht.
+- Ein Abschuss mit dem Luftschlag bringt 300 $, zählt aber nicht für die nächste Serie. Nach dem Einsatz fängt die Serie wieder bei 0 an. Der Luftschlag geht im Training und im Mehrspieler. Den Luftschlag eines Mitspielers kündigt eine eigene Meldung an, er schadet einem nicht.
 
 ## Radar
 
@@ -95,7 +95,7 @@ Gezeichnet wird es in `src/ui/radar.js` aus den Bauteilen der Karte (`arena.boxe
 Im Hauptmenü wählt man die Karte für das Training (und für den Hintergrund des Menüs), bei **Gegen KI** und in der Lobby jeweils extra. Alle Karten sind punktsymmetrisch: Der Host startet im Westen, der Gast gespiegelt im Osten.
 
 - **Hof:** sandiger Innenhof mit zwei Gassen, einem Haus mit Tunnel in der Mitte, einem Balkon und Containern. Eher weite Blicke.
-- **Lagerhalle:** eine große Halle mit Hochregalen (drei Gänge pro Hälfte, mit Lücken zum Durchschlüpfen), einem Büro-Container in der Mitte, der die Sicht von Tor zu Tor versperrt, einem Gabelstapler und einem Laufsteg mit Treppe und Handlauf (in der Westhälfte an der Nordwand, gespiegelt im Osten; die Treppe ist so flach wie die im Hof, damit man nicht herunterrutscht). Das Dach hat drei offene Lichtbänder, durch die die Sonne fällt. Vor der Halle liegen die Höfe mit den Startpunkten, einem Lkw-Anhänger und einem Container, hinein geht es durch drei halb offene Rolltore pro Seite. Enger als der Hof, mehr Nahkampf. Die Bombenplätze liegen in der Halle nah an der Mitte (vom Startpunkt des Verteidigers aus nicht zu sehen, Wege etwa 28 m zu 33 m). In der Lagerhalle gibt es keinen Luftschlag (die Spezialleiste ist dort ausgeblendet, auch die KI fordert keinen an).
+- **Lagerhalle:** eine große Halle mit Hochregalen (drei Gänge pro Hälfte, mit Lücken zum Durchschlüpfen), einem Büro-Container in der Mitte, der die Sicht von Tor zu Tor versperrt, einem Gabelstapler und einem Laufsteg mit Treppe und Handlauf (in der Westhälfte an der Nordwand, gespiegelt im Osten; die Treppe ist so flach wie die im Hof, damit man nicht herunterrutscht). Das Dach hat drei offene Lichtbänder, durch die die Sonne fällt. Vor der Halle liegen die Höfe mit den Startpunkten, einem Lkw-Anhänger und einem Container, hinein geht es durch drei halb offene Rolltore pro Seite. Enger als der Hof, mehr Nahkampf. Die Bombenplätze liegen in der Halle nah an der Mitte (vom Startpunkt des Verteidigers aus nicht zu sehen, Wege etwa 28 m zu 33 m). In der Lagerhalle gibt es keinen Luftschlag (die Anzeige der Abschussserie ist dort ausgeblendet, auch die KI fordert keinen an).
 
 - **Hafen:** groß und offen, gedacht für 3 gegen 3 und 4 gegen 4 (88 x 59 m statt 60 x 40 m). Eine Mole mit Wasser an beiden Längsseiten, an den Enden je ein Speicher aus Backstein hinter dem Startpunkt. In der Mitte die breite Kranbahn mit einem gelben Portalkran, an dem ein Container hängt, darunter ein Container und Kisten als Deckung, dazu je ein Sattelzug. Auf der einen Seite jeder Hälfte das Stapelfeld (Containerreihen mit Gassen und einem Container mit Treppe als Ausguck), auf der anderen der offene Umschlagplatz mit dem Bombenplatz, einem Gabelstapler und der Hafenmeisterei: auf ihr Dach führt eine Treppe, die Brüstung schützt geduckt. An beiden Kaikanten ein breiter Weg am Wasser mit Pollern; eine unsichtbare Wand hält einen an Land. Vor den Ausgängen der Startbereiche stehen Container, damit man nicht von Startbereich zu Startbereich schauen kann (die längsten Sichtlinien sind Diagonalen um 60 m). Damit man nicht von überall erwischt wird, sind einige Durchgänge zu: Eine Containerreihe teilt die Kranbahn längs (mit einer schmalen Lücke am Kran), die Kaiwege sind hinter dem Stapelfeld und an der Hafenmeisterei unterbrochen, die Bombenplätze haben eine Rück- und eine Seitenwand, und hinter den Startblöcken führt kein Weg mehr zum Kai. Die Wege zu den Bombenplätzen sind dadurch nicht länger geworden (Angreifer etwa 56 m, Verteidiger etwa 36 m). Granaten, die ins Wasser fallen, gehen unter, ohne zu zünden. Der Luftschlag geht hier wieder.
 
@@ -141,7 +141,7 @@ Die KI spielt nach denselben Regeln wie ein Freund im 1 gegen 1 (sie ist dabei d
 - Sie kauft in der Kaufzeit mit ihrem eigenen Geld (Gewehr, MP oder Schrotflinte, Weste, mit viel Geld auch Helm) und verliert ihre Waffen, wenn sie am Rundenende tot ist.
 - Sie läuft über ein Wegenetz um Wände und Kisten herum und nimmt jede Runde einen anderen Weg (Gassen oben und unten, Tunnel, am Gebäude vorbei).
 - Sie sieht nur, was in ihrem Blickfeld und nicht hinter Wänden oder im Rauch liegt, hört rennende Schritte und Schüsse und dreht sich um, wenn sie getroffen wird. Blendgranaten blenden auch sie.
-- Sie zielt mit Reaktionszeit und Zielfehler, schießt Feuerstöße, lädt nach, wechselt im Notfall zur Pistole und fordert mit voller Spezialleiste Luftschläge an. Aus Luftschlag-Kreisen und von der Bombe kurz vor der Explosion läuft sie weg.
+- Sie zielt mit Reaktionszeit und Zielfehler, schießt Feuerstöße, lädt nach, wechselt im Notfall zur Pistole und fordert nach 3 Abschüssen in Folge (wie man selbst) Luftschläge an. Aus Luftschlag-Kreisen und von der Bombe kurz vor der Explosion läuft sie weg.
 - Im Kampf-Modus zieht sie sich nach einem Abschuss ein paar Sekunden zurück und sucht dich nicht direkt an deinem Startpunkt. Solange du Spawn-Schutz hast, schießt sie nicht (außer auf Leicht).
 - Im Bombenmodus legt sie die Bombe auf deinem Platz und bewacht sie, oder sie hält ihren eigenen Platz und entschärft deine Bombe.
 
@@ -168,7 +168,7 @@ Auf Handy und Tablet schaltet sich die Touch-Steuerung von selbst ein (in den Ei
 - **Kreis:** Zielen an und aus. Beim Messer ist das der Stich, bei Granaten der kurze Wurf.
 - **Pfeile:** springen und ducken (Ducken schaltet um). Der runde Pfeil lädt nach.
 - **Waffenleiste unten:** Waffe antippen. **Kaufen** (oben links) in der Kaufzeit, **Sprechblase** für Schnellnachrichten, oben rechts Statistik und Pause.
-- **Flugzeug:** Luftschlag. Der Ring zeigt die Spezialleiste, der rote Knopf bestätigt das Ziel.
+- **Flugzeug:** Luftschlag. Der Ring füllt sich mit der Abschussserie, der rote Knopf bestätigt das Ziel.
 - **Bombe legen / Entschärfen:** Der Knopf erscheint auf dem Bombenplatz bzw. an der Bombe und wird gehalten.
 
 Beim Start geht das Spiel in den Vollbildmodus und sperrt das Querformat, soweit der Browser das erlaubt (Android ja, iPhone nicht). Wechselt man die App, pausiert das Spiel.
@@ -207,7 +207,7 @@ Die Tabelle zeigt die Standardbelegung. **Eigene Tastenbelegung:** Unter *Steuer
 | `Tab` | Statistik |
 | `T`, dann `1` – `6` | Schnellnachricht (im Mehrspieler) |
 | `E` halten | Bombe legen bzw. entschärfen (Bombenmodus) |
-| `X` | Luftschlag, wenn die Spezialleiste voll ist |
+| `X` | Luftschlag, nach 3 Abschüssen hintereinander |
 | `Esc` | Pause; in den Menüs zurück (wie der Zurück-Knopf, in der Auswertung zum Hauptmenü); schließt auch Kaufmenü und Schnellnachrichten |
 | `^` (änderbar) | Notizblock: sofort ein weißes Notizblatt, Spiel pausiert, Ton aus; nochmal drücken zum Zurückschalten |
 
@@ -223,6 +223,8 @@ Die Tabelle zeigt die Standardbelegung. **Eigene Tastenbelegung:** Unter *Steuer
 | Adler | 5,0 | 6,3 |
 
 Nach dem Sprinten braucht die Waffe einen Moment, bis sie schießt (Natter 0,12 s, Adler 0,3 s, Messer sofort). Wer beim Sprinten klickt, hört auf zu sprinten und schießt, sobald die Waffe bereit ist. Zum Weitersprinten `Shift` neu drücken.
+
+Weil `Strg` Ducken ist und das Mausrad die Waffe wechselt, fängt das Spiel `Strg` + Mausrad (und `Strg` + Plus/Minus/0) ab, solange man spielt: sonst würde der Browser die ganze Seite zoomen. Ist die Seite schon verkleinert, stellt `Strg` + `0` sie zurück.
 
 Das Spiel geht beim Start in den Vollbildmodus. So fängt Chrome auch `Strg+W` ab, sonst würde Ducken plus Vorwärtslaufen den Tab schließen. Abschalten lässt sich das in den Einstellungen.
 

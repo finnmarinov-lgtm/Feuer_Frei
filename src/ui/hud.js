@@ -56,7 +56,7 @@ export class Hud {
       protect: $('protect'), chatMenu: $('chat-menu'), chatLog: $('chat-log'),
       usebar: $('usebar'), usebarLabel: $('usebar-label'), usebarFill: $('usebar-fill'), useprompt: $('useprompt'),
       waypoint: $('waypoint'), waypointText: $('waypoint-text'), bombBadge: $('bomb-badge'),
-      special: $('special'), specialFill: $('special-fill'), specialHint: $('special-hint'),
+      special: $('special'), specialPips: $('special-pips'), specialHint: $('special-hint'),
       spectate: $('spectate'), specTag: $('spec-tag'), specWho: $('spec-who'), specHint: $('spec-hint'),
       specLeft: $('spec-left'), killbars: $('killbars'),
       tasks: $('tasks-hud'), toast: $('task-toast'), tags: $('name-tags'),
@@ -360,7 +360,7 @@ export class Hud {
     if (this.kills.length > 5) this.kills.shift().el.remove();
   }
 
-  /** Spezialleiste ist voll */
+  /** Abschussserie geschafft: Luftschlag bereit */
   specialReady() {
     this.message('Luftschlag bereit!', this.g.input.touch
       ? 'Tippe auf den Luftschlag-Knopf und wähle das Ziel'
@@ -584,14 +584,19 @@ export class Hud {
     this._show(el.waypoint, visible);
   }
 
-  // Spezialleiste (Luftschlag) und Hinweis beim Zielen
+  // Abschussserie (ein Punkt pro Abschuss, alle voll = Luftschlag bereit) und Hinweis beim Zielen
   _special(m) {
     const el = this.el;
-    // auf Karten ohne Luftschlag (Lagerhalle) keine Leiste
+    // auf Karten ohne Luftschlag (Lagerhalle) keine Anzeige
     this._show(el.special, !!MAP.airstrike);
-    const k = Math.min(1, m.special / SPECIAL.charge);
-    this._set(el.specialFill.style, 'width', `${(k * 100).toFixed(1)}%`);
-    const ready = k >= 1;
+    const n = Math.min(SPECIAL.streak, m.special);
+    const pips = el.specialPips;
+    if (pips.children.length !== SPECIAL.streak) pips.innerHTML = '<i></i>'.repeat(SPECIAL.streak);
+    if (pips._n !== n) {
+      pips._n = n;
+      [...pips.children].forEach((p, i) => p.classList.toggle('on', i < n));
+    }
+    const ready = n >= SPECIAL.streak;
     if (el.special._ready !== ready) {
       el.special._ready = ready;
       el.special.classList.toggle('ready', ready);

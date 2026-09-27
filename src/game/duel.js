@@ -666,7 +666,7 @@ export class Duel extends Match {
       this.roundStats.reward += def.reward;
     }
     this.addMoney(def.reward);
-    if (def.id !== 'luftschlag') this.addCharge(SPECIAL.killBonus);
+    if (def.id !== 'luftschlag') this.addStreak();
     // Aufgaben: Abschüsse und Kopfschüsse je Waffe
     count(`kill:${def.id}`);
     if (head) count(`head:${def.id}`);
@@ -886,9 +886,8 @@ export class Duel extends Match {
   _onAck(ev) {
     const point = this.hitPoints.get(ev.id);
     this.hitPoints.delete(ev.id);
+    // erst die Rückmeldung sagt, wie viel Schaden ankam
     this.stats.damage += ev.n;
-    // erst die Rückmeldung sagt, wie viel Schaden ankam: damit lädt die Spezialleiste
-    this.addCharge(ev.n);
     if (point && ev.n > 0) this.g.hud.damageNumber(point, ev.n, ev.z === 'head');
   }
 
@@ -992,7 +991,7 @@ export class Duel extends Match {
     if (saved) {
       this.money = saved.money ?? this.money;
       this.lossStreak = saved.lossStreak ?? 0;
-      this.special = Math.min(SPECIAL.charge, saved.special || 0);
+      this.special = Math.min(SPECIAL.streak, saved.special || 0);
       Object.assign(this.stats, saved.stats || {});
       this.rounds = saved.rounds || [];
       this.loadoutArmor = saved.loadoutArmor || this.loadoutArmor;

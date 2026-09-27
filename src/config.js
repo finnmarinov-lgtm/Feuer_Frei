@@ -64,7 +64,8 @@ export const DUEL = {
 // Bombenplatz des anderen (E halten), wer verteidigt, entschärft sie (E halten).
 export const BOMB = {
   plantTime: 3.2,
-  defuseTime: 5,
+  // lange genug, dass das angreifende Team nach einem Tod am Platz noch zurückkommen kann
+  defuseTime: 10,
   // so lange tickt die gelegte Bombe
   timer: 35,
   // Bombenplatz: Kreis um die Mitte, Entschärfen nur direkt an der Bombe
@@ -80,12 +81,11 @@ export const BOMB = {
   blastDamage: 400,
 };
 
-// Spezialleiste: füllt sich mit Schaden an Gegner und Zielen (plus Bonus pro Abschuss).
-// Ist sie voll, gibt es einen Luftschlag (X): Ziel wählen, nach kurzer Warnung feuert ein Jet mit
-// der Bordkanone in den roten Kreis. In der Mitte tödlich, am Rand kaum noch Schaden.
+// Luftschlag als Abschussserie: nach streak Abschüssen hintereinander, ohne selbst zu sterben (auch
+// Klappziele im Training), gibt es einen Luftschlag (X): Ziel wählen, nach kurzer Warnung feuert ein
+// Jet mit der Bordkanone in den roten Kreis. In der Mitte tödlich, am Rand kaum noch Schaden.
 export const SPECIAL = {
-  charge: 350,
-  killBonus: 50,
+  streak: 3,
   maxRange: 90,
   // Warnzeit bis zu den ersten Einschlägen: so lange hat man Zeit, aus dem roten Kreis zu laufen
   delay: 3.2,

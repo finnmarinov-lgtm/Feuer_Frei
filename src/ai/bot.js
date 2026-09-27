@@ -244,8 +244,9 @@ export class Bot {
     this.money = Math.max(0, Math.min(ECONOMY.maxMoney, this.money + v));
   }
 
-  _charge(v) {
-    this.special = Math.min(SPECIAL.charge, this.special + v);
+  /** eigener Abschuss: zählt für die Abschussserie (Luftschlag) */
+  _streak() {
+    if (this.special < SPECIAL.streak) this.special++;
   }
 
   _hear(pos, range) {
@@ -370,10 +371,6 @@ export class Bot {
       case 'hit':
         if ((ev.to ?? this.key) === this.key) this._onHit(ev, from);
         break;
-      case 'ack':
-        // Rückmeldung zu eigenen Treffern: lädt die Spezialleiste
-        if ((ev.to ?? this.key) === this.key && ev.n > 0) this._charge(ev.n);
-        break;
       case 'dead': {
         const foe = this.world.teamOf(from) !== this.team;
         if (foe && this.foe?.key === from) this.seeing = false;
@@ -388,7 +385,7 @@ export class Bot {
         if (ev.by === this.key && ev.w !== 'bombe') {
           const def = WEAPONS[ev.w] || KILLERS[ev.w];
           if (def) this._earn(def.reward);
-          if (ev.w !== 'luftschlag') this._charge(SPECIAL.killBonus);
+          if (ev.w !== 'luftschlag') this._streak();
           if (Math.random() < (this.world.duel ? 0.15 : 0.06)) this._chat(4);
         }
         break;
@@ -440,6 +437,8 @@ export class Bot {
     b.collider.setEnabled(false);
     this.respawnT = DUEL.respawnTime;
     this.plantT = this.defuseT = 0;
+    // die Abschussserie fängt von vorne an (ein schon verdienter Luftschlag bleibt)
+    if (this.special < SPECIAL.streak) this.special = 0;
     this.seeing = false;
     this._event({ t: 'dead', by, w, h: head ? 1 : 0 });
     if (this.world.duel && by !== this.key && head && Math.random() < 0.3) this._chat(1);
@@ -975,9 +974,9 @@ export class Bot {
     return null;
   }
 
-  /** Luftschlag anfordern, wenn die Leiste voll ist und der Mensch sich irgendwo versteckt */
+  /** Luftschlag anfordern, wenn die Abschussserie geschafft ist und der Gegner sich irgendwo versteckt */
   _maybeAirstrike() {
-    if (!MAP.airstrike || this.special < SPECIAL.charge || this.seeing || this.time < this.airT) return;
+    if (!MAP.airstrike || this.special < SPECIAL.streak || this.seeing || this.time < this.airT) return;
     this.airT = this.time + 1.5;
     let known = null;
     if (this.time - this.seenAt < 8) known = this.lastSeen;

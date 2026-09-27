@@ -3,7 +3,7 @@ import { KILLERS, SPECIAL } from '../config.js';
 import { muzzleTexture } from '../effects/textures.js';
 import { MAP } from '../world/map.js';
 
-// Luftschlag (Spezialleiste voll, Taste X): erst Ziel wählen, dann steigt roter Rauch auf und ein
+// Luftschlag (nach einer Abschussserie, Taste X): erst Ziel wählen, dann steigt roter Rauch auf und ein
 // roter Kreis warnt alle: in der Mitte kräftig rot, nach außen immer blasser (genau so verteilt
 // sich auch der Schaden). Nach der Warnzeit kommt ein Jet im Sturzflug und feuert mit der
 // Bordkanone ("Brrrrrt"): die Einschläge wandern in Flugrichtung durch den Kreis, in der Mitte am
@@ -347,7 +347,7 @@ export class Airstrikes {
         if (dmg <= 0) continue;
         const res = g.targets.damage(t, dmg);
         g.hud.damageNumber(_b, res.damage, false);
-        g.match.onHit(res.damage, false, false, false);
+        g.match.onHit(res.damage, false, false);
         if (res.killed) g.match.onKill(KILLERS.luftschlag, false);
       }
     }

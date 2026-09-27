@@ -19,13 +19,16 @@ export const ACTIONS = [
   { id: 'lastWeapon', label: 'Letzte Waffe', keys: ['KeyQ'] },
   { id: 'buy', label: 'Kaufmenü (im Spawn, in der Kaufzeit)', keys: ['KeyB'] },
   { id: 'use', label: 'Bombe legen / entschärfen (halten)', keys: ['KeyE'] },
-  { id: 'special', label: 'Luftschlag (Spezialleiste voll)', keys: ['KeyX'] },
+  { id: 'special', label: 'Luftschlag (nach 3 Abschüssen hintereinander)', keys: ['KeyX'] },
   { id: 'inspect', label: 'Waffe begutachten', keys: ['KeyF'] },
   { id: 'scores', label: 'Statistik (halten)', keys: ['Tab'] },
   { id: 'chat', label: 'Schnellnachrichten öffnen (1 gegen 1)', keys: ['KeyT'] },
   { id: 'slot6', label: '6. Schnellnachricht (bei offener Liste)', keys: ['Digit6'] },
 ];
 export const DEFAULT_KEYS = Object.fromEntries(ACTIONS.map((a) => [a.id, [...a.keys]]));
+
+// Tasten, mit denen der Browser zusammen mit Strg zoomt (deutsche Tastatur: + ist BracketRight, - ist Slash)
+const ZOOM_KEYS = new Set(['Equal', 'Minus', 'BracketRight', 'Slash', 'Digit0', 'NumpadAdd', 'NumpadSubtract', 'Numpad0']);
 
 // Maustasten, die man belegen kann (0 = links und 2 = rechts sind Schießen und Zielen)
 const MOUSE_CODES = { 1: 'Mouse3', 3: 'Mouse4', 4: 'Mouse5' };
@@ -127,8 +130,10 @@ export class Input {
       }
     });
     document.addEventListener('wheel', (e) => {
+      // Strg ist Ducken: Strg + Mausrad (Waffe wechseln) würde sonst im Browser die ganze Seite zoomen
+      if (e.ctrlKey && this.locked) e.preventDefault();
       if (this.locked) this.wheel += Math.sign(e.deltaY);
-    }, { passive: true });
+    }, { passive: false });
     document.addEventListener('contextmenu', (e) => e.preventDefault());
     document.addEventListener('pointerlockchange', () => {
       this.locked = document.pointerLockElement === this.canvas;
@@ -157,6 +162,8 @@ export class Input {
       return;
     }
     if (this.bindings[e.code] && this.enabled) e.preventDefault();
+    // beim Ducken (Strg) aus Versehen Plus, Minus oder 0 gedrückt: nicht die Seite zoomen
+    else if (isDown && e.ctrlKey && this.locked && ZOOM_KEYS.has(e.code)) e.preventDefault();
     this._press(e.code, isDown);
   }
 

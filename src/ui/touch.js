@@ -276,8 +276,8 @@ export class TouchControls {
     }
     this._toggle(this.el.buy, m.canBuy);
     this._toggle(this.el.chat, g.mode === 'duel');
-    // Luftschlag: Ring füllt sich mit der Spezialleiste
-    const k = Math.min(1, (m.special || 0) / SPECIAL.charge);
+    // Luftschlag: Ring füllt sich mit der Abschussserie
+    const k = Math.min(1, (m.special || 0) / SPECIAL.streak);
     const sp = this.el.special;
     const pct = `${Math.round(k * 100)}`;
     if (sp._pct !== pct) {

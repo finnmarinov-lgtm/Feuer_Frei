@@ -83,6 +83,8 @@ export class Game {
     this.onRematch = null;
     this.onTeamRematch = null;
     this.sprintFov = 0;
+    // lebte der Spieler im letzten Schritt noch? (sein Tod unterbricht die Abschussserie)
+    this.wasAlive = false;
     this.hud = new Hud(this);
     this.buyMenu = new BuyMenu(this);
     // nach dem eigenen Tod im Duell: Kill-Cam und Gegner-Sicht
@@ -446,9 +448,12 @@ export class Game {
     this.airstrikes.tick(dt);
     this.targets.tick(dt, this.time);
     this.physics.step();
+    // eigener Tod (egal wodurch) unterbricht die Abschussserie für den Luftschlag
+    if (this.wasAlive && !this.player.alive) this.match.breakStreak();
+    this.wasAlive = this.player.alive;
   }
 
-  // Spezialleiste: X öffnet das Zielen für den Luftschlag, Linksklick bestätigt,
+  // Luftschlag (nach einer Abschussserie): X öffnet das Zielen, Linksklick bestätigt,
   // Rechtsklick oder nochmal X bricht ab
   _special(input) {
     const as = this.airstrikes;
@@ -457,8 +462,8 @@ export class Game {
       if (!MAP.airstrike) this.hud.message('Kein Luftschlag', `In der ${MAP.name} gibt es keinen Luftschlag`, 1.6);
       else if (as.targeting) as.cancel();
       else if (!m.specialReady) {
-        const pct = Math.floor((m.special / SPECIAL.charge) * 100);
-        this.hud.message('Luftschlag noch nicht bereit', `Spezialleiste ${pct} % · lädt mit Treffern`, 1.6);
+        const left = SPECIAL.streak - m.special;
+        this.hud.message('Luftschlag noch nicht bereit', `Noch ${left} ${left === 1 ? 'Abschuss' : 'Abschüsse'} hintereinander, ohne zu sterben`, 1.6);
       } else if (!m.canUseSpecial) {
         this.hud.message('Luftschlag gerade nicht möglich', m.phase === 'live' ? '' : 'Erst wenn die Runde läuft', 1.4);
       } else {
