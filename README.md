@@ -2,6 +2,8 @@
 
 3D-Shooter im Browser im Stil von CS: Hauptwaffe, Pistole, Messer und zwei Extra-Slots für Granaten, dazu ein Kaufmenü mit Budget zu Beginn jeder Runde. Gebaut mit Three.js, Physik mit Rapier.
 
+**Spielen:** https://finnmarinov-lgtm.github.io/Feuer_Frei/ · auch auf itch.io: https://fm323.itch.io/feuer-frei
+
 Drei Spielarten:
 
 - **Mehrspieler** über eine Lobby: einer erstellt sie und schickt Code oder Link, die Freunde klicken drauf und sind drin. Kein Konto, keine Installation. Zu zweit wird es ein **1 gegen 1**, mit mehr Leuten ein **Team-Spiel** (Rot gegen Blau, bis 4 gegen 4). Freie Plätze füllt der Host nur auf Knopfdruck mit KI-Spielern auf.
@@ -310,6 +312,10 @@ Die Leinwand ist auf geringe Verzögerung eingestellt (`desynchronized`). Dabei 
 ## Veröffentlichen (GitHub Pages)
 
 Repository: `Feuer_Frei` von `finnmarinov-lgtm`, spielbar unter https://finnmarinov-lgtm.github.io/Feuer_Frei/
+
+Zweiter Ort: die itch.io-Seite https://fm323.itch.io/feuer-frei mit demselben Build zum Mitspielen. Sie wird nicht automatisch aktualisiert – nach größeren Änderungen dort ein neues Zip aus `dist` hochladen. Wichtig: Das Zip nicht mit `Compress-Archive` packen (schreibt Backslashes in die Pfade, itch entpackt es dann falsch und das Spiel bleibt im Ladebildschirm hängen), sondern zum Beispiel mit Python `zipfile` und Schrägstrichen.
+
+Einladungslinks für den Mehrspieler-Modus funktionieren nur auf GitHub Pages zuverlässig; im itch-Fenster läuft das Spiel in einem Rahmen, dort geht der Lobby-Code zum Eintippen.
 
 Jeder Push auf `main` baut das Spiel automatisch neu und veröffentlicht es (`.github/workflows/pages.yml`). Den Stand sieht man im Repo unter *Actions*.
 
