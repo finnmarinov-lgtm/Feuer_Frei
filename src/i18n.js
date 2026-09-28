@@ -204,7 +204,144 @@ const EN = {
   'Statistik': 'Scoreboard',
   'Bitte dreh dein Handy quer': 'Please turn your phone sideways',
   'Das Spiel läuft im Querformat.': 'The game runs in landscape.',
+
+  // ---------- Anzeige im Spiel ----------
+  'Runde gewonnen': 'Round won',
+  'Runde verloren': 'Round lost',
+  'Siegprämie': 'win bonus',
+  'Niederlagenbonus': 'loss bonus',
+  'Runde läuft': 'Round running',
+  'Rundenende': 'Round over',
+  'Bombe wird gelegt …': 'Planting bomb …',
+  'Bombe wird entschärft …': 'Defusing bomb …',
+  'Bombe entschärfen': 'Defuse bomb',
+  'Bombe tickt': 'Bomb ticking',
+  'Bombenplatz': 'Bomb site',
+  'Bombe gelegt!': 'Bomb planted!',
+  'Du hast die Bombe entschärft': 'You defused the bomb',
+  'Du hast keine Leben mehr': 'You are out of lives',
+  'Zurück im Duell': 'Back in the duel',
+  'Zurück im Spiel': 'Back in the match',
+  'Abschüsse': 'Kills',
+  'Luftschlag gerade nicht möglich': 'Air strike not available right now',
+  'Tippe auf den Luftschlag-Knopf und wähle das Ziel': 'Tap the air strike button and pick the target',
+  'Luftschlag: Ziel anschauen · roter Knopf bestätigt · Flugzeug bricht ab':
+    'Air strike: look at the target · red button confirms · plane cancels',
+  'Luftschlag: Ziel anschauen ·': 'Air strike: look at the target ·',
+  'bestätigen ·': 'confirms ·',
+  'abbrechen': 'cancels',
+  'oder': 'or',
+  'Linksklick': 'Left click',
+  'Rechtsklick': 'Right click',
+  'Bomben-Knopf halten': 'Hold the bomb button',
+  'Entschärfen …': 'Defusing …',
+  'Entschärfen': 'Defuse',
+
+  // Kaufmenü
+  'Standardpistole, genau im Stand': 'Standard pistol, accurate when standing still',
+  'Kopftreffer sind tödlich': 'Headshots are lethal',
+  'Genau auch im Laufen': 'Accurate even while moving',
+  'Nah ein Treffer, weit schwach': 'One hit up close, weak at range',
+  'Stark, aber mit Rückstoß': 'Strong, but with recoil',
+  'Rotpunktvisier, ruhiger Rückstoß': 'Red dot sight, calm recoil',
+  'Ein Körpertreffer reicht': 'One body hit is enough',
+  'Weniger Schaden am Körper': 'Less damage to the body',
+  'Schützt auch den Kopf': 'Protects the head as well',
+  'Schaden im Umkreis': 'Damage in a radius',
+  'Blendet, wer hinsieht': 'Blinds whoever looks at it',
+  'Ausrüstung': 'Equipment',
+  'Kaufen gerade nicht möglich': 'Can’t buy right now',
+  'Kaufen jederzeit': 'Buy any time',
+  'Kaufen nicht möglich': 'Can’t buy',
+  'Nur im Spawn während der Kaufzeit': 'Only at spawn during buy time',
+  'Schon ausgerüstet': 'Already equipped',
+
+  // Waffen und Ausrüstung
+  'Schutzweste': 'Vest',
+  'Weste + Helm': 'Vest + helmet',
+  'Messer': 'Knife',
+  'Granate': 'Grenade',
+  'Granaten': 'Grenades',
+  'Splittergranate': 'Frag grenade',
+  'Blendgranate': 'Flashbang',
+  'Rauchgranate': 'Smoke grenade',
+  'Scharfschützengewehr': 'Sniper rifle',
+  'Spieler': 'Player',
+
+  // Schnellnachrichten
+  'Glück gehabt!': 'Lucky!',
+  'Warte kurz': 'One sec',
+
+  // Aufgaben bei den Skins
+  'Gewinne eine Partie bei „Nur Pistolen“': 'Win a match in “Pistols only”',
+  'Gewinne eine Partie bei „Scharfschützen“': 'Win a match in “Snipers”',
+  'Besiege die KI auf „Schwer“': 'Beat the AI on “Hard”',
+  'Gewinne 3 Partien im 1 gegen 1 (KI oder Freund)': 'Win 3 matches in 1v1 (AI or friend)',
+  'Lege 5 Bomben': 'Plant 5 bombs',
+  'Entschärfe 3 Bomben': 'Defuse 3 bombs',
+  'Lege im Training 100 Klappziele um': 'Knock down 100 flip targets in training',
+  'Schalte 3 Gegner mit dem Luftschlag aus': 'Take out 3 opponents with the air strike',
+  'Gewinne 3 Partien online gegen einen Freund': 'Win 3 online matches against a friend',
+
+  // Tastenbelegung
+  'Vorwärts': 'Forward',
+  'Rückwärts': 'Backward',
+  'Links': 'Left',
+  'Rechts': 'Right',
+  'Ducken (genauer, leiser)': 'Crouch (more accurate, quieter)',
+  'Sprinten (nur vorwärts)': 'Sprint (forward only)',
+  'Schleichen (lautlos, genauer)': 'Walk (silent, more accurate)',
+  'Hauptwaffe': 'Primary',
+  'Pistole': 'Pistol',
+  'Extra 1 (Granate)': 'Extra 1 (grenade)',
+  'Extra 2 (Granate)': 'Extra 2 (grenade)',
+  'Letzte Waffe': 'Last weapon',
+  'Kaufmenü (im Spawn, in der Kaufzeit)': 'Buy menu (at spawn, during buy time)',
+  'Bombe legen / entschärfen (halten)': 'Plant / defuse bomb (hold)',
+  'Luftschlag (nach 3 Abschüssen hintereinander)': 'Air strike (after 3 kills in a row)',
+  'Waffe begutachten': 'Inspect weapon',
+  'Statistik (halten)': 'Scoreboard (hold)',
+  'Schnellnachrichten öffnen (1 gegen 1)': 'Open quick messages (1v1)',
+  '6. Schnellnachricht (bei offener Liste)': '6th quick message (while the list is open)',
+  'Rücktaste': 'Backspace',
+
+  // Lobby und Verbindung
+  'Dort läuft gerade schon ein Spiel. Warte, bis es vorbei ist, oder erstelle eine eigene Lobby.':
+    'A match is already running there. Wait until it is over, or create your own lobby.',
+  'lädt neu …': 'reloading …',
+  'Zurück ins laufende Duell …': 'Back into the running duel …',
+  'Zurück ins laufende Spiel …': 'Back into the running match …',
+  'Direktverbindung nicht möglich:': 'Direct connection not possible:',
+  'Server-Verbindung nicht möglich:': 'Server connection not possible:',
 };
+
+// Zusammengesetzte Texte (Runde 3, +250 Siegprämie …). Wird nur geprüft,
+// wenn oben nichts genau passt.
+const MUSTER = [
+  [/^Runde (\d+)$/, 'Round $1'],
+  [/^Runde (\d+)\/(\d+)$/, 'Round $1/$2'],
+  [/^Runde (\d+) · Sieg bei (\d+)$/, 'Round $1 · first to $2'],
+  [/^Runde (\d+) · Du greifst an$/, 'Round $1 · you attack'],
+  [/^Runde (\d+) · Du verteidigst$/, 'Round $1 · you defend'],
+  [/^Runde (\d+) · Ihr greift an$/, 'Round $1 · your team attacks'],
+  [/^Runde (\d+) · Ihr verteidigt$/, 'Round $1 · your team defends'],
+  [/^Runde (\d+) · (.+) hat gewartet$/, 'Round $1 · $2 waited'],
+  [/^\+(\S+) Siegprämie$/, '+$1 win bonus'],
+  [/^\+(\S+) Niederlagenbonus$/, '+$1 loss bonus'],
+  [/^(.+) hat die Bombe entschärft$/, '$1 defused the bomb'],
+  [/^(.+) ist zurück$/, '$1 is back'],
+  [/^Zeit abgelaufen · du hast mehr Leben übrig$/, 'Time is up · you have more lives left'],
+  [/^Zeit abgelaufen · dein Team hat mehr Leben übrig$/, 'Time is up · your team has more lives left'],
+  [/^Zeit abgelaufen · (.+) hat mehr Leben übrig$/, 'Time is up · $1 has more lives left'],
+  [/^Noch (\d+) Abschuss hintereinander, ohne zu sterben$/, '$1 more kill in a row without dying'],
+  [/^Noch (\d+) Abschüsse hintereinander, ohne zu sterben$/, '$1 more kills in a row without dying'],
+  [/^(\d+) Abschüsse mit (.+)$/, '$1 kills with $2'],
+  [/^(\d+) Kopfschüsse \(Abschüsse\) mit (.+)$/, '$1 headshot kills with $2'],
+  [/^Teils über Server(.*)$/, 'Partly via server$1'],
+  [/^Über Server(.*)$/, 'Via server$1'],
+  [/^mit (.+) öffnest du das Kaufmenü$/, 'press $1 to open the buy menu'],
+  [/^Entschärfe sie: hingehen und (.+) \((.+)\)$/, 'Defuse it: walk over and $1 ($2)'],
+];
 
 const ATTRIBUTE = ['aria-label', 'title', 'placeholder'];
 
@@ -214,7 +351,10 @@ function uebersetzeText(knoten) {
   const text = roh.trim();
   if (!text || text.length > 400) return;
   const treffer = EN[text];
-  if (treffer) knoten.nodeValue = roh.replace(text, treffer);
+  if (treffer) { knoten.nodeValue = roh.replace(text, treffer); return; }
+  for (const [muster, ersatz] of MUSTER) {
+    if (muster.test(text)) { knoten.nodeValue = roh.replace(text, text.replace(muster, ersatz)); return; }
+  }
 }
 
 function uebersetzeElement(el) {
