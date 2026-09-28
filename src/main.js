@@ -16,6 +16,9 @@ import { Locker } from './ui/locker.js';
 import { ARMS } from './config.js';
 import { MAP, MAPS, setMap } from './world/map.js';
 import { TEAM_NAMES, otherTeam } from './game/sides.js';
+import { zaehleAufruf } from './net/zaehler.js';
+
+zaehleAufruf();
 
 const $ = (id) => document.getElementById(id);
 const SCREENS = ['loading', 'menu', 'lobby', 'bots', 'locker', 'pause', 'settings', 'controls', 'results', 'click-resume'];

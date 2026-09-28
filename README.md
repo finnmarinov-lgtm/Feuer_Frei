@@ -330,6 +330,45 @@ Damit das Spiel sparsam bleibt: Teile, die sich gemeinsam bewegen und dasselbe M
 
 Die Leinwand ist auf geringe Verzögerung eingestellt (`desynchronized`). Dabei kann der Browser Zwischenstände anzeigen, deshalb wird jedes Bild erst im Hintergrund fertig zusammengesetzt und dann in einem Zug ausgegeben. Direkt in mehreren Durchgängen ins sichtbare Bild zu zeichnen führt zu Flackern.
 
+## Zähler für Seitenaufrufe
+
+`src/net/zaehler.js` meldet bei jedem Laden der Seite einen Aufruf an die eigene Supabase-Datenbank. Gespeichert werden nur **Datum und Herkunft** (der Hostname der verweisenden Seite, z. B. `itch.io`) – keine IP, kein Cookie, nichts Personenbezogenes. Auf `localhost` zählt es nicht mit.
+
+Einmalig in Supabase anzulegen (SQL-Editor):
+
+```sql
+create table if not exists aufrufe (
+  tag date not null default current_date,
+  quelle text not null default 'direkt',
+  anzahl integer not null default 0,
+  primary key (tag, quelle)
+);
+
+alter table aufrufe enable row level security;
+
+create or replace function seite_aufgerufen(p_quelle text default 'direkt')
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into aufrufe (tag, quelle, anzahl)
+  values (current_date, coalesce(nullif(p_quelle, ''), 'direkt'), 1)
+  on conflict (tag, quelle) do update set anzahl = aufrufe.anzahl + 1;
+end;
+$$;
+
+grant execute on function seite_aufgerufen(text) to anon;
+```
+
+Auswerten im SQL-Editor:
+
+```sql
+select tag, sum(anzahl) as aufrufe from aufrufe group by tag order by tag desc;
+select quelle, sum(anzahl) as aufrufe from aufrufe group by quelle order by aufrufe desc;
+```
+
 ## Veröffentlichen (GitHub Pages)
 
 Repository: `Feuer_Frei` von `finnmarinov-lgtm`, spielbar unter https://finnmarinov-lgtm.github.io/Feuer_Frei/
