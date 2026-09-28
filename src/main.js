@@ -17,7 +17,9 @@ import { ARMS } from './config.js';
 import { MAP, MAPS, setMap } from './world/map.js';
 import { TEAM_NAMES, otherTeam } from './game/sides.js';
 import { zaehleAufruf } from './net/zaehler.js';
+import { setSprache, sprache, starteUebersetzung } from './i18n.js';
 
+starteUebersetzung();
 zaehleAufruf();
 
 const $ = (id) => document.getElementById(id);
@@ -558,6 +560,13 @@ function setupMenus(game, input, audio) {
     bind('set-touchsens', 'touchSens', (v) => v.toFixed(2)),
   ];
   $('set-touch').addEventListener('input', () => touch.setEnabled(wantsTouch(settings)));
+
+  // Sprache: wird gespeichert und die Seite neu geladen, damit alle Texte passen
+  const sprachwahl = $('set-lang');
+  if (sprachwahl) {
+    sprachwahl.value = sprache();
+    sprachwahl.addEventListener('change', () => setSprache(sprachwahl.value));
+  }
   function openSettings() {
     for (const s of syncs) s();
     syncBossKey();
