@@ -3,6 +3,7 @@
 // nichts, womit sich eine Person wiedererkennen ließe. Deshalb braucht es auch kein Banner.
 //
 // Die Tabelle und die Funktion dazu liegen in Supabase (siehe README, Abschnitt Zähler).
+// Petri Heil zählt in dieselbe Tabelle, deshalb geht der Spielname als p_spiel mit.
 
 const SUPABASE_RPC = 'https://yzzipjtounvktdhhvrnt.supabase.co/rest/v1/rpc/seite_aufgerufen';
 const SUPABASE_KEY = 'sb_publishable_OCNFFT4wa4CMaHyhcLAY4A_u2flZF1s';
@@ -26,7 +27,7 @@ export function zaehleAufruf() {
     fetch(SUPABASE_RPC, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY },
-      body: JSON.stringify({ p_quelle: herkunft() }),
+      body: JSON.stringify({ p_quelle: herkunft(), p_spiel: 'feuer-frei' }),
       keepalive: true,
     }).catch(() => {});
   } catch {
