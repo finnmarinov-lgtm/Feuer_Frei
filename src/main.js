@@ -17,7 +17,7 @@ import { ARMS } from './config.js';
 import { MAP, MAPS, setMap } from './world/map.js';
 import { TEAM_NAMES, otherTeam } from './game/sides.js';
 import { zaehleAufruf } from './net/zaehler.js';
-import { setSprache, sprache, starteUebersetzung } from './i18n.js';
+import { geld, locale, setSprache, sprache, starteUebersetzung, t } from './i18n.js';
 
 starteUebersetzung();
 zaehleAufruf();
@@ -33,7 +33,7 @@ const BOT_INFO = {
   schwer: 'Reagiert blitzschnell, trifft oft den Kopf und spielt die Bombe klug. Wer sie besiegt, bekommt eine Überraschung.',
 };
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
-const fmtMoney = (v) => `${Math.round(v).toLocaleString('de-DE')} $`;
+const fmtMoney = geld;
 const nextFrame = () => new Promise((r) => setTimeout(r, 0));
 
 function show(name) {
@@ -139,7 +139,14 @@ function setupMenus(game, input, audio) {
     }
   }
 
+  function syncFullscreenButton() {
+    const off = input.touch || !!document.fullscreenElement || !document.documentElement.requestFullscreen;
+    $('btn-fullscreen').hidden = off;
+    $('pause-fullscreen').hidden = off;
+  }
+
   function syncPauseTexts() {
+    syncFullscreenButton();
     const duel = game.mode === 'duel';
     const online = duel && game.match.online;
     $('pause-note').hidden = !online;
@@ -309,7 +316,7 @@ function setupMenus(game, input, audio) {
   }
   $('btn-bots').addEventListener('click', () => {
     // noch nichts gewählt: auf dem Handy bei den Anfängern beginnen (Zielen mit dem Finger ist schwerer)
-    botOpts.level ||= input.touch ? 'anfaenger' : 'mittel';
+    botOpts.level ||= input.touch ? 'anfaenger' : 'leicht';
     renderBotOpts();
     show('bots');
   });
@@ -344,6 +351,8 @@ function setupMenus(game, input, audio) {
 
   function resume() {
     pendingResume = true;
+    // Esc hat das Vollbild verlassen (das macht der Browser immer): mit Weiter kommt es zurück
+    enterFullscreen();
     show(null);
     lockOrAsk();
   }
@@ -394,8 +403,16 @@ function setupMenus(game, input, audio) {
     if (back) $(back).click();
   };
   input.canvas.addEventListener('click', () => {
-    if (game.state === 'playing' && !input.locked && !game.buyMenu.open) lockOrAsk();
+    if (game.state === 'playing' && !input.locked && !game.buyMenu.open) {
+      enterFullscreen();
+      lockOrAsk();
+    }
   });
+  // Knopf in der Pause: zurück ins Vollbild (auch wenn es beim Start ausgeschaltet ist)
+  $('btn-fullscreen').addEventListener('click', () => {
+    document.documentElement.requestFullscreen?.({ navigationUI: 'hide' }).catch(() => {});
+  });
+  document.addEventListener('fullscreenchange', syncFullscreenButton);
   $('click-resume').addEventListener('click', () => {
     if (game.state === 'paused') pendingResume = true;
     audio.init();
@@ -608,7 +625,7 @@ function setupMenus(game, input, audio) {
   try {
     const saved = JSON.parse(localStorage.getItem(NOTES_KEY) || 'null');
     if (saved) {
-      $('notes-title').value = saved.title || 'Notizen';
+      $('notes-title').value = saved.title || t('Notizen');
       $('notes-text').value = saved.text || '';
     }
   } catch {
@@ -640,11 +657,11 @@ function setupMenus(game, input, audio) {
       input.unlock();
       if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
       audio.mute(true);
-      $('notes-date').textContent = new Date().toLocaleDateString('de-DE', {
+      $('notes-date').textContent = new Date().toLocaleDateString(locale(), {
         weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
       });
       $('notes').hidden = false;
-      document.title = $('notes-title').value || 'Notizen';
+      document.title = $('notes-title').value || t('Notizen');
       $('notes-text').focus();
     } else {
       notesOpen = false;

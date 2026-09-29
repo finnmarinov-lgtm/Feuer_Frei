@@ -1,7 +1,8 @@
 import { SHOP, WEAPONS, ARMOR } from '../config.js';
+import { geld } from '../i18n.js';
 
 const $ = (id) => document.getElementById(id);
-const fmtMoney = (v) => `${Math.round(v).toLocaleString('de-DE')} $`;
+const fmtMoney = geld;
 
 const INFO = {
   natter: 'Standardpistole, genau im Stand',

@@ -6,12 +6,13 @@ import { FINISHES } from '../weapons/finishes.js';
 import { MAP } from '../world/map.js';
 import { TEAM_NAMES, otherTeam } from '../game/sides.js';
 import { Radar } from './radar.js';
+import { geld } from '../i18n.js';
 
 const TARGET_NAME = Object.fromEntries(LOCKER.map((l) => [l.id, l.name]));
 const skinName = (t) => `${TARGET_NAME[t.reward[0]]} · ${FINISHES[t.reward[1]].name}`;
 
 const $ = (id) => document.getElementById(id);
-const fmtMoney = (v) => `${Math.round(v).toLocaleString('de-DE')} $`;
+const fmtMoney = geld;
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
 /** Verbindungsart und Ping als kurzer Text */

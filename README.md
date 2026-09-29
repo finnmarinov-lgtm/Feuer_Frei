@@ -90,6 +90,17 @@ Oben links zeigt ein **Radar** die ganze Karte von oben, wie in CS: Boden hell, 
 
 Gezeichnet wird es in `src/ui/radar.js` aus den Bauteilen der Karte (`arena.boxes`, `arena.props`), einmal pro Karte, darauf dann jedes Bild die Punkte. Welche Gegner zu sehen sind, prüft es zehnmal pro Sekunde mit denselben Sichtlinien wie die KI.
 
+## Sprache
+
+Die Oberfläche ist auf **Englisch**, Deutsch lässt sich unter *Einstellungen → Sprache* wählen (gespeichert unter `feuer-frei-sprache`). Geschrieben ist alles auf Deutsch, das bleibt die Quelle und steht so auch im HTML, das Google liest. `src/i18n.js` tauscht beim Start und bei jeder Änderung die Texte im Dokument gegen die englischen:
+
+- **Wörterbuch `EN`** für feste Texte, dazu **Vorlagen** für zusammengesetzte (`'{} hat dich erwischt' → '{1} got you'`, `{n}` steht für eine Zahl). Was in einem Platzhalter steht, wird selbst wieder übersetzt (Kartennamen, „E halten“).
+- Texte mit ` · `, ` – `, `: ` oder `, ` zerfallen in Teile, die einzeln übersetzt werden („Hof · Nur Pistolen“ → „Yard · Pistols only“). Namen von Spielern bleiben dabei stehen.
+- Geschrieben wird nur, wenn sich der Text wirklich ändert: Der MutationObserver meldet jedes Setzen erneut, auch mit demselben Wert. Vorher übersetzte sich „Pause“ in der Steuerung endlos selbst, und die Seite fror ein.
+- Tastennamen (`Space`, `Ctrl`) und Geld (`$2,200`) kommen direkt in der gewählten Sprache (`keyLabel`, `geld`), Texte außerhalb des Dokuments (Teilen, Name im Eingabefeld) über `t()`.
+
+Neue Texte im Spiel brauchen einen Eintrag in `EN` oder eine Vorlage, sonst bleiben sie auf Englisch deutsch.
+
 ## Karten
 
 Im Hauptmenü wählt man die Karte für das Training (und für den Hintergrund des Menüs), bei **Gegen KI** und in der Lobby jeweils extra. Alle Karten sind punktsymmetrisch: Der Host startet im Westen, der Gast gespiegelt im Osten.
@@ -152,7 +163,9 @@ Die KI spielt nach denselben Regeln wie ein Freund im 1 gegen 1 (sie ist dabei d
 | Mittel | 0,4 s | mittel | bleibt zum Schießen stehen, hört Schritte weiter |
 | Schwer | 0,25 s | klein | dreht sich schnell, oft Kopfschüsse, duckt sich bei langen Salven |
 
-Auf dem Handy spielt die KI in jeder Stufe schwächer, weil Zielen mit dem Finger schwerer ist: 0,3 s längere Reaktion, anderthalbfacher Zielfehler, langsameres Drehen und Schießen, halb so oft Luftschläge. Ohne gespeicherte Wahl beginnt man dort bei den Anfängern.
+Auf dem Handy spielt die KI in jeder Stufe schwächer, weil Zielen mit dem Finger schwerer ist: 0,3 s längere Reaktion, anderthalbfacher Zielfehler, langsameres Drehen und Schießen, halb so oft Luftschläge. Ohne gespeicherte Wahl beginnt man dort bei den Anfängern, am PC auf **Leicht** (auch die KI-Spieler in der Lobby).
+
+**Fair bleiben** (nach einer Rückmeldung auf Reddit, 29.09.2026): Die KI trifft einen Menschen über dieselbe Körperbreite (50 cm), die man selbst bei ihr treffen muss (vorher 64 cm). Sie ahnt zwar ungefähr, wo man steckt, damit sie nicht ewig sucht, schaut aber beim Suchen und beim Bombelegen nur auf eine vermutete Stelle und nicht mehr durch Wände genau auf einen.
 
 **Überraschung:** Wer die KI auf **Schwer** besiegt, bekommt die **Regenbogen-Klinge** fürs Messer (siehe Skins und Aufgaben).
 
@@ -226,7 +239,7 @@ Nach dem Sprinten braucht die Waffe einen Moment, bis sie schießt (Natter 0,12 
 
 Weil `Strg` Ducken ist und das Mausrad die Waffe wechselt, fängt das Spiel `Strg` + Mausrad (und `Strg` + Plus/Minus/0) ab, solange man spielt: sonst würde der Browser die ganze Seite zoomen. Ist die Seite schon verkleinert, stellt `Strg` + `0` sie zurück.
 
-Das Spiel geht beim Start in den Vollbildmodus. So fängt Chrome auch `Strg+W` ab, sonst würde Ducken plus Vorwärtslaufen den Tab schließen. Abschalten lässt sich das in den Einstellungen.
+Das Spiel geht beim Start in den Vollbildmodus. `Esc` verlässt ihn (das macht der Browser immer, zusammen mit der Maus). Mit **Weiter** oder einem Klick ins Spiel kommt das Vollbild zurück, in der Pause gibt es dafür außerdem den Knopf **Vollbild**. So fängt Chrome auch `Strg+W` ab, sonst würde Ducken plus Vorwärtslaufen den Tab schließen. Abschalten lässt sich das in den Einstellungen.
 
 ## Waffen
 

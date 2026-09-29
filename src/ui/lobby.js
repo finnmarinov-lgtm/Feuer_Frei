@@ -1,4 +1,5 @@
 import { Net, PROTOCOL, randomCode, parseCode } from '../net/net.js';
+import { t } from '../i18n.js';
 import { ARMS } from '../config.js';
 import { MAP, MAPS } from '../world/map.js';
 import { session, setUrlLobby } from '../net/session.js';
@@ -50,7 +51,7 @@ export class Lobby {
     // 1 gegen 1: Name und Skins des anderen
     this.partnerName = '';
     this.partnerLooks = null;
-    this.opts = { mode: 'kampf', lives: 3, wins: 2, map: MAP.id, arms: 'alle', level: 'mittel' };
+    this.opts = { mode: 'kampf', lives: 3, wins: 2, map: MAP.id, arms: 'alle', level: 'leicht' };
     this.countdown = 0;
     this.cdTimer = null;
     this.tickTimer = null;
@@ -64,7 +65,7 @@ export class Lobby {
     } catch {
       // ohne Speicher gibt es jedes Mal einen neuen Namen
     }
-    nameInput.value = saved || `Spieler ${Math.floor(10 + Math.random() * 90)}`;
+    nameInput.value = saved || t(`Spieler ${Math.floor(10 + Math.random() * 90)}`);
     nameInput.addEventListener('input', () => {
       try {
         localStorage.setItem(NAME_KEY, cleanName(nameInput.value));
@@ -718,7 +719,7 @@ export class Lobby {
   }
 
   _share() {
-    navigator.share?.({ title: 'Feuer Frei – Mehrspieler', text: `Spiel mit mir! Code ${this.code}`, url: this.link }).catch(() => {});
+    navigator.share?.({ title: t('Feuer Frei – Mehrspieler'), text: t(`Spiel mit mir! Code ${this.code}`), url: this.link }).catch(() => {});
   }
 
   // ---------- Anzeige ----------

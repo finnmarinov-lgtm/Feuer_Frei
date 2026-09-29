@@ -1,3 +1,5 @@
+import { sprache } from '../i18n.js';
+
 // Tastatur, Maus und Pointer Lock, auf dem Handy dazu die Touch-Steuerung (touch.js).
 // Aktionen statt Tastencodes: jede Aktion hat bis zu zwei Tasten, die man in der Steuerung
 // selbst belegen kann (auch die Maustasten 3 bis 5). Schießen, Zielen, Mausrad und Esc sind fest.
@@ -44,6 +46,17 @@ const KEY_NAMES = {
   ArrowLeft: 'Pfeil links', ArrowRight: 'Pfeil rechts', Pause: 'Pause', ScrollLock: 'Rollen',
   Mouse3: 'Maus 3', Mouse4: 'Maus 4', Mouse5: 'Maus 5',
 };
+// auf Englisch: Namen der Sondertasten und die US-Tastatur (Firefox kennt die echte Belegung nicht)
+const KEY_NAMES_EN = {
+  Backquote: '`', Minus: '-', Equal: '=', BracketLeft: '[', BracketRight: ']', Semicolon: ';',
+  Quote: "'", Backslash: '\\', IntlBackslash: '\\', Comma: ',', Period: '.', Slash: '/',
+  Space: 'Space', Enter: 'Enter', Backspace: 'Backspace', CapsLock: 'Caps Lock', Tab: 'Tab',
+  ShiftLeft: 'Shift', ShiftRight: 'Right Shift', ControlLeft: 'Ctrl', ControlRight: 'Right Ctrl',
+  AltLeft: 'Alt', AltRight: 'Alt Gr', Insert: 'Insert', Delete: 'Delete', Home: 'Home', End: 'End',
+  PageUp: 'Page Up', PageDown: 'Page Down', ArrowUp: 'Up', ArrowDown: 'Down',
+  ArrowLeft: 'Left', ArrowRight: 'Right', Pause: 'Pause', ScrollLock: 'Scroll Lock',
+  Mouse3: 'Mouse 3', Mouse4: 'Mouse 4', Mouse5: 'Mouse 5',
+};
 
 // echte Beschriftung der Tastatur, falls der Browser sie kennt (Chrome, Edge)
 let layoutMap = null;
@@ -54,7 +67,8 @@ export function keyLabel(code) {
   const ch = layoutMap?.get(code);
   // groß schreiben, nur das ß nicht (daraus würde sonst "SS")
   if (ch && ch.trim() && !code.startsWith('Numpad')) return ch === 'ß' ? ch : ch.toUpperCase();
-  if (KEY_NAMES[code]) return KEY_NAMES[code];
+  const names = sprache() === 'de' ? KEY_NAMES : KEY_NAMES_EN;
+  if (names[code]) return names[code];
   if (code.startsWith('Key')) return code.slice(3);
   if (code.startsWith('Digit')) return code.slice(5);
   if (code.startsWith('Numpad')) return 'Num ' + code.slice(6);

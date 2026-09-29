@@ -80,7 +80,8 @@ function hitPlayer(o, d, maxDist, p) {
       if (tc >= t1 && tc <= t2) take(tc, zone);
     }
   };
-  cyl(0.88 * s, 1.47 * s, 0.32, 'body');
+  // so breit wie die Trefferzonen der Figur, die Menschen treffen müssen (Rumpf 50 cm)
+  cyl(0.88 * s, 1.47 * s, 0.26, 'body');
   cyl(0.04, 0.88 * s, 0.22, 'legs');
   if (best) best.point = new THREE.Vector3().copy(o).addScaledVector(d, best.distance);
   return best;
@@ -846,7 +847,10 @@ export class Bot {
         if (this._dist(site) < BOMB.siteRadius - 0.4 && now - this.seenAt > 1.2 && b.onGround) {
           this.plantT += dt;
           if (this.plantT >= BOMB.plantTime) this._plant();
-          return { wish: null, look: this._nearestFoe()?.feet ?? null };
+          // beim Legen dorthin schauen, wo zuletzt ein Gegner zu sehen oder zu hören war, sonst zu
+          // seinem Startpunkt (nicht auf seine echte Position, die kennt sie durch Wände nicht)
+          const look = now - this.seenAt < 8 ? this.lastSeen : now - this.heardAt < 5 ? this.heard : SPAWNS[this.foeSide].pos;
+          return { wish: null, look };
         }
         this.plantT = 0;
         if (plan.lane && this._dist({ x: plan.lane[0], z: plan.lane[1] }) > 3 && this.dir * (b.feet.x - plan.lane[0]) > -2) {
@@ -924,10 +928,14 @@ export class Bot {
       }
       plan.hunt = this.nav.randomNear(hx, hz, this.L.hunt);
       plan.huntT = rand(4, 7);
+      // angekommen schaut sie dorthin, wo sie ihn vermutet, nicht genau auf ihn (sonst zielte sie
+      // durch Wände vor und wartete schon, wenn man um die Ecke schaut)
+      const r = this.L.hunt * 0.6;
+      plan.guess = { x: hx + rand(-r, r), y: p.y, z: hz + rand(-r, r) };
     }
     const w = this._follow(plan.hunt.x, plan.hunt.z);
     if (!w) plan.huntT = Math.min(plan.huntT, 1.2);
-    return { wish: w, look: w ? null : near.feet, sprint: quiet && !!w && w.d > 10 };
+    return { wish: w, look: w ? null : plan.guess, sprint: quiet && !!w && w.d > 10 };
   }
 
   _plant() {
