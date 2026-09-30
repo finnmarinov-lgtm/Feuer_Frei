@@ -11,6 +11,16 @@ import { cleanName } from '../names.js';
 const other = (role) => (role === 'host' ? 'guest' : 'host');
 const pack = (v) => [Math.round(v.x * 100), Math.round(v.y * 100), Math.round(v.z * 100)];
 const unpack = (a, out = new THREE.Vector3()) => out.set(a[0] / 100, a[1] / 100, a[2] / 100);
+
+/**
+ * Nächster Sendezeitpunkt: weiterzählen statt neu anfangen, damit der Abstand gleichmäßig bleibt
+ * (bei 60 Bildern pro Sekunde und 30 Sendungen genau jedes zweite Bild; neu gesetzt kam mal nach
+ * zwei, mal nach drei Bildern etwas). Liegt man mehr als einen Abstand zurück (Ruckler), neu anfangen.
+ */
+export function nextSend(t, every) {
+  return t < -every ? every : t + every;
+}
+
 // Oberflächen als Zahl (0 = kein Einschlag, z. B. Treffer am Spieler)
 const SURFACES = ['', 'stone', 'sand', 'metal', 'wood'];
 
@@ -735,9 +745,9 @@ export class Duel extends Match {
     this.sinceSend += dt;
     this.sendT -= dt;
     const server = this.net.mode === 'server';
-    const due = this.sendT <= 0 || (this.urgent && (!server || this.sinceSend >= 0.05));
-    if (!due) return;
-    this.sendT = server ? 1 / 12 : 1 / 30;
+    const due = this.sendT <= 0;
+    if (!due && !(this.urgent && (!server || this.sinceSend >= 0.05))) return;
+    if (due) this.sendT = nextSend(this.sendT, server ? 1 / 12 : 1 / 30);
     this._sendState();
   }
 
@@ -755,7 +765,7 @@ export class Duel extends Match {
     if (this.protectT > 0 && this.phase === 'live') f |= FLAG.PROTECT;
     if (this.busy) f |= FLAG.BUSY;
     const msg = {
-      t: 's', k: Math.round(performance.now()), p: pack(p.feet),
+      t: 's', k: Math.round(g.simNow || performance.now()), p: pack(p.feet),
       y: Math.round(p.yaw * 1000), a: Math.round(p.pitch * 1000), d: Math.round(p.duckAmount * 100),
       w: ws.active ? WEAPON_IDS.indexOf(ws.active.id) : -1, f, hp: Math.ceil(p.health),
     };

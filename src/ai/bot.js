@@ -553,7 +553,7 @@ export class Bot {
     if (b.sprinting) f |= FLAG.SPRINT;
     if (b.busy) f |= FLAG.BUSY;
     const msg = {
-      t: 's', k: Math.round(performance.now()), p: pack(b.feet),
+      t: 's', k: Math.round(this.g.simNow || performance.now()), p: pack(b.feet),
       y: Math.round(b.yaw * 1000), a: Math.round(b.pitch * 1000), d: Math.round(b.duckAmount * 100),
       w: WEAPON_IDS.indexOf(this.weapon.id), f, hp: Math.ceil(b.health),
     };

@@ -79,7 +79,8 @@ async function boot() {
   const loop = (now) => {
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
-    game.frame(dt);
+    // now: Zeitstempel des Bilds vom Browser, passt genau zu dt (Zeitstempel fürs Netz)
+    game.frame(dt, now);
     touch.update();
     requestAnimationFrame(loop);
   };

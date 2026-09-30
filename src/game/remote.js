@@ -415,7 +415,8 @@ export class RemotePlayer {
       if (this.collider?.isEnabled()) this.collider.setEnabled(false);
       return;
     }
-    if (!this._sample(at ?? performance.now() + this.clockOff - this.delay)) return;
+    // Zeit des Bilds statt "jetzt": gleichmäßige Abstände, egal wie lange das Bild bis hierher brauchte
+    if (!this._sample(at ?? (this.g.frameTime || performance.now()) + this.clockOff - this.delay)) return;
     const s = this.state;
     const aliveFlag = (s.f & FLAG.ALIVE) !== 0;
     // falls die Todesmeldung unterwegs verloren ging, reicht auch der Zustand

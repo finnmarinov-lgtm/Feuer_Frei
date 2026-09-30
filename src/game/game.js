@@ -96,6 +96,12 @@ export class Game {
 
     // Auflösung "Automatisch": geht eine Stufe herunter, wenn es beim Spielen ruckelt
     this.autoScale = new AutoScale();
+    // Shader nach einem Kartenwechsel (siehe loadMap): so lange wird nicht gezeichnet
+    this.compiling = null;
+    this.compilingUntil = 0;
+    // Zeitpunkt (performance.now) des zuletzt berechneten Simulationsschritts und des Bilds
+    this.simNow = 0;
+    this.frameTime = 0;
     this.renderer.applyQuality(settings.quality, this.env.sun, this._renderScale());
     this._applyTextureFilter();
     this.effects.setViewport(this.renderer.renderer.getDrawingBufferSize(new THREE.Vector2()).y, this.camera.fov);
@@ -108,24 +114,50 @@ export class Game {
 
   /** Shader vorab übersetzen, damit es beim ersten Schuss nicht ruckelt */
   async warmup() {
-    const r = this.renderer.renderer;
     for (const [key, m] of Object.entries(this.viewmodel.models)) {
-      m.model.visible = true;
       // getragene Skins gleich mit übersetzen, sonst ruckelt es beim ersten Ziehen
       const [id, knife] = key.split(':');
       applyFinish(m.model, PAINT[knife || id] || [], skinOf(this.looks, knife ? 'messer' : id), knife ? 40 : 22);
       applyFinish(m.model, SLEEVE, skinOf(this.looks, 'spieler'), 9);
     }
+    await this.precompile();
+  }
+
+  /**
+   * Alle Shader vorab übersetzen. Sonst übersetzt der Browser sie erst, wenn etwas zum ersten Mal
+   * zu sehen ist, und das Bild hängt (Waffe eines Gegners, Mündungsfeuer, Funken, Rauch, Jet; nach
+   * einem Kartenwechsel die ganze Arena auf einmal). Übersetzt wird für den Zwischenpuffer, in den
+   * das Spiel zeichnet (EffectComposer): Für die direkte Ausgabe auf den Bildschirm entstünde eine
+   * andere Variante, die nie gebraucht wird (so war es bis 30.09.2026, gut 20 Shader umsonst).
+   * Das Übersetzen selbst läuft neben dem Spiel her; das Versprechen ist erfüllt, wenn alles fertig ist.
+   */
+  precompile() {
+    const r = this.renderer.renderer;
     this.effects.muzzleLight.intensity = 1;
     this.effects.boomLight.intensity = 1;
-    // Waffen fremder Figuren hängen nur in der Hand, solange sie getragen werden: zum Übersetzen
-    // kurz alle anhängen, sonst ruckelt es, wenn ein Gegner eine Waffe zum ersten Mal zieht
-    const held = [...Object.values(this.remote.weapons), ...Object.values(this.remote.knives)].map((w) => w.model);
-    for (const w of held) this.remote.n.anchor.add(w);
-    await r.compileAsync(this.scene, this.camera);
-    for (const w of held) w.removeFromParent();
-    await r.compileAsync(this.viewScene, this.viewCamera);
-    for (const m of Object.values(this.viewmodel.models)) m.model.visible = false;
+    // Was nur zeitweise in der Szene hängt, kurz dazuhängen: die Waffen fremder Figuren (sie hängen
+    // nur in der Hand, solange sie getragen werden), ihr Mündungsfeuer, Granaten im Flug, Rauch, Jet
+    const remote = this.remote;
+    const moved = [...Object.values(remote.weapons), ...Object.values(remote.knives)].map((w) => [w.model, remote.n.anchor]);
+    const extra = new THREE.Group();
+    this._smokeProbe ||= new THREE.Mesh(this.grenades.smokeQuad, this.grenades._smokeMaterial());
+    moved.push([remote.flash, extra], [this._smokeProbe, extra], [this.airstrikes.planeTemplate, extra]);
+    for (const t of Object.values(this.grenades.templates)) moved.push([t, extra]);
+    const parents = moved.map(([o]) => o.parent);
+    for (const [o, to] of moved) to.add(o);
+    this.scene.add(extra);
+    const prev = r.getRenderTarget();
+    r.setRenderTarget(this.renderer.composer.readBuffer);
+    // compileAsync legt die Programme sofort an und wartet danach nur noch, bis sie fertig sind:
+    // die Objekte können also gleich wieder an ihren alten Platz
+    const ready = Promise.all([r.compileAsync(this.scene, this.camera), r.compileAsync(this.viewScene, this.viewCamera)]);
+    r.setRenderTarget(prev);
+    this.scene.remove(extra);
+    moved.forEach(([o], i) => {
+      if (parents[i]) parents[i].add(o);
+      else o.removeFromParent();
+    });
+    return ready;
   }
 
   applySettings() {
@@ -199,6 +231,13 @@ export class Game {
     this.bombSites.remove();
     if (this.renderer.quality?.staticShadows) this.renderer.needsShadowBake = true;
     this.player.spawn(SPAWN.pos, SPAWN.yaw);
+    // die Shader der neuen Arena nebenher übersetzen und so lange nicht zeichnen (höchstens 3 s):
+    // sonst stünde beim ersten Bild alles still, im Mehrspieler beim Host auch Runde und KI
+    const job = this.precompile().finally(() => {
+      if (this.compiling === job) this.compiling = null;
+    });
+    this.compiling = job;
+    this.compilingUntil = performance.now() + 3000;
     return true;
   }
 
@@ -499,7 +538,9 @@ export class Game {
     }
   }
 
-  frame(dt) {
+  /** ein Bild; now: Zeitstempel des Bilds (requestAnimationFrame), aus dem auch dt stammt */
+  frame(dt, now = performance.now()) {
+    this.frameTime = now;
     const duel = this.mode === 'duel';
     // bewegte Skins (Regenbogen, Lava, Neon, Galaxie)
     tickFinishes(performance.now() / 1000);
@@ -539,6 +580,10 @@ export class Game {
       this.acc += dt;
       let n = 0;
       while (this.acc >= TICK && n < MAX_TICKS) {
+        // der Zeitpunkt, für den dieser Schritt rechnet: Zeitstempel der Zustände fürs Netz. Mit der
+        // Uhrzeit beim Senden lagen sie je nach Bildrate bis zu einem Schritt daneben, oder zwei
+        // Zustände aus demselben Bild bekamen denselben Stempel (der zweite ging verloren)
+        this.simNow = now - (this.acc - TICK) * 1000;
         this.tick(TICK);
         input.endTick();
         this.acc -= TICK;
@@ -595,6 +640,9 @@ export class Game {
     // Waffenkammer: die Vorschau dreht sich im Menü rechts im Bild
     const showcase = this.state === 'menu' && !!this.showcase?.visible;
     if (showcase) this._turnShowcase(dt);
+    // nach einem Kartenwechsel: erst zeichnen, wenn die Shader fertig sind (bis dahin bleibt das
+    // letzte Bild stehen, meist liegt ohnehin "Klicken zum Spielen" darüber)
+    if (this.compiling && performance.now() < this.compilingUntil) return;
     if (this.renderer.needsShadowBake) this._bakeShadows();
     this.renderer.render(showVm || showcase);
   }

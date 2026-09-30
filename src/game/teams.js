@@ -3,7 +3,7 @@ import { DUEL, KILLERS, QUICK_CHAT, SLOT_KEYS, WEAPONS } from '../config.js';
 import { SPAWNS } from '../world/map.js';
 import { PROTOCOL } from '../net/net.js';
 import { session } from '../net/session.js';
-import { Duel } from './duel.js';
+import { Duel, nextSend } from './duel.js';
 import { cleanLooks, count } from './cosmetics.js';
 import { SIDE, TEAM_IDS, TEAM_NAMES, otherTeam, slotSpawn, teamAttacker } from './sides.js';
 import { Squad } from '../ai/squad.js';
@@ -423,15 +423,15 @@ export class TeamMatch extends Duel {
     const server = this.net.mode === 'server';
     const n = this._humans;
     const rate = server ? (n > 6 ? 6 : n > 4 ? 8 : 12) : 30;
-    const due = this.sendT <= 0 || (this.urgent && (!server || this.sinceSend >= 0.05));
-    if (due) {
-      this.sendT = 1 / rate;
+    const due = this.sendT <= 0;
+    if (due || (this.urgent && (!server || this.sinceSend >= 0.05))) {
+      if (due) this.sendT = nextSend(this.sendT, 1 / rate);
       this._sendState();
     }
     if (!this.squad) return;
     this.sendBotsT -= dt;
     if (this.sendBotsT > 0) return;
-    this.sendBotsT = 1 / rate;
+    this.sendBotsT = nextSend(this.sendBotsT, 1 / rate);
     const l = this.squad.takeNet();
     if (l.length && this.net.group?.size) this.net.send({ t: 'sb', l });
   }
