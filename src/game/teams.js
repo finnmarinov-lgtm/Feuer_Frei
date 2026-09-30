@@ -7,9 +7,9 @@ import { Duel } from './duel.js';
 import { cleanLooks, count } from './cosmetics.js';
 import { SIDE, TEAM_IDS, TEAM_NAMES, otherTeam, slotSpawn, teamAttacker } from './sides.js';
 import { Squad } from '../ai/squad.js';
+import { cleanName } from '../names.js';
 
 const unpack = (a, out = new THREE.Vector3()) => out.set(a[0] / 100, a[1] / 100, a[2] / 100);
-const cleanName = (s) => String(s || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 16);
 // so lange (s) darf ein Mitspieler ohne Verbindung sein, dann zählt er in der Runde als ausgeschieden
 const AWAY_OUT = 20;
 // Host: so lange die Startmeldung an alle wiederholen, von denen noch nichts kam

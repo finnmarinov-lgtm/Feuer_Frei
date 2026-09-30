@@ -168,10 +168,13 @@
   <div id="lobby" class="screen dim" hidden>
     <h1 id="lobby-title">Mehrspieler</h1>
     <label class="lobby-name">Dein Name <input id="lobby-name" maxlength="16" spellcheck="false" autocomplete="off"></label>
+    <small class="name-note" id="lobby-name-note" hidden></small>
+    <div class="lobby-note" id="lobby-note" hidden></div>
     <div id="lobby-choice" class="lobby-choice">
       <div class="card">
         <h3>Lobby erstellen</h3>
         <p>Du bekommst einen Code und einen Link für deine Freunde. Zu zweit wird es ein 1 gegen 1, mit mehr Leuten ein Team-Spiel bis 4 gegen 4.</p>
+        <label class="check"><input type="checkbox" id="lobby-public"> <span>Öffentlich <small>(steht in der Liste, Fremde können beitreten)</small></span></label>
         <button class="primary" id="btn-create">Lobby erstellen</button>
       </div>
       <div class="card">
@@ -179,6 +182,12 @@
         <p>Code oder Link von deinem Freund:</p>
         <input id="lobby-code-input" maxlength="80" placeholder="z. B. K7P2QX" spellcheck="false" autocomplete="off">
         <button id="btn-join">Beitreten</button>
+      </div>
+      <div class="card open-card">
+        <h3>Offene Lobbys</h3>
+        <!-- wird aus der Liste auf dem Server erzeugt (lobby.js, lobbylist.js) -->
+        <ul class="open-list" id="lobby-open-list" hidden></ul>
+        <p class="open-empty" id="lobby-open-empty">Suche offene Lobbys …</p>
       </div>
     </div>
     <div id="lobby-room" class="lobby-room" hidden>
@@ -197,6 +206,8 @@
       <div class="status" id="lobby-status"></div>
       <div class="net" id="lobby-net"></div>
       <div class="opts" id="lobby-opts">
+        <div class="opt">Sichtbarkeit <div class="seg" data-opt="pub"><button data-v="0">Nur mit Code</button><button data-v="1">Öffentlich</button></div>
+          <small id="lobby-pub-info"></small></div>
         <div class="opt">Modus <div class="seg" data-opt="mode"><button data-v="kampf">Kampf</button><button data-v="bombe">Bombe</button></div>
           <small id="lobby-mode-info"></small></div>
         <div class="opt">Karte <div class="seg" data-opt="map"><button data-v="hof">Hof</button><button data-v="halle">Lagerhalle</button><button data-v="hafen">Hafen</button></div>

@@ -6,7 +6,7 @@
 
 Drei Spielarten:
 
-- **Mehrspieler** über eine Lobby: einer erstellt sie und schickt Code oder Link, die Freunde klicken drauf und sind drin. Kein Konto, keine Installation. Zu zweit wird es ein **1 gegen 1**, mit mehr Leuten ein **Team-Spiel** (Rot gegen Blau, bis 4 gegen 4). Freie Plätze füllt der Host nur auf Knopfdruck mit KI-Spielern auf.
+- **Mehrspieler** über eine Lobby: einer erstellt sie und schickt Code oder Link, die Freunde klicken drauf und sind drin. Kein Konto, keine Installation. Zu zweit wird es ein **1 gegen 1**, mit mehr Leuten ein **Team-Spiel** (Rot gegen Blau, bis 4 gegen 4). Freie Plätze füllt der Host nur auf Knopfdruck mit KI-Spielern auf. Wer mag, macht seine Lobby **öffentlich**: Dann steht sie in einer Liste, und auch Fremde können mit einem Klick beitreten.
 - **Gegen KI**: das 1 gegen 1 gegen einen Computer-Gegner (Anfänger, Leicht, Mittel, Schwer), ohne dass ein Freund online sein muss.
 - **Training**: freies Üben gegen Klappziele aus Stahl, ohne Zeitgrenze, alles gratis.
 
@@ -28,11 +28,18 @@ Danach `http://localhost:5173` öffnen und auf **Mehrspieler**, **Gegen KI** ode
 1. **Mehrspieler → Lobby erstellen.** Es erscheinen ein Code (z. B. `K7P2QX`) und ein Link. Den Link mit **Link kopieren** oder **Teilen** an die Freunde schicken (bis zu 7, also höchstens 8 Spieler).
 2. Wer den Link öffnet, ist sofort in der Lobby. Alternativ: **Mehrspieler → Beitreten** und den Code eintippen.
 3. Die Lobby zeigt zwei Spalten, **Team Rot** und **Team Blau** (je bis zu 4 Plätze). Der Host ist in Rot, wer beitritt, kommt ins kleinere Team und kann mit **Hierher wechseln** tauschen.
-4. **KI-Spieler nur auf Knopfdruck:** **Mit KI auffüllen** gibt dem kleineren Team so viele KI-Spieler, bis beide gleich groß sind. Mit **+ KI** kommt in ein bestimmtes Team ein KI-Spieler dazu, **✕** nimmt ihn wieder heraus. Tritt noch ein Freund bei, während ein Team voll ist, macht ein KI-Spieler Platz. Wie stark die KI-Spieler sind, stellt der Host unter **KI-Stärke** ein.
+4. **KI-Spieler nur auf Knopfdruck:** **Mit KI auffüllen** gibt dem kleineren Team so viele KI-Spieler, bis beide gleich groß sind. Mit **+ KI** kommt in ein bestimmtes Team ein KI-Spieler dazu, **✕** nimmt ihn wieder heraus (bei Menschen: siehe Rauswerfen unten). Tritt noch ein Freund bei, während ein Team voll ist, macht ein KI-Spieler Platz. Wie stark die KI-Spieler sind, stellt der Host unter **KI-Stärke** ein.
 5. Der Host stellt ein: **Modus** (Kampf oder Bombe), **Karte** (Hof, Lagerhalle oder Hafen; der Hafen ist größer und passt am besten zu 3 gegen 3 und 4 gegen 4), **Waffen** (Alle, Nur Pistolen, Scharfschützen), **1 oder 3 Leben pro Runde** und **Sieg bei 2, 3 oder 5 Rundensiegen**.
 6. Sind alle da, drückt der Host **Starten** (der Knopf zeigt, was es wird, z. B. „2 gegen 2 starten“). Nach 3 Sekunden geht es los. Einmal ins Bild klicken, damit die Maus gefangen wird.
 
 **Zu zweit (ein Mensch pro Team, keine KI) wird daraus das 1 gegen 1**, genau wie bisher. Sonst ist es ein Team-Spiel (siehe unten).
+
+### Offene Lobbys (mit Fremden spielen)
+
+- **Öffentlich machen:** Beim Erstellen das Häkchen **Öffentlich** setzen. Im Raum lässt es sich unter **Sichtbarkeit** jederzeit umstellen (**Nur mit Code** oder **Öffentlich**).
+- **Liste:** Unter **Mehrspieler** steht unten **Offene Lobbys** mit Host, Karte, Modus und Spielerzahl (z. B. „2/8“). **Beitreten** reicht, ein Code ist nicht nötig. Volle Lobbys stehen hinten mit **Voll**. Sobald das Spiel startet, der Host die Lobby verlässt oder sein Tab zugeht, verschwindet sie aus der Liste.
+- **Rauswerfen:** Der Host sieht bei jedem Mitspieler ein **✕**. Wer rausfliegt, landet wieder in der Auswahl mit dem Hinweis „Der Host hat dich aus der Lobby geworfen.“, sieht die Lobby nicht mehr in seiner Liste und kommt auch per Code nicht mehr hinein (solange der Host die Seite nicht neu lädt).
+- **Namensfilter:** Namen mit groben Wörtern (Schimpfwörter, Beleidigungen, Nazi-Begriffe, auf Deutsch und Englisch) sehen alle anderen als „Spieler NN“. Getarnte Schreibweisen wie `F1ck`, `F.i.c.k` oder `Fiiick` fallen auch darunter. Wer so einen Namen eintippt, sieht unter dem Namensfeld, wie die anderen ihn sehen. Der Filter gilt immer, also auch in Lobbys nur mit Code. Er fängt das Gröbste, nicht alles; für den Rest gibt es das Rauswerfen.
 
 Regeln im 1 gegen 1:
 
@@ -195,6 +202,8 @@ Technik:
 - **Bewegung der anderen:** direkt 30, über den Server 12 Zustände pro Sekunde (im Team-Spiel ab 5 Menschen 8, ab 7 Menschen 6). Dazwischen wird mit etwa 0,1 s Verzögerung weich übergeblendet.
 - **Kill-Cam:** Jedes Spiel merkt sich die letzten 6 Sekunden: die Zustände des Gegners samt seinen Schüssen und die eigenen, so wie sie an ihn gingen. Die eigene Figur läuft in der Wiederholung um Ping plus seinen Puffer verzögert, also so, wie er sie auf seinem Bildschirm gesehen hat. Dafür muss nichts Zusätzliches übers Netz.
 - **Wiedereinstieg:** Jeder Tab merkt sich Lobby, Rolle und den eigenen Stand im `sessionStorage` (übersteht das Neuladen, nicht das Schließen des Tabs). Auch beim Host steht der Lobby-Code in der Adresse. Beim Verlassen der Seite meldet sich der Tab ab, zusätzlich per `fetch` mit `keepalive` über die REST-Schnittstelle von Supabase, damit die Abmeldung auch bei schnellem Neuladen ankommt. Wer zurückkommt, bekommt vom anderen den Stand der Partie (Runde, Phase, Zeit, Leben, Siege).
+- **Offene Lobbys:** Der Host einer öffentlichen Lobby meldet sie in einem gemeinsamen Kanal auf Supabase Realtime an (Presence, Kanal `ff-offen-v` plus Protokollversion) und trägt Änderungen nach (Spielerzahl, Karte, Modus). Das Mehrspieler-Menü hört dort mit, solange es offen ist. Bricht die Verbindung des Hosts ab, streicht der Server den Eintrag von selbst. Einträge anderer werden geprüft (Code, Karte, Modus, Zahlen), Namen laufen durch den Filter.
+- **Namen:** `src/names.js` räumt jeden Namen auf, bevor er angezeigt wird (Steuer- und unsichtbare Zeichen raus, höchstens 16 Zeichen) und ersetzt grobe Wörter durch „Spieler NN“ (die Zahl hängt am Namen, alle sehen dieselbe). Vor dem Vergleich werden Ziffern und Zeichen zurückgebaut (`1` → i oder l, `3` → e, `@` → a …), ebenso gleich aussehende kyrillische und griechische Buchstaben. Lange Wörter zählen auch mitten im Namen, kurze nur als ganzes Wort (sonst träfe es „Marsch“, „Cocktail“ oder „Kanal“).
 - Beide Browser brauchen dieselbe Protokollversion (`PROTOCOL` in `src/net/net.js`). Nach einem Update also beide die Seite neu laden.
 - Zum Testen lässt sich ein Weg erzwingen: `?netz=server` oder `?netz=direkt` an die Adresse hängen.
 
@@ -291,7 +300,8 @@ Alle Werte (Waffen, Rückstoßmuster, Streuung, Preise, Rundenzeiten, Training) 
 |---|---|
 | `src/config.js` | Alle Spielwerte an einem Ort |
 | `src/game/` | Spielkern, Runden und Geld, Klappziele, 1 gegen 1 mit Bombenmodus (`duel.js`), Team-Spiel (`teams.js`, Teams und Startplätze in `sides.js`), die anderen Spieler im eigenen Spiel (`remote.js`), Kill-Cam und Zuschauen (`killcam.js`), der Luftschlag (`airstrike.js`) sowie Skins und Aufgaben (`cosmetics.js`) |
-| `src/net/` | Verbindung zwischen zwei Browsern (Trystero und Supabase Realtime), Tab-Speicher für den Wiedereinstieg |
+| `src/net/` | Verbindung zwischen zwei Browsern (Trystero und Supabase Realtime), Tab-Speicher für den Wiedereinstieg, Liste der offenen Lobbys (`lobbylist.js`) |
+| `src/names.js` | Namensfilter: grobe Wörter werden zu „Spieler NN“ |
 | `src/ai/` | KI-Spieler: Wegenetz (`nav.js`), Verhalten (`bot.js`), die Verbindung zum Duell ohne Netz (`botnet.js`) und die KI-Spieler im Team-Spiel beim Host (`squad.js`) |
 | `src/player/` | Bewegung wie in der Source-Engine (Beschleunigung, Reibung, Luftsteuerung, Ducken) |
 | `src/weapons/` | Inventar mit 5 Slots, Schießen, Rückstoß, Waffe in der Hand, Granaten, Oberflächen der Skins (`finishes.js`) |

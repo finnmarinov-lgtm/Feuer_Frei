@@ -545,6 +545,28 @@ const EN = {
     'Send your friends the code or the link. Up to 8 players (4v4); with two players it becomes a 1v1.',
   'Der Server antwortet noch nicht, versuche es direkt …': 'The server is not answering yet, trying directly …',
 
+  // offene Lobbys, Rauswerfen
+  'Öffentlich': 'Public',
+  '(steht in der Liste, Fremde können beitreten)': '(listed, strangers can join)',
+  'Offene Lobbys': 'Open lobbies',
+  'Suche offene Lobbys …': 'Looking for open lobbies …',
+  'Die Liste ist gerade nicht erreichbar.': 'The list cannot be reached right now.',
+  'Gerade ist keine Lobby offen. Erstelle eine mit Häkchen bei „Öffentlich“.': 'No lobby is open right now. Create one with “Public” ticked.',
+  'Voll': 'Full',
+  'Spieler in der Lobby': 'Players in the lobby',
+  'Sichtbarkeit': 'Visibility',
+  'Nur mit Code': 'Code only',
+  'Nur wer den Code oder den Link hat, kommt rein.': 'Only people with the code or the link can join.',
+  'Steht in der Liste im Mehrspieler-Menü, jeder kann beitreten. Mit ✕ wirfst du jemanden raus.':
+    'Listed in the multiplayer menu, anyone can join. Use ✕ to kick someone.',
+  'Steht in der Liste im Mehrspieler-Menü, jeder kann beitreten.': 'Listed in the multiplayer menu, anyone can join.',
+  'Warte auf Mitspieler …': 'Waiting for players …',
+  'Deine Lobby steht jetzt in der Liste der offenen Lobbys. Bis zu 8 Spieler (4 gegen 4), zu zweit wird es ein 1 gegen 1.':
+    'Your lobby is now in the list of open lobbies. Up to 8 players (4v4); with two players it becomes a 1v1.',
+  '1 Mitspieler verbunden': '1 player connected',
+  'Aus der Lobby werfen': 'Kick from the lobby',
+  'Der Host hat dich aus der Lobby geworfen.': 'The host kicked you from the lobby.',
+
   // beim Durchspielen noch gefunden
   '+ Helm': '+ helmet',
   'gratis': 'free',
@@ -671,6 +693,8 @@ const VORLAGEN = [
   ['{n} Freund verbunden', '{1} friend connected'],
   ['{n} Freunde verbunden', '{1} friends connected'],
   ['{n} über Server', '{1} via server'],
+  ['{n} Mitspieler verbunden', '{1} players connected'],
+  ['Dieser Name ist nicht erlaubt. Die anderen sehen dich als „{}“.', 'This name is not allowed. Others will see you as “{1}”.'],
 ].map(([de, en]) => vorlage(de, en));
 
 function vorlage(de, en) {

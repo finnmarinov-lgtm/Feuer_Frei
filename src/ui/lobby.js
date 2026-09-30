@@ -6,6 +6,8 @@ import { session, setUrlLobby } from '../net/session.js';
 import { netText } from './hud.js';
 import { BOT_NAMES, LEVELS } from '../ai/bot.js';
 import { TEAM_IDS, TEAM_NAMES } from '../game/sides.js';
+import { LobbyList } from '../net/lobbylist.js';
+import { cleanName, rude, tidyName } from '../names.js';
 
 const NAME_KEY = 'feuer-frei-name';
 const COUNTDOWN = 3;
@@ -19,9 +21,11 @@ const MODE_INFO = {
 };
 const $ = (id) => document.getElementById(id);
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
-
-function cleanName(s) {
-  return String(s || '').replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 16);
+// Text nur schreiben, wenn er sich ändert (im Dokument steht nach der Übersetzung ein anderer)
+function setText(el, text) {
+  if (el._text === text) return;
+  el._text = text;
+  el.textContent = text;
 }
 
 // Mehrspieler-Lobby: erstellen (Host) oder mit Code/Link beitreten. Wer beitritt, kommt ins kleinere
@@ -29,6 +33,8 @@ function cleanName(s) {
 // kommen KI-Spieler dazu. Der Host startet: Sind genau zwei Menschen da (einer pro Team), wird es das
 // 1 gegen 1 (Duell), sonst ein Team-Spiel. Wer die Seite neu lädt, kommt zurück (in die Lobby oder
 // ins laufende Spiel).
+// Eine öffentliche Lobby steht in der Liste im Mehrspieler-Menü (lobbylist.js), dort kann jeder mit
+// einem Klick beitreten. Der Host kann Leute rauswerfen, sie kommen dann nicht wieder rein.
 export class Lobby {
   constructor({ show, onStart, netMode = null, keyName = () => 'E', looks = () => null }) {
     this.show = show;
@@ -57,6 +63,13 @@ export class Lobby {
     this.tickTimer = null;
     this.problem = '';
     this.enteredAt = 0;
+    // öffentliche Lobbys: Liste im Menü, und die eigene wird dort angemeldet
+    this.list = new LobbyList();
+    this.list.onChange = () => this._renderList();
+    this.since = 0;
+    // Host: rausgeworfene Mitspieler (feste Kennung); Gast: Lobbys, aus denen man geflogen ist
+    this.banned = new Set();
+    this.kickedFrom = new Set();
 
     const nameInput = $('lobby-name');
     let saved = '';
@@ -68,7 +81,7 @@ export class Lobby {
     nameInput.value = saved || t(`Spieler ${Math.floor(10 + Math.random() * 90)}`);
     nameInput.addEventListener('input', () => {
       try {
-        localStorage.setItem(NAME_KEY, cleanName(nameInput.value));
+        localStorage.setItem(NAME_KEY, tidyName(nameInput.value));
       } catch {
         // egal
       }
@@ -79,6 +92,7 @@ export class Lobby {
       } else if (this.hostPeer) {
         this._sayHi(this.hostPeer);
       }
+      this._nameNote();
       this._render();
     });
     $('btn-create').addEventListener('click', () => this.create());
@@ -92,6 +106,10 @@ export class Lobby {
     $('btn-fill').addEventListener('click', () => this.fillBots());
     $('btn-go').addEventListener('click', () => this.startGame());
     $('lobby-teams').addEventListener('click', (e) => this._onTeamClick(e));
+    $('lobby-open-list').addEventListener('click', (e) => {
+      const b = e.target.closest('button[data-code]');
+      if (b && !b.disabled) this.join(b.dataset.code);
+    });
     if (!navigator.share) $('btn-share').hidden = true;
     for (const seg of document.querySelectorAll('#lobby-opts .seg')) {
       seg.addEventListener('click', (e) => {
@@ -105,6 +123,7 @@ export class Lobby {
     }
   }
 
+  /** eigener Name, so wie ihn die anderen sehen (grobe Wörter werden zu "Spieler NN") */
   get name() {
     return cleanName($('lobby-name').value) || 'Spieler';
   }
@@ -116,15 +135,21 @@ export class Lobby {
       $('lobby-choice').hidden = false;
       $('lobby-room').hidden = true;
       this.problem = '';
+      this._note('');
+      this._nameNote();
+      // die offenen Lobbys laden (mit Code geht es gleich weiter in den Raum)
+      if (!code) this.list.listen(true);
+      this._renderList();
     }
     if (code) this.join(code);
   }
 
   create() {
     this.role = 'host';
-    // die Karte aus dem Hauptmenü vorschlagen
-    this.opts = { ...this.opts, map: MAP.id };
+    // die Karte aus dem Hauptmenü vorschlagen, dazu das Häkchen "Öffentlich"
+    this.opts = { ...this.opts, map: MAP.id, pub: $('lobby-public').checked ? 1 : 0 };
     this.rejoin = null;
+    this.banned.clear();
     this._enterRoom(randomCode());
   }
 
@@ -141,6 +166,7 @@ export class Lobby {
     const saved = session.lobby();
     const same = saved?.code === code;
     this.role = same ? saved.role : 'guest';
+    if (same && saved.role === 'host' && saved.opts && typeof saved.opts === 'object') this.opts = { ...this.opts, ...saved.opts };
     this.rejoin = null;
     const duel = session.duel();
     const team = session.team();
@@ -151,11 +177,13 @@ export class Lobby {
 
   back() {
     this.leave();
+    this.list.listen(false);
     this.show('menu');
   }
 
   leave() {
     this._stopTimers();
+    this.list.announce(null);
     if (this.net) {
       const net = this.net;
       net.send({ t: 'bye' }, this.role === 'host' ? undefined : this.hostPeer || undefined);
@@ -181,7 +209,7 @@ export class Lobby {
     this.rejoin = rejoin;
     this.code = code;
     // Code in die Adresse und Rolle in den Tab-Speicher: Neuladen führt zurück
-    session.setLobby(code, role, rejoin?.kind ?? null);
+    session.setLobby(code, role, rejoin?.kind ?? null, role === 'host' ? this.opts : null);
     setUrlLobby(code);
     this.problem = '';
     this.countdown = 0;
@@ -189,9 +217,12 @@ export class Lobby {
     this.partnerName = '';
     this.partnerLooks = null;
     this.enteredAt = performance.now();
+    this.list.listen(false);
+    this._note('');
     const net = (this.net = new Net(code, { only: this.netMode }));
     this.roster = [];
     if (role === 'host') {
+      this.since = Date.now();
       this.hostKey = this.key;
       this.roster = [{ key: this.key, peer: net.id, name: this.name, looks: this.looks(), team: 'rot', host: true }];
     }
@@ -202,6 +233,7 @@ export class Lobby {
     $('lobby-choice').hidden = true;
     $('lobby-room').hidden = false;
     this._render();
+    this._announce();
     // Host lädt mitten im Team-Spiel neu: gleich weiterspielen, die anderen finden ihn wieder
     if (role === 'host' && rejoin?.kind === 'team') this._resumeTeamHost();
   }
@@ -237,6 +269,8 @@ export class Lobby {
         this._changed();
       } else {
         this._sendLobby();
+        // falls die Anmeldung in der Liste nicht geklappt hat
+        this._announce();
       }
     } else {
       // Gast: "Hallo" an alle, bis der Host einen aufgenommen hat (auch nach seinem Neuladen)
@@ -339,6 +373,13 @@ export class Lobby {
           return;
         }
         if (msg.role === 'host' || !msg.key || msg.key === this.key) return;
+        // rausgeworfen: bleibt draußen und erfährt es noch einmal (mit dem Stand der Lobby vorweg,
+        // denn den Rauswurf nimmt der Gast nur vom Host an, und woran er ihn erkennt, steht darin)
+        if (this.banned.has(msg.key)) {
+          this._sendLobby(from);
+          this.net.send({ t: 'kick' }, from);
+          return;
+        }
         let p = this.roster.find((x) => x.key === msg.key);
         if (p) {
           // schon da (z. B. nach dem Neuladen): neue Kennung, neuer Name
@@ -449,12 +490,16 @@ export class Lobby {
         this._changed();
       }
     } else if (this.role === 'host' && act === 'kick') {
-      const i = this.roster.findIndex((x) => x.key === b.dataset.key && x.bot);
-      if (i >= 0) {
-        this.roster.splice(i, 1);
-        this._stopCountdown();
-        this._changed();
+      const e = this.roster.find((x) => x.key === b.dataset.key && x.key !== this.key);
+      if (!e) return;
+      this.roster.splice(this.roster.indexOf(e), 1);
+      if (!e.bot) {
+        // ein Mensch: kommt mit derselben Kennung nicht wieder rein und erfährt es gleich
+        this.banned.add(e.key);
+        if (e.peer) this.net.send({ t: 'kick' }, e.peer);
       }
+      this._stopCountdown();
+      this._changed();
     }
   }
 
@@ -473,14 +518,29 @@ export class Lobby {
     net.send(msg, to);
   }
 
+  /** Host einer öffentlichen Lobby: in der Liste anmelden (Änderungen nachtragen), sonst abmelden */
+  _announce() {
+    if (this.role !== 'host' || !this.net || this.rejoin || this.opts.pub !== 1) {
+      this.list.announce(null);
+      return;
+    }
+    const humans = this.roster.filter((e) => !e.bot).length;
+    this.list.announce({
+      code: this.code, host: this.name, n: humans, bots: this.roster.length - humans,
+      map: this.opts.map, mode: this.opts.mode, arms: this.opts.arms, since: this.since,
+    });
+  }
+
   /** Host: Aufstellung geändert, an alle schicken */
   _changed() {
+    this._announce();
     if (this.role !== 'host' || !this.net || this.rejoin) {
       this._render();
       return;
     }
     const me = this.roster.find((e) => e.key === this.key);
     if (me) me.looks = this.looks();
+    session.setLobby(this.code, 'host', null, this.opts);
     this.net.setGroup(this.roster.filter((e) => !e.bot && e.key !== this.key && e.peer).map((e) => e.peer));
     this._sendLobby();
     this._render();
@@ -564,7 +624,10 @@ export class Lobby {
         this.hostPeer = from;
         this.hostKey = msg.host;
         net.setGroup([from]);
-        this.roster = Array.isArray(msg.roster) ? msg.roster : [];
+        // Namen vom Host nicht blind übernehmen (bei offenen Lobbys ist er ein Fremder)
+        this.roster = Array.isArray(msg.roster)
+          ? msg.roster.filter((e) => e && typeof e === 'object').map((e) => ({ ...e, name: cleanName(e.name) || 'Spieler' }))
+          : [];
         if (msg.cfg) this.opts = msg.cfg;
         this.countdown = msg.cd || 0;
         if (this.roster.some((e) => e.key === this.key)) this.problem = '';
@@ -572,6 +635,10 @@ export class Lobby {
         this._render();
         return;
       }
+      case 'kick':
+        // nur vom Host (sonst könnte ein anderer Gast jemanden hinauswerfen)
+        if (from === this.hostPeer) this._kicked();
+        return;
       case 'full':
         if (!this.roster.some((e) => e.key === this.key)) {
           this.problem = 'Diese Lobby ist schon voll (4 gegen 4).';
@@ -633,6 +700,14 @@ export class Lobby {
     }
   }
 
+  /** vom Host rausgeworfen: zurück zur Auswahl, diese Lobby nicht mehr in der Liste zeigen */
+  _kicked() {
+    this.kickedFrom.add(this.code);
+    this.leave();
+    this.open();
+    this._note('Der Host hat dich aus der Lobby geworfen.');
+  }
+
   /** Aufstellung ist ein 1 gegen 1 unter Menschen */
   _duelRoster() {
     const humans = this.roster.filter((e) => !e.bot);
@@ -655,6 +730,8 @@ export class Lobby {
   _detach() {
     const net = this.net;
     this._stopTimers();
+    // das Spiel läuft: aus der Liste der offenen Lobbys nehmen
+    this.list.announce(null);
     this.net = null;
     net.onPeer = null;
     net.onChange = null;
@@ -734,7 +811,9 @@ export class Lobby {
       if (e.host) tags.push('Host');
       if (e.bot) tags.push(`KI · ${level}`);
       if (e.away) tags.push('lädt neu …');
-      const kick = host && e.bot ? `<button class="x" data-act="kick" data-key="${escapeHtml(e.key)}" title="KI entfernen">✕</button>` : '';
+      const kick = host && e.key !== this.key
+        ? `<button class="x" data-act="kick" data-key="${escapeHtml(e.key)}" title="${e.bot ? 'KI entfernen' : 'Aus der Lobby werfen'}">✕</button>`
+        : '';
       const cls = [e.key === this.key ? 'me' : '', e.bot ? 'bot' : '', e.away ? 'away' : ''].join(' ');
       return `<li class="${cls}"><span>${escapeHtml(e.name)}</span><small>${tags.join(' · ')}</small>${kick}</li>`;
     });
@@ -757,9 +836,13 @@ export class Lobby {
     for (const seg of document.querySelectorAll('#lobby-opts .seg')) {
       const key = seg.dataset.opt;
       seg.classList.toggle('locked', !host || rejoining);
-      const def = { mode: 'kampf', map: 'hof', arms: 'alle', level: 'mittel' }[key];
+      const def = { mode: 'kampf', map: 'hof', arms: 'alle', level: 'mittel', pub: 0 }[key];
       for (const b of seg.children) b.classList.toggle('on', b.dataset.v === String(this.opts[key] ?? def));
     }
+    const pub = this.opts.pub === 1;
+    $('lobby-pub-info').textContent = !pub ? 'Nur wer den Code oder den Link hat, kommt rein.'
+      : host ? 'Steht in der Liste im Mehrspieler-Menü, jeder kann beitreten. Mit ✕ wirfst du jemanden raus.'
+        : 'Steht in der Liste im Mehrspieler-Menü, jeder kann beitreten.';
     $('lobby-mode-info').textContent = (MODE_INFO[this.opts.mode] || MODE_INFO.kampf)(this.keyName('use'));
     $('lobby-map-info').textContent = (MAPS[this.opts.map] || MAPS.hof).desc;
     $('lobby-arms-info').textContent = (ARMS[this.opts.arms] || ARMS.alle).info;
@@ -792,7 +875,8 @@ export class Lobby {
     else if (this.rejoin) status = 'Zurück ins laufende Spiel …';
     else if (this.countdown > 0) status = `${duel ? '1 gegen 1' : this.sizeLabel} startet in ${this.countdown} …`;
     else if (!inRoom) status = 'Verbinde mit der Lobby …';
-    else if (host) status = humans < 2 && !bots ? 'Warte auf deine Freunde …' : this.startable ? 'Alle da? Dann starte das Spiel.' : 'Im anderen Team fehlt noch jemand.';
+    else if (host && humans < 2 && !bots) status = pub ? 'Warte auf Mitspieler …' : 'Warte auf deine Freunde …';
+    else if (host) status = this.startable ? 'Alle da? Dann starte das Spiel.' : 'Im anderen Team fehlt noch jemand.';
     else status = `Warte, bis ${hostName} startet …`;
     $('lobby-status').textContent = status;
 
@@ -802,10 +886,59 @@ export class Lobby {
     else if (host && humans > 1) {
       const peers = this.roster.filter((e) => !e.bot && e.key !== this.key && e.peer);
       const server = peers.filter((e) => net.modeOf(e.peer) === 'server').length;
-      info = `${peers.length} ${peers.length === 1 ? 'Freund' : 'Freunde'} verbunden${server ? ` · ${server} über Server` : ''}`;
+      const who = pub ? 'Mitspieler' : peers.length === 1 ? 'Freund' : 'Freunde';
+      info = `${peers.length} ${who} verbunden${server ? ` · ${server} über Server` : ''}`;
     } else if (!host && waited > 12) info = 'Noch keine Lobby gefunden. Stimmt der Code, und ist der Host noch in der Lobby?';
+    else if (host && pub) info = 'Deine Lobby steht jetzt in der Liste der offenen Lobbys. Bis zu 8 Spieler (4 gegen 4), zu zweit wird es ein 1 gegen 1.';
     else if (host) info = 'Schick deinen Freunden den Code oder den Link. Bis zu 8 Spieler (4 gegen 4), zu zweit wird es ein 1 gegen 1.';
     else if (waited > 6 && !net.serverReady) info = 'Der Server antwortet noch nicht, versuche es direkt …';
     $('lobby-net').textContent = info;
+  }
+
+  /** Hinweis über der Auswahl (z. B. nach dem Rauswurf); leer blendet ihn aus */
+  _note(text) {
+    const el = $('lobby-note');
+    setText(el, text);
+    el.hidden = !text;
+  }
+
+  /** unter dem Namensfeld: wenn der Name nicht durch den Filter kommt, wie die anderen ihn sehen */
+  _nameNote() {
+    const typed = tidyName($('lobby-name').value);
+    const blocked = !!typed && rude(typed);
+    const el = $('lobby-name-note');
+    el.hidden = !blocked;
+    setText(el, blocked ? `Dieser Name ist nicht erlaubt. Die anderen sehen dich als „${this.name}“.` : '');
+  }
+
+  /** Liste der offenen Lobbys im Menü: volle nach hinten, sonst die mit den meisten Spielern zuerst */
+  _renderList() {
+    const list = this.list;
+    const rows = list.lobbies
+      .filter((l) => !this.kickedFrom.has(l.code))
+      .sort((a, b) => (a.n >= 2 * MAX_TEAM) - (b.n >= 2 * MAX_TEAM) || b.n - a.n || b.since - a.since)
+      .slice(0, 12)
+      .map((l) => {
+        const full = l.n >= 2 * MAX_TEAM;
+        const what = [MAPS[l.map].name, l.mode === 'bombe' ? 'Bombe' : 'Kampf'];
+        if (l.arms !== 'alle') what.push(ARMS[l.arms].name);
+        return `<li><div class="who"><b>${escapeHtml(l.host)}</b><small>${what.join(' · ')}</small></div>`
+          + `<span class="count" title="Spieler in der Lobby">${l.n}/${2 * MAX_TEAM}</span>`
+          + `<button data-code="${l.code}"${full ? ' disabled' : ''}>${full ? 'Voll' : 'Beitreten'}</button></li>`;
+      });
+    const el = $('lobby-open-list');
+    const html = rows.join('');
+    if (el._html !== html) {
+      el._html = html;
+      el.innerHTML = html;
+    }
+    el.hidden = !rows.length;
+    let note = '';
+    if (list.state === 'fehler') note = 'Die Liste ist gerade nicht erreichbar.';
+    else if (list.state !== 'da') note = 'Suche offene Lobbys …';
+    else if (!rows.length) note = 'Gerade ist keine Lobby offen. Erstelle eine mit Häkchen bei „Öffentlich“.';
+    const empty = $('lobby-open-empty');
+    setText(empty, note);
+    empty.hidden = !note;
   }
 }

@@ -25,8 +25,11 @@ let tabKey = null;
 
 export const session = {
   lobby: () => read(LOBBY),
-  /** code, role ('host'/'guest'), kind ('duel' oder 'team', sobald das Spiel läuft) */
-  setLobby: (code, role, kind = null) => write(LOBBY, { code, role, kind }),
+  /**
+   * code, role ('host'/'guest'), kind ('duel' oder 'team', sobald das Spiel läuft); beim Host in der
+   * Lobby auch die Einstellungen (opts), damit sie ein Neuladen überstehen (z. B. "Öffentlich")
+   */
+  setLobby: (code, role, kind = null, opts = null) => write(LOBBY, { code, role, kind, opts }),
   duel: () => read(DUEL),
   setDuel: (data) => write(DUEL, data),
   /** eigener Stand im Team-Spiel (beim Host auch der Stand der ganzen Partie) */

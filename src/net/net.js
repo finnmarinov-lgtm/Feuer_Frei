@@ -10,12 +10,12 @@ import { RealtimeClient } from '@supabase/realtime-js';
 const APP_ID = 'feuer-frei-duell-v1';
 // Version des Netzprotokolls: beide Spieler brauchen denselben Stand des Spiels
 // (6: Mehrspieler-Lobby mit Teams bis 4 gegen 4, 7: Karte Hafen, 8: Hafen mit weniger Durchgängen,
-// 9: Luftschlag als Abschussserie, Entschärfen dauert 10 s)
-export const PROTOCOL = 9;
-const SUPABASE_WS = 'wss://yzzipjtounvktdhhvrnt.supabase.co/realtime/v1';
+// 9: Luftschlag als Abschussserie, Entschärfen dauert 10 s, 10: offene Lobbys, Host kann rauswerfen)
+export const PROTOCOL = 10;
+export const SUPABASE_WS = 'wss://yzzipjtounvktdhhvrnt.supabase.co/realtime/v1';
 const SUPABASE_REST = 'https://yzzipjtounvktdhhvrnt.supabase.co/realtime/v1/api/broadcast';
 // "publishable" Schlüssel: darf öffentlich im Code stehen
-const SUPABASE_KEY = 'sb_publishable_OCNFFT4wa4CMaHyhcLAY4A_u2flZF1s';
+export const SUPABASE_KEY = 'sb_publishable_OCNFFT4wa4CMaHyhcLAY4A_u2flZF1s';
 const LOST_AFTER = 4000;
 
 export const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';

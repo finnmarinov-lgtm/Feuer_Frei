@@ -6,6 +6,7 @@ import { session } from '../net/session.js';
 import { Match } from './match.js';
 import { cleanLooks, count } from './cosmetics.js';
 import { FLAG } from './remote.js';
+import { cleanName } from '../names.js';
 
 const other = (role) => (role === 'host' ? 'guest' : 'host');
 const pack = (v) => [Math.round(v.x * 100), Math.round(v.y * 100), Math.round(v.z * 100)];
@@ -962,7 +963,7 @@ export class Duel extends Match {
     if (!gone) return;
     this.net.setPartner(from);
     this.awayMsg = false;
-    if (msg.name) this.names[this.them] = String(msg.name).replace(/[<>]/g, '').slice(0, 16);
+    if (msg.name) this.names[this.them] = cleanName(msg.name) || this.names[this.them];
     if (msg.looks) this.g.remote.setLooks(cleanLooks(msg.looks));
     this.g.remote.resetStream();
     this._sendResume(from);

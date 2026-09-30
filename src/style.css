@@ -302,7 +302,7 @@ body.radar #tasks-hud { top: 328px; }
 #lobby input { font: 600 19px var(--font); background: #1d2126; color: var(--text); border: 1px solid rgba(255,255,255,0.22); border-radius: 6px; padding: 6px 10px; user-select: text; }
 #lobby input:focus { outline: none; border-color: var(--accent); }
 #lobby-name { width: 220px; }
-.lobby-choice { display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; }
+.lobby-choice { display: flex; gap: 18px; flex-wrap: wrap; justify-content: center; max-width: 640px; }
 .lobby-choice .card { width: 300px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 16px 18px 18px; display: flex; flex-direction: column; gap: 10px; }
 .lobby-choice h3 { margin: 0; font-size: 24px; }
 .lobby-choice p { margin: 0; color: var(--muted); font-size: 16px; min-height: 2.6em; }
@@ -311,6 +311,22 @@ body.radar #tasks-hud { top: 328px; }
 .lobby-choice button:hover, .link-row button:hover, .seg button:hover { background: rgba(255,255,255,0.15); }
 .lobby-choice button.primary { background: var(--accent); color: #1a1407; border-color: var(--accent); }
 .lobby-choice button.primary:hover { background: #ffc657; }
+.lobby-choice .check { display: flex; align-items: flex-start; gap: 9px; font-size: 17px; font-weight: 700; cursor: pointer; }
+.lobby-choice .check input { width: 20px; height: 20px; margin: 1px 0 0; padding: 0; flex-shrink: 0; accent-color: var(--accent); cursor: pointer; }
+.lobby-choice .check small { display: block; font-size: 14px; font-weight: 600; color: var(--muted); }
+.name-note { font-size: 15px; font-weight: 600; color: var(--danger); text-align: center; margin-top: -10px; }
+.lobby-note { font-size: 19px; font-weight: 700; color: var(--accent); text-align: center; }
+/* offene Lobbys: so breit wie die beiden Karten darüber */
+.lobby-choice .open-card { width: 618px; max-width: 94vw; }
+.open-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; }
+.open-list li { display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.06); border-radius: 7px; padding: 6px 8px 6px 12px; }
+.open-list .who { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.open-list .who b { font-size: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.open-list .who small { font-size: 14px; color: var(--muted); font-weight: 600; }
+.open-list .count { font-size: 17px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+.open-list button { padding: 6px 14px; font-size: 16px; }
+.open-list button:disabled { opacity: 0.45; cursor: default; }
+.lobby-choice .open-empty { min-height: 0; }
 .lobby-room { display: flex; flex-direction: column; align-items: center; gap: 14px; width: min(640px, 94vw); }
 .code-box { font-size: 18px; color: var(--muted); font-weight: 600; display: flex; align-items: baseline; gap: 14px; }
 .code-box b { font-size: 54px; color: var(--text); letter-spacing: 8px; user-select: text; }
