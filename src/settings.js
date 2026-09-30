@@ -1,6 +1,7 @@
 const KEY = 'feuer-frei-einstellungen';
-// Stand der gespeicherten Einstellungen. Ab Version 2 startet das Spiel auf niedriger Grafik.
-const VERSION = 2;
+// Stand der gespeicherten Einstellungen. Ab Version 2 startet das Spiel auf niedriger Grafik, ab
+// Version 3 mit automatischer Auflösung.
+const VERSION = 3;
 
 // staticShadows: Schatten der Arena nur einmal berechnen, Bewegliches wirft dann keinen Schatten
 // aniso: Texturfilterung für schräg gesehene Flächen (Boden)
@@ -12,8 +13,9 @@ export const QUALITY = {
   hoch: { label: 'Hoch', pixelRatio: 1.5, shadowSize: 4096, ao: true, msaa: 4, staticShadows: false, aniso: 8 },
 };
 
-// Anteil der Bildschirmauflösung, in dem gezeichnet wird (hilft schwachen Grafikchips am meisten)
-export const RENDER_SCALES = [1, 0.85, 0.7, 0.5];
+// Anteil der Bildschirmauflösung, in dem gezeichnet wird (hilft schwachen Grafikchips am meisten);
+// 'auto': das Spiel geht selbst eine Stufe herunter, wenn es ruckelt (siehe AutoScale in renderer.js)
+export const RENDER_SCALES = ['auto', 1, 0.85, 0.7, 0.5];
 
 const DEFAULTS = {
   sensitivity: 2.0,
@@ -21,7 +23,7 @@ const DEFAULTS = {
   viewmodelFov: 54,
   volume: 0.7,
   quality: 'niedrig',
-  renderScale: 1,
+  renderScale: 'auto',
   crosshairColor: '#5cff7a',
   showFps: false,
   // Radar oben links (kleine Karte mit Mitspielern und entdeckten Gegnern)
@@ -48,9 +50,12 @@ export function loadSettings() {
     stored = {};
   }
   const s = { ...DEFAULTS, ...stored };
-  if ((stored.version || 1) < VERSION) {
+  const version = stored.version || 1;
+  if (version < VERSION) {
     // früher war "hoch" voreingestellt: einmalig auf niedrig, danach gilt die eigene Wahl
-    s.quality = 'niedrig';
+    if (version < 2) s.quality = 'niedrig';
+    // früher waren 100 % voreingestellt: einmalig auf automatisch, danach gilt die eigene Wahl
+    if (version < 3 && s.renderScale === 1) s.renderScale = 'auto';
     s.version = VERSION;
     saveSettings(s);
   }

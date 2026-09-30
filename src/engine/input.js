@@ -27,7 +27,6 @@ export const ACTIONS = [
   { id: 'chat', label: 'Schnellnachrichten öffnen (1 gegen 1)', keys: ['KeyT'] },
   { id: 'slot6', label: '6. Schnellnachricht (bei offener Liste)', keys: ['Digit6'] },
 ];
-export const DEFAULT_KEYS = Object.fromEntries(ACTIONS.map((a) => [a.id, [...a.keys]]));
 
 // Tasten, mit denen der Browser zusammen mit Strg zoomt (deutsche Tastatur: + ist BracketRight, - ist Slash)
 const ZOOM_KEYS = new Set(['Equal', 'Minus', 'BracketRight', 'Slash', 'Digit0', 'NumpadAdd', 'NumpadSubtract', 'Numpad0']);

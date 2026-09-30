@@ -314,7 +314,6 @@ const HALLE = {
 };
 
 export const MAPS = { hof: HOF, halle: HALLE, hafen: HAFEN };
-export const MAP_IDS = Object.keys(MAPS);
 
 // Die aktuelle Karte. Die übrigen Werte sind "live": Module, die sie importieren, sehen nach
 // setMap() gleich die der neuen Karte.

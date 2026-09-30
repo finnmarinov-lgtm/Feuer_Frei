@@ -398,7 +398,7 @@ export class Hud {
   showStats(on) {
     const el = this.el.stats;
     if (!on) {
-      el.hidden = true;
+      if (!el.hidden) el.hidden = true;
       return;
     }
     const m = this.g.match;
@@ -424,7 +424,7 @@ export class Hud {
       el._html = html;
       el.innerHTML = html;
     }
-    el.hidden = false;
+    if (el.hidden) el.hidden = false;
   }
 
   /** Tabelle im Team-Spiel (Tab): beide Teams mit Abschüssen, Toden und Ping */
@@ -717,13 +717,16 @@ export class Hud {
       if (this.chatT <= 0) this.toggleChat(false);
     }
 
+    // nur schreiben, was sich ändert: classList.remove und hidden = true schreiben das Attribut
+    // auch, wenn es schon so ist, und der Browser prüft dann in jedem Bild die Darstellung neu
+    // (toggle mit false tut nichts, wenn die Klasse schon fehlt)
     this.centerT -= dt;
-    if (this.centerT <= 0) el.center.classList.remove('show');
-    if (m.phase !== 'end') el.roundEnd.hidden = true;
+    if (this.centerT <= 0) el.center.classList.toggle('show', false);
+    if (m.phase !== 'end' && !el.roundEnd.hidden) el.roundEnd.hidden = true;
     this.slotsT -= dt;
-    if (this.slotsT <= 0) el.slots.classList.remove('show');
+    if (this.slotsT <= 0) el.slots.classList.toggle('show', false);
     this.moneyT -= dt;
-    if (this.moneyT <= 0) el.moneyDelta.classList.remove('show');
+    if (this.moneyT <= 0) el.moneyDelta.classList.toggle('show', false);
 
     // Blendung: erst voll weiß, dann langsam ausblenden
     if (this.flashT > 0) {

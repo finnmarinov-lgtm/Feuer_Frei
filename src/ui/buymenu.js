@@ -80,7 +80,8 @@ export class BuyMenu {
     const inv = this.g.weapons.inv;
     const p = this.g.player;
     this.money.textContent = fmtMoney(m.money);
-    this.time.textContent = this._timeText();
+    this.time._v = this._timeText();
+    this.time.textContent = this.time._v;
     for (const [id, b] of Object.entries(this.items)) {
       const why = m.blockReason(id);
       const owned = WEAPONS[id] && WEAPONS[id].slot !== 'utility'
@@ -102,8 +103,14 @@ export class BuyMenu {
     return `Kaufzeit noch ${Math.ceil(m.buyTimeLeft)} s`;
   }
 
+  // pro Bild: die Kaufzeit nur neu schreiben, wenn sich die Sekunde ändert (jedes Schreiben lässt den
+  // Browser neu rechnen und die Übersetzung erneut laufen)
   tick() {
     if (!this.open) return;
-    this.time.textContent = this._timeText();
+    const text = this._timeText();
+    if (this.time._v !== text) {
+      this.time._v = text;
+      this.time.textContent = text;
+    }
   }
 }

@@ -5,6 +5,63 @@ import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { QUALITY } from '../settings.js';
 
+// Auflösung "Automatisch": Läuft das Spiel im Schnitt unter MIN_FPS Bildern pro Sekunde, wird eine
+// Stufe kleiner gezeichnet (weniger Pixel entlasten schwache Grafikchips am meisten). Bringt eine
+// Stufe nichts (der Rechner hängt am Prozessor, oder der Browser zeigt im Stromsparmodus ohnehin nur
+// 30 Bilder), geht es eine zurück und bleibt dabei. Hoch geht es erst beim nächsten Laden der Seite.
+const AUTO_STEPS = [1, 0.85, 0.7, 0.5];
+const MIN_FPS = 40;
+// so lange (Sekunden) wird gemessen, und so lange nach Spielbeginn oder einem Wechsel nicht
+const WINDOW = 3;
+const SETTLE = 2;
+
+export class AutoScale {
+  constructor() {
+    this.step = 0;
+    this.fpsBefore = 0;
+    this.done = false;
+    this.reset();
+  }
+
+  get scale() {
+    return AUTO_STEPS[this.step];
+  }
+
+  /** neu anfangen zu messen (nicht im Spiel, nach einem Wechsel) */
+  reset() {
+    this.wait = SETTLE;
+    this.time = 0;
+    this.frames = 0;
+  }
+
+  /** pro Bild beim Spielen: liefert die neue Stufe, wenn sie sich ändern soll, sonst null */
+  update(dt) {
+    if (this.done) return null;
+    if (this.wait > 0) {
+      this.wait -= dt;
+      return null;
+    }
+    this.time += dt;
+    this.frames++;
+    if (this.time < WINDOW) return null;
+    const fps = this.frames / this.time;
+    this.reset();
+    if (this.fpsBefore) {
+      const helped = fps > this.fpsBefore * 1.1;
+      this.fpsBefore = 0;
+      if (!helped) {
+        this.step--;
+        this.done = true;
+        return this.scale;
+      }
+    }
+    if (fps >= MIN_FPS || this.step === AUTO_STEPS.length - 1) return null;
+    this.fpsBefore = fps;
+    this.step++;
+    return this.scale;
+  }
+}
+
 // Zeichnet erst die Welt, dann die Waffe in der Hand in einem eigenen Durchgang,
 // damit sie nie in Wänden verschwindet.
 export class Renderer {
@@ -57,6 +114,12 @@ export class Renderer {
     this.needsShadowBake = q.staticShadows;
     this._buildComposer();
     this.resize();
+  }
+
+  /** nur die Auflösung ändern (Automatisch); danach resize(), dann passen sich die Zwischenbilder an */
+  setScale(renderScale) {
+    this.renderScale = renderScale;
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, this.quality.pixelRatio) * renderScale);
   }
 
   /** Schattenkarte einmal zeichnen; bei festen Schatten bleibt sie danach so */

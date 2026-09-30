@@ -145,12 +145,6 @@ export function nextTaskFor(target) {
   return null;
 }
 
-/** alles zurücksetzen (nur zum Testen) */
-export function resetProgress() {
-  state = { stats: {}, done: [] };
-  save();
-}
-
 // ---------- getragene Skins (looks) ----------
 
 /** Standard: überall Stahl bzw. Teamfarben */

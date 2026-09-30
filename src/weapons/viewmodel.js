@@ -28,6 +28,10 @@ const ZERO = new THREE.Vector3();
 const HAND_AWAY = new THREE.Vector3(0, -0.26, 0.1);
 // so weit unter dem Schacht setzt die Hand das neue Magazin an
 const MAG_INSERT = 0.07;
+// Nachziehen bei Mausbewegung: so lang ist ein Schritt der Feder höchstens (Sekunden). Mit einem
+// Schritt pro Bild schaukelte sie sich unter 30 Bildern pro Sekunde auf: die Waffe sprang von
+// Bild zu Bild auf und ab und verschwand am Ende ganz (Schul-Laptop).
+const SWAY_STEP = 1 / 120;
 // Haltung beim Nachladen (Drehung in Radiant, Verschiebung in Metern)
 const RELOAD_TILT = { rz: -0.55, rx: 0.4, ry: 0.12, px: -0.06, py: 0.075, pz: 0.02 };
 const RELOAD_TILT_PLAIN = { rz: 0.5, rx: 0.2, ry: 0, px: -0.02, py: -0.035, pz: 0 };
@@ -448,10 +452,14 @@ export class Viewmodel {
     // Nur ein Hauch Nachziehen bei Mausbewegung, straff gefedert (sonst wirkt die Steuerung träge)
     const tx = Math.max(-0.01, Math.min(0.01, -mouse.x * 0.00005));
     const ty = Math.max(-0.01, Math.min(0.01, mouse.y * 0.00005));
-    this.swayVel.x += ((tx - this.sway.x) * 700 - this.swayVel.x * 50) * dt;
-    this.swayVel.y += ((ty - this.sway.y) * 700 - this.swayVel.y * 50) * dt;
-    this.sway.x += this.swayVel.x * dt;
-    this.sway.y += this.swayVel.y * dt;
+    const steps = Math.ceil(dt / SWAY_STEP);
+    const h = dt / steps;
+    for (let i = 0; i < steps; i++) {
+      this.swayVel.x += ((tx - this.sway.x) * 700 - this.swayVel.x * 50) * h;
+      this.swayVel.y += ((ty - this.sway.y) * 700 - this.swayVel.y * 50) * h;
+      this.sway.x += this.swayVel.x * h;
+      this.sway.y += this.swayVel.y * h;
+    }
     pos.x += this.sway.x * calm;
     pos.y += this.sway.y * calm;
     rot.y += this.sway.x * 1.2 * calm;

@@ -331,7 +331,9 @@ Das Spiel startet auf **Niedrig**, damit es auch auf schwachen Laptops (Intel-Gr
 | Mittel | Schatten in jedem Bild, 4-fache Kantenglättung |
 | Hoch | dazu Umgebungsverdeckung (weiche Kontaktschatten), schärfere Schatten, höhere Auflösung auf hochauflösenden Bildschirmen |
 
-Dazu die **Auflösung** (100 %, 85 %, 70 %, 50 %): weniger Pixel sind der größte Hebel für schwache Grafikchips, das Bild wird dafür etwas unschärfer.
+Dazu die **Auflösung** (Automatisch, 100 %, 85 %, 70 %, 50 %): weniger Pixel sind der größte Hebel für schwache Grafikchips, das Bild wird dafür etwas unschärfer. Voreingestellt ist **Automatisch**: Das Spiel misst beim Spielen die Bilder pro Sekunde und zeichnet unter 40 eine Stufe kleiner (100 → 85 → 70 → 50 %). Bringt eine Stufe nichts (dann bremst der Prozessor, nicht die Grafik, oder der Browser zeigt im Stromsparmodus ohnehin nur 30 Bilder), geht es eine zurück und bleibt dabei. Wieder hoch geht es erst beim nächsten Laden der Seite. Wer vorher die Voreinstellung 100 % hatte, ist einmalig auf Automatisch umgestellt; eine eigene Wahl bleibt.
+
+Die Waffe in der Hand federt bei Mausbewegungen leicht nach. Diese Feder wird in Schritten von höchstens 1/120 Sekunde gerechnet, damit sie auch bei wenigen Bildern pro Sekunde ruhig bleibt (vorher schaukelte sie sich unter 30 Bildern pro Sekunde auf: die Waffe sprang auf und ab und verschwand dann ganz).
 
 Damit das Spiel sparsam bleibt: Teile, die sich gemeinsam bewegen und dasselbe Material haben, werden beim Laden zu einem Mesh zusammengefasst (`src/engine/merge.js`). Einschusslöcher und Rauchschwaden sind je ein Instanz-Mesh, also ein Zeichenaufruf statt vieler.
 

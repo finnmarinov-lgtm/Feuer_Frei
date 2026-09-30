@@ -229,10 +229,6 @@ export class Match {
     g.hud.onMoney(pur.price);
     return true;
   }
-
-  canRefund(id) {
-    return this.canBuy && this.purchases.some((x) => x.id === id);
-  }
 }
 
 // Freies Training: keine Runden und keine Zeitgrenze, Geld ohne Ende (alles gratis, überall und

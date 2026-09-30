@@ -20,6 +20,7 @@ import { Hud } from '../ui/hud.js';
 import { BuyMenu } from '../ui/buymenu.js';
 import { applyFinish, tickFinishes } from '../weapons/finishes.js';
 import { PAINT, SLEEVE, cleanLooks, skinOf } from './cosmetics.js';
+import { AutoScale } from '../engine/renderer.js';
 
 const DEG = Math.PI / 180;
 const MAX_TICKS = 10;
@@ -93,7 +94,9 @@ export class Game {
     this.looks = cleanLooks(settings.looks, true);
     this.hud.setCrosshairColor(settings.crosshairColor);
 
-    this.renderer.applyQuality(settings.quality, this.env.sun, settings.renderScale);
+    // Auflösung "Automatisch": geht eine Stufe herunter, wenn es beim Spielen ruckelt
+    this.autoScale = new AutoScale();
+    this.renderer.applyQuality(settings.quality, this.env.sun, this._renderScale());
     this._applyTextureFilter();
     this.effects.setViewport(this.renderer.renderer.getDrawingBufferSize(new THREE.Vector2()).y, this.camera.fov);
     this.sunCheckT = 0;
@@ -132,11 +135,16 @@ export class Game {
     this.camera.updateProjectionMatrix();
     this.audio.setVolume(s.volume);
     this.hud.setCrosshairColor(s.crosshairColor);
-    if (this.renderer.qualityKey !== s.quality || this.renderer.renderScale !== s.renderScale) {
-      this.renderer.applyQuality(s.quality, this.env.sun, s.renderScale);
+    if (this.renderer.qualityKey !== s.quality || this.renderer.renderScale !== this._renderScale()) {
+      this.renderer.applyQuality(s.quality, this.env.sun, this._renderScale());
       this._applyTextureFilter();
     }
     this.onResize();
+  }
+
+  /** Anteil der Auflösung, in dem gezeichnet wird (bei "Automatisch" die gerade gewählte Stufe) */
+  _renderScale() {
+    return this.settings.renderScale === 'auto' ? this.autoScale.scale : this.settings.renderScale;
   }
 
   // Texturfilterung für schräg gesehene Flächen je nach Grafikstufe (vor allem der Boden)
@@ -545,6 +553,17 @@ export class Game {
       if (simulate) this.killcam.update(dt);
     }
     if (this.renderPaused) return;
+    // Auflösung "Automatisch": nur beim Spielen messen (Menüs und Pause zählen nicht)
+    if (this.settings.renderScale === 'auto') {
+      if (!playing) this.autoScale.reset();
+      else {
+        const scale = this.autoScale.update(dt);
+        if (scale !== null) {
+          this.renderer.setScale(scale);
+          this.onResize();
+        }
+      }
+    }
     const alpha = simulate ? this.acc / TICK : 1;
     const sprinting = simulate && this.player.sprinting;
     this.sprintFov += ((sprinting ? 1 : 0) - this.sprintFov) * Math.min(1, dt * 6);
