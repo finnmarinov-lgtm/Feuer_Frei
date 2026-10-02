@@ -577,7 +577,7 @@ export class Bot {
         // Anfänger: höchstens MP oder Schrotflinte, nie Gewehre
         if (m >= 1250 && Math.random() < 0.5) id = 'falke';
         else if (m >= 1050 && Math.random() < 0.3) id = 'keiler';
-      } else if (m >= 4750 + 650 && this.level === 'schwer' && Math.random() < 0.25) id = 'adler';
+      } else if (m >= WEAPONS.adler.price + ARMOR.vest.price && this.level === 'schwer' && Math.random() < 0.25) id = 'adler';
       else if (m >= 3100 + 650 && Math.random() < 0.45) id = 'luchs';
       else if (m >= 2700) id = 'wolf';
       else if (m >= 1250 && Math.random() < 0.7) id = 'falke';
