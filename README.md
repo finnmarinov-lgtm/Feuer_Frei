@@ -217,6 +217,8 @@ Technik:
 
 Die Tabelle zeigt die Standardbelegung. **Eigene Tastenbelegung:** Unter *Steuerung* (im Hauptmenü und in der Pause) auf eine Taste klicken und die neue drücken. Das geht auch mit den Maustasten 3 bis 5 (Mitte und Seitentasten). Jede Aktion kann zwei Tasten haben (mit **+** kommt die zweite dazu). `Entf` löscht eine Belegung, `Esc` bricht ab. Ist eine Taste schon woanders belegt, wird sie dort frei (mit Hinweis). **Standard wiederherstellen** setzt alles zurück. Fest sind nur Schießen (Linksklick), Zielen (Rechtsklick), Waffenwechsel (Mausrad) und Pause (`Esc`). Die Belegung wird im Browser gespeichert, und alle Hinweise im Spiel (Kaufmenü, Bombe, Luftschlag, Schnellnachrichten) zeigen die eigenen Tasten.
 
+**Mausempfindlichkeit** (unter *Einstellungen*): zählt wie in CS (0,022° pro Mausschritt mal Wert) und reicht von 0,2 bis 20. Der Regler ist logarithmisch: In der Mitte steht 2, nach rechts wird jeder Schritt größer. So lässt sich der übliche Bereich fein einstellen, und für Touchpads oder Mäuse mit wenig DPI reicht es trotzdem. Das Spiel liest die Maus ohne die Beschleunigung von Windows (Pointer Lock mit `unadjustedMovement`).
+
 | Taste | Aktion |
 |---|---|
 | `W` `A` `S` `D` | Laufen |
@@ -237,7 +239,7 @@ Die Tabelle zeigt die Standardbelegung. **Eigene Tastenbelegung:** Unter *Steuer
 | `E` halten | Bombe legen bzw. entschärfen (Bombenmodus) |
 | `X` | Luftschlag, nach 3 Abschüssen hintereinander |
 | `Esc` | Pause; in den Menüs zurück (wie der Zurück-Knopf, in der Auswertung zum Hauptmenü); schließt auch Kaufmenü und Schnellnachrichten |
-| `^` (änderbar) | Notizblock: sofort ein weißes Notizblatt, Spiel pausiert, Ton aus; nochmal drücken zum Zurückschalten |
+| `^` (änderbar) | Notizblock: sofort ein weißes Notizblatt, Spiel pausiert, Ton aus, der Tab heißt wie die Notiz und die Adresse zeigt `…/notizen` statt des Spiels (die Domain selbst lässt sich nicht ändern); nochmal drücken zum Zurückschalten |
 
 **Sprinten** geht nur vorwärts und nicht beim Ducken, Schleichen, Schießen, Zielen, Nachladen oder Ausholen zum Granatenwurf. Wie schnell man ist, hängt von der Waffe in der Hand ab (Meter pro Sekunde, Laufen / Sprinten):
 

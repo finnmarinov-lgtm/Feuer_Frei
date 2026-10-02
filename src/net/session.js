@@ -61,11 +61,31 @@ export const session = {
   },
 };
 
+// echte Adresse, solange der Notizblock eine unauffällige zeigt (sonst null)
+let realUrl = null;
+
+/**
+ * Notizblock: statt der Adresse des Spiels eine unauffällige zeigen (path, z. B. '/notizen') bzw.
+ * mit null die echte zurückholen. Ändern lässt sich nur der Teil hinter der Domain. Alles Geladene
+ * ist beim Start schon da, relative Pfade stören also nicht.
+ */
+export function maskUrl(path) {
+  if (path && realUrl === null) {
+    realUrl = location.pathname + location.search + location.hash;
+    history.replaceState(history.state, '', path);
+  } else if (!path && realUrl !== null) {
+    history.replaceState(history.state, '', realUrl);
+    realUrl = null;
+  }
+}
+
 /** Lobby-Code in der Adresse setzen (Neuladen führt zurück) oder entfernen; andere Angaben bleiben */
 export function setUrlLobby(code) {
-  const params = new URLSearchParams(location.search);
-  if (code) params.set('lobby', code);
-  else params.delete('lobby');
-  const query = params.toString();
-  history.replaceState(null, '', location.pathname + (query ? '?' + query : ''));
+  // beim Notizblock nur die gemerkte echte Adresse ändern, die angezeigte bleibt unauffällig
+  const url = new URL(realUrl ?? location.href, location.href);
+  if (code) url.searchParams.set('lobby', code);
+  else url.searchParams.delete('lobby');
+  const next = url.pathname + url.search;
+  if (realUrl !== null) realUrl = next;
+  else history.replaceState(null, '', next);
 }

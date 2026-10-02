@@ -17,6 +17,10 @@ export const QUALITY = {
 // 'auto': das Spiel geht selbst eine Stufe herunter, wenn es ruckelt (siehe AutoScale in renderer.js)
 export const RENDER_SCALES = ['auto', 1, 0.85, 0.7, 0.5];
 
+// Mausempfindlichkeit (wie in CS): der Regler ist logarithmisch, damit der übliche Bereich um 2 in
+// der Mitte liegt und sich fein einstellen lässt, und reicht trotzdem bis 20 (vorher höchstens 8)
+export const SENSITIVITY = { min: 0.2, max: 20 };
+
 const DEFAULTS = {
   sensitivity: 2.0,
   fov: 74,
@@ -62,6 +66,7 @@ export function loadSettings() {
   if (!QUALITY[s.quality]) s.quality = DEFAULTS.quality;
   if (!RENDER_SCALES.includes(s.renderScale)) s.renderScale = DEFAULTS.renderScale;
   if (!['auto', 'an', 'aus'].includes(s.touch)) s.touch = DEFAULTS.touch;
+  if (!(s.sensitivity >= SENSITIVITY.min && s.sensitivity <= SENSITIVITY.max)) s.sensitivity = DEFAULTS.sensitivity;
   if (!(s.touchSens >= 0.3 && s.touchSens <= 2.5)) s.touchSens = DEFAULTS.touchSens;
   if (s.keys !== null && (typeof s.keys !== 'object' || Array.isArray(s.keys))) s.keys = null;
   return s;

@@ -8,8 +8,8 @@ import { Lobby } from './ui/lobby.js';
 import { TouchControls, wantsTouch } from './ui/touch.js';
 import { BotNet } from './ai/botnet.js';
 import { parseCode } from './net/net.js';
-import { session, setUrlLobby } from './net/session.js';
-import { loadSettings, saveSettings } from './settings.js';
+import { maskUrl, session, setUrlLobby } from './net/session.js';
+import { loadSettings, saveSettings, SENSITIVITY } from './settings.js';
 import { LOCKER, cleanLooks, onProgress, skinOf } from './game/cosmetics.js';
 import { FINISHES } from './weapons/finishes.js';
 import { Locker } from './ui/locker.js';
@@ -574,14 +574,14 @@ function setupMenus(game, input, audio) {
   });
   refreshKeyHints();
 
-  // Einstellungen
-  const bind = (id, key, fmt, parse = Number) => {
+  // Einstellungen (toInput: Wert der Einstellung -> Stellung des Reglers, falls die anders zählt)
+  const bind = (id, key, fmt, parse = Number, toInput = (v) => v) => {
     const el = $(id);
     const out = $(id.replace('set-', 'out-'));
     const isCheck = el.type === 'checkbox';
     const sync = () => {
       if (isCheck) el.checked = !!settings[key];
-      else el.value = settings[key];
+      else el.value = toInput(settings[key]);
       if (out) out.textContent = fmt(settings[key]);
     };
     el.addEventListener('input', () => {
@@ -592,8 +592,12 @@ function setupMenus(game, input, audio) {
     });
     return sync;
   };
+  // Mausempfindlichkeit: Regler 0 bis 1000, logarithmisch von SENSITIVITY.min bis .max
+  const sensSpan = Math.log(SENSITIVITY.max / SENSITIVITY.min);
+  const sensOf = (pos) => Math.round(SENSITIVITY.min * Math.exp((Number(pos) / 1000) * sensSpan) * 100) / 100;
+  const sensPos = (v) => Math.round((1000 * Math.log(v / SENSITIVITY.min)) / sensSpan);
   const syncs = [
-    bind('set-sens', 'sensitivity', (v) => v.toFixed(2)),
+    bind('set-sens', 'sensitivity', (v) => v.toFixed(2), sensOf, sensPos),
     bind('set-fov', 'fov', (v) => `${v}°`),
     bind('set-vol', 'volume', (v) => `${Math.round(v * 100)} %`),
     bind('set-quality', 'quality', (v) => v, String),
@@ -669,9 +673,25 @@ function setupMenus(game, input, audio) {
     }
   };
   $('notes-text').addEventListener('input', saveNotes);
-  $('notes-title').addEventListener('input', saveNotes);
+  $('notes-title').addEventListener('input', () => {
+    saveNotes();
+    if (notesOpen) document.title = $('notes-title').value || t('Notizen');
+  });
 
-  // Sofort umschalten: Spiel pausieren, Maus freigeben, Vollbild verlassen, Ton aus
+  // Adresse, die der Notizblock zeigt (nur der Teil hinter der Domain lässt sich ändern)
+  const NOTES_PATH = '/notizen';
+  // Neuladen mit F5 oder Strg+R, während der Notizblock offen ist: vorher die echte Adresse zurück,
+  // die unauffällige gibt es auf dem Server nicht. Ebenso beim Verlassen der Seite (Tab schließen
+  // und wieder öffnen); kommt sie aus dem Zwischenspeicher des Browsers zurück, wieder verstecken.
+  document.addEventListener('keydown', (e) => {
+    if (notesOpen && (e.code === 'F5' || ((e.ctrlKey || e.metaKey) && e.code === 'KeyR'))) maskUrl(null);
+  }, true);
+  window.addEventListener('pagehide', () => maskUrl(null));
+  window.addEventListener('pageshow', (e) => {
+    if (e.persisted && notesOpen) maskUrl(NOTES_PATH);
+  });
+
+  // Sofort umschalten: Spiel pausieren, Maus freigeben, Vollbild verlassen, Ton aus, Adresse unauffällig
   function toggleNotes() {
     if (!notesOpen) {
       notesOpen = true;
@@ -692,11 +712,13 @@ function setupMenus(game, input, audio) {
       });
       $('notes').hidden = false;
       document.title = $('notes-title').value || t('Notizen');
+      maskUrl(NOTES_PATH);
       $('notes-text').focus();
     } else {
       notesOpen = false;
       $('notes').hidden = true;
       document.title = 'Feuer Frei';
+      maskUrl(null);
       game.renderPaused = false;
       audio.mute(false);
       document.activeElement?.blur?.();
