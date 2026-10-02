@@ -111,10 +111,13 @@ export class Player {
     this.collider.setTranslation({ x: this.feet.x, y: this.feet.y + this.radius + this.half, z: this.feet.z });
   }
 
+  // Platz zum Aufstehen: geprüft gegen dasselbe wie die Bewegung (Welt, Rampen, Gegner). Die sichtbaren
+  // Treppenstufen zählen nicht: Man läuft auf der Rampe darüber, ihre Kanten ragen ein paar Zentimeter
+  // hindurch, und geduckt auf der Treppe kam man sonst nur per Sprung wieder hoch
   _standFree(feetY) {
     return !this.physics.overlaps(this.standShape, {
       x: this.feet.x, y: feetY + this.radius + this.halfStand + 0.01, z: this.feet.z,
-    });
+    }, this.moveGroups);
   }
 
   _duck() {
