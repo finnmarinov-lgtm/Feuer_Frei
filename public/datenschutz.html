@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Datenschutz – Feuer Frei</title>
+  <meta name="robots" content="noindex">
+  <style>
+    :root { color-scheme: dark; --text: #f3f1ec; --muted: #a9adb2; --accent: #f2b33d; --bg: #0d0f12; --panel: #171a1f; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 17px/1.55 'Segoe UI', system-ui, sans-serif; }
+    main { max-width: 760px; margin: 0 auto; padding: 24px 18px 60px; }
+    h1 { font-size: 30px; margin: 10px 0 4px; }
+    h2 { font-size: 21px; margin: 30px 0 6px; color: var(--accent); }
+    p, li { color: var(--text); }
+    small, .stand { color: var(--muted); }
+    a { color: var(--accent); }
+    ul { padding-left: 22px; }
+    .top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .lang button { font: 600 15px inherit; background: var(--panel); color: var(--text); border: 1px solid #333a42; border-radius: 6px; padding: 5px 12px; cursor: pointer; }
+    .lang button.on { background: var(--accent); color: #1a1407; border-color: var(--accent); }
+    .box { background: var(--panel); border-radius: 8px; padding: 12px 16px; }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <a href="./" id="back-de">← Zurück zum Spiel</a>
+    <div class="lang"><button data-l="de">Deutsch</button> <button data-l="en">English</button></div>
+  </div>
+
+  <section id="de" lang="de">
+    <h1>Datenschutzerklärung</h1>
+    <p class="stand">Feuer Frei · Stand: 3. Oktober 2026</p>
+
+    <h2>1. Wer ist verantwortlich?</h2>
+    <p>Finn Marinov<br>E-Mail: <a href="mailto:finn.marinov@outlook.de">finn.marinov@outlook.de</a></p>
+    <p>Feuer Frei ist ein privates, kostenloses Hobbyprojekt ohne Werbung.</p>
+
+    <h2>2. Kurz gesagt</h2>
+    <div class="box"><ul>
+      <li>Spielen geht ohne Anmeldung und ohne Cookies. Einstellungen, Skins und Notizen liegen zuerst nur in deinem Browser.</li>
+      <li>Wenn du online spielst oder ein Konto anlegst, gehen Daten an die unten genannten Dienste.</li>
+      <li>Es gibt keine Werbung, kein Tracking und keine Analyse-Werkzeuge. Gezählt werden nur Seitenaufrufe, ohne IP-Adresse.</li>
+    </ul></div>
+
+    <h2>3. Aufruf der Seite</h2>
+    <p>Die Seite liegt bei GitHub Pages (GitHub Inc., 88 Colin P. Kelly Jr. Street, San Francisco, CA 94107, USA). Beim Aufruf speichert GitHub deine IP-Adresse aus Sicherheitsgründen in Protokollen. Rechtsgrundlage ist das berechtigte Interesse an einem sicheren Betrieb der Seite (Art. 6 Abs. 1 lit. f DSGVO). GitHub ist nach dem EU-US Data Privacy Framework zertifiziert. Mehr dazu in der <a href="https://docs.github.com/de/site-policy/privacy-policies/github-general-privacy-statement">Datenschutzerklärung von GitHub</a>.</p>
+    <p>Alle Dateien des Spiels, auch die Schrift, kommen von dort. Es werden keine Schriften oder Skripte von Google oder anderen Anbietern nachgeladen.</p>
+
+    <h2>4. Speicher im Browser (keine Cookies)</h2>
+    <p>Das Spiel legt im lokalen Speicher deines Browsers ab: Einstellungen (z. B. Mausempfindlichkeit, Tastenbelegung, Sprache), Aufgaben-Fortschritt und getragene Skins, deinen Spielernamen, die Notizen vom Notizblock, die zuletzt gewählte Karte und die Einstellungen gegen die KI sowie mit Konto einen Anmelde-Schlüssel. Damit du nach dem Neuladen in eine laufende Partie zurückkommst, merkt sich der Tab außerdem Lobby und Spielstand (Sitzungsspeicher, er verschwindet beim Schließen des Tabs).</p>
+    <p>Diese Daten verlassen deinen Rechner nur so, wie in den Abschnitten 5 bis 7 beschrieben. Sie sind für die Funktionen nötig, die du nutzt (§ 25 Abs. 2 Nr. 2 TDDDG). Löschen kannst du sie in den Einstellungen deines Browsers (Websitedaten löschen).</p>
+
+    <h2>5. Besucherzähler</h2>
+    <p>Bei jedem Aufruf zählt das Spiel einen Seitenaufruf in einer Datenbank bei Supabase (siehe Abschnitt 7). Gespeichert werden nur das Datum, der Name des Spiels und die Seite, von der du kommst (nur der Domainname, z. B. „itch.io“). Keine IP-Adresse, kein Cookie, nichts, womit man dich wiedererkennen könnte.</p>
+
+    <h2>6. Mehrspieler</h2>
+    <p>Wenn du eine Lobby erstellst oder einer beitrittst, verbinden sich die Browser der Mitspieler direkt miteinander (WebRTC, über die Bibliothek Trystero). Dabei gilt:</p>
+    <ul>
+      <li><b>Mitspieler</b> erfahren deine IP-Adresse. Ohne sie geht eine direkte Verbindung nicht.</li>
+      <li><b>Verbindungsaufbau:</b> Die Angebote für die Verbindung laufen verschlüsselt über öffentliche Nostr-Relais-Server verschiedener Betreiber. Diese Betreiber sehen deine IP-Adresse. Die Server stehen weltweit, auch außerhalb der EU, und es gibt mit ihnen keinen Vertrag.</li>
+      <li><b>STUN-Server:</b> Damit die Verbindung durch Router hindurch klappt, fragt dein Browser Server von Google (stun.l.google.com) und Cloudflare (stun.cloudflare.com) nach seiner öffentlichen Adresse. Dabei sehen sie deine IP-Adresse.</li>
+      <li><b>Über den Server:</b> Als Rückfall, falls die direkte Verbindung nicht klappt, und für die Liste offener Lobbys laufen Nachrichten über Supabase Realtime: Lobby-Code, eine zufällige Kennung deines Tabs, Spielername, Team, Skins, Bewegungen, Treffer und Schnellnachrichten. Sie werden nur weitergeleitet, nicht gespeichert. Öffentliche Lobbys stehen mit Host-Name, Karte, Modus und Spielerzahl in der Liste, solange sie offen sind.</li>
+    </ul>
+    <p>Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO, weil du den Mehrspieler nutzen willst, für die Server zum Verbindungsaufbau Art. 6 Abs. 1 lit. f DSGVO (berechtigtes Interesse an funktionierenden Direktverbindungen). Wenn du nicht online spielst, entsteht keine dieser Verbindungen.</p>
+
+    <h2>7. Konto</h2>
+    <p>Ein Konto ist freiwillig. Legst du eines an, wird bei Supabase gespeichert: dein Benutzername, dein Passwort als bcrypt-Hash (das Passwort selbst nicht), dein Aufgaben-Fortschritt, die getragenen Skins, die Notizen vom Notizblock, wann das Konto angelegt und zuletzt geändert wurde, die Zahl falscher Anmeldeversuche und je angemeldetem Gerät ein Hash des Anmelde-Schlüssels mit dem Zeitpunkt der letzten Nutzung. Eine E-Mail-Adresse wird nicht abgefragt.</p>
+    <p>Die Notizen werden auf dem Server nicht Ende-zu-Ende-verschlüsselt. Ich schaue sie mir nicht an, technisch wäre es aber möglich. Speichere darin deshalb keine Passwörter oder anderen sensiblen Daten.</p>
+    <p>Rechtsgrundlage ist Art. 6 Abs. 1 lit. b DSGVO, weil du das Konto nutzen willst. Die Daten bleiben gespeichert, bis du das Konto löschst (im Spiel unter Konto → Konto löschen). Anmelde-Schlüssel verfallen nach 180 Tagen ohne Nutzung. Beim Abmelden werden die Daten auf dem Gerät entfernt, im Konto bleiben sie.</p>
+    <p>Anbieter der Datenbank ist Supabase (Supabase Pte. Ltd., 65 Chulia Street #38-02/03, OCBC Centre, Singapur 049513). Supabase verarbeitet die Daten in meinem Auftrag auf Servern seiner Dienstleister. Dabei kann auch eine Verarbeitung außerhalb der EU stattfinden. Dafür gelten die Standardvertragsklauseln der EU-Kommission aus dem Vertrag zur Auftragsverarbeitung von Supabase. Wie jeder Server verarbeitet Supabase bei jeder Anfrage deine IP-Adresse. Mehr in der <a href="https://supabase.com/privacy">Datenschutzerklärung von Supabase</a>.</p>
+
+    <h2>8. itch.io</h2>
+    <p>Auf <a href="https://fm323.itch.io/feuer-frei">itch.io</a> läuft dasselbe Spiel innerhalb der Seite von itch.io. Dort gilt zusätzlich die Datenschutzerklärung von itch.io.</p>
+
+    <h2>9. Deine Rechte</h2>
+    <p>Du hast das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit und Widerspruch (Art. 15 bis 21 DSGVO). Schreib dafür einfach an die E-Mail oben. Dein Konto kannst du jederzeit selbst im Spiel löschen. Außerdem kannst du dich bei einer Datenschutz-Aufsichtsbehörde beschweren, zum Beispiel bei der deines Bundeslands.</p>
+
+    <h2>10. Kinder und Jugendliche</h2>
+    <p>Wenn du unter 16 bist, frag bitte deine Eltern, bevor du ein Konto anlegst.</p>
+
+    <p class="stand">Siehe auch die <a href="nutzungsbedingungen.html">Nutzungsbedingungen</a>.</p>
+  </section>
+
+  <section id="en" lang="en" hidden>
+    <h1>Privacy policy</h1>
+    <p class="stand">Feuer Frei · Last updated: 3 October 2026</p>
+
+    <h2>1. Who is responsible?</h2>
+    <p>Finn Marinov<br>E-mail: <a href="mailto:finn.marinov@outlook.de">finn.marinov@outlook.de</a></p>
+    <p>Feuer Frei is a private, free hobby project without ads.</p>
+
+    <h2>2. In short</h2>
+    <div class="box"><ul>
+      <li>You can play without signing in and without cookies. Settings, skins and notes are first stored only in your browser.</li>
+      <li>If you play online or create an account, data goes to the services listed below.</li>
+      <li>There are no ads, no tracking and no analytics tools. Only page views are counted, without IP addresses.</li>
+    </ul></div>
+
+    <h2>3. Visiting the site</h2>
+    <p>The site is hosted on GitHub Pages (GitHub Inc., 88 Colin P. Kelly Jr. Street, San Francisco, CA 94107, USA). When you visit, GitHub stores your IP address in logs for security reasons. The legal basis is the legitimate interest in operating the site securely (Art. 6(1)(f) GDPR). GitHub is certified under the EU-U.S. Data Privacy Framework. See the <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub privacy statement</a>.</p>
+    <p>All files of the game, including the font, come from there. No fonts or scripts are loaded from Google or other providers.</p>
+
+    <h2>4. Browser storage (no cookies)</h2>
+    <p>The game stores in your browser’s local storage: settings (e.g. mouse sensitivity, key bindings, language), challenge progress and worn skins, your player name, the notes from the notepad, the last chosen map and the bot settings, and with an account a sign-in key. So that you can return to a running match after reloading, the tab also remembers the lobby and match state (session storage, cleared when the tab is closed).</p>
+    <p>This data only leaves your computer as described in sections 5 to 7. It is required for the features you use (Section 25(2) No. 2 TDDDG). You can delete it in your browser settings (clear site data).</p>
+
+    <h2>5. Visitor counter</h2>
+    <p>On every visit the game counts a page view in a database at Supabase (see section 7). Only the date, the name of the game and the site you came from (only the domain name, e.g. “itch.io”) are stored. No IP address, no cookie, nothing that could identify you.</p>
+
+    <h2>6. Multiplayer</h2>
+    <p>When you create or join a lobby, the players’ browsers connect directly to each other (WebRTC, using the Trystero library). This means:</p>
+    <ul>
+      <li><b>Other players</b> learn your IP address. A direct connection does not work without it.</li>
+      <li><b>Connection setup:</b> The connection offers are sent encrypted through public Nostr relay servers run by various operators. These operators see your IP address. The servers are located worldwide, including outside the EU, and there is no contract with them.</li>
+      <li><b>STUN servers:</b> So that the connection works through routers, your browser asks servers run by Google (stun.l.google.com) and Cloudflare (stun.cloudflare.com) for its public address. They see your IP address.</li>
+      <li><b>Through the server:</b> As a fallback if the direct connection fails, and for the list of open lobbies, messages go through Supabase Realtime: lobby code, a random ID of your tab, player name, team, skins, movements, hits and quick messages. They are only forwarded, not stored. Public lobbies are listed with the host name, map, mode and player count while they are open.</li>
+    </ul>
+    <p>The legal basis is Art. 6(1)(b) GDPR because you want to use multiplayer, and Art. 6(1)(f) GDPR for the connection setup servers (legitimate interest in working direct connections). If you don’t play online, none of these connections are made.</p>
+
+    <h2>7. Account</h2>
+    <p>An account is optional. If you create one, Supabase stores: your username, your password as a bcrypt hash (not the password itself), your challenge progress, your worn skins, the notes from the notepad, when the account was created and last changed, the number of failed sign-in attempts and, for each signed-in device, a hash of the sign-in key with the time it was last used. No e-mail address is required.</p>
+    <p>The notes are not end-to-end encrypted on the server. I don’t look at them, but it would be technically possible. Please don’t store passwords or other sensitive data in them.</p>
+    <p>The legal basis is Art. 6(1)(b) GDPR because you want to use the account. The data is kept until you delete the account (in the game under Account → Delete account). Sign-in keys expire after 180 days without use. Signing out removes the data from the device; it stays in the account.</p>
+    <p>The database is provided by Supabase (Supabase Pte. Ltd., 65 Chulia Street #38-02/03, OCBC Centre, Singapore 049513). Supabase processes the data on my behalf on servers of its service providers, which may include processing outside the EU. The EU Standard Contractual Clauses in Supabase’s data processing agreement apply to this. Like any server, Supabase processes your IP address with every request. See the <a href="https://supabase.com/privacy">Supabase privacy policy</a>.</p>
+
+    <h2>8. itch.io</h2>
+    <p>On <a href="https://fm323.itch.io/feuer-frei">itch.io</a> the same game runs inside the itch.io site. The itch.io privacy policy applies there as well.</p>
+
+    <h2>9. Your rights</h2>
+    <p>You have the right of access, rectification, erasure, restriction of processing, data portability and objection (Art. 15 to 21 GDPR). Just write to the e-mail address above. You can delete your account yourself in the game at any time. You can also lodge a complaint with a data protection supervisory authority, for example the one in your country or state.</p>
+
+    <h2>10. Children and teenagers</h2>
+    <p>If you are under 16, please ask your parents before creating an account.</p>
+
+    <p class="stand">See also the <a href="nutzungsbedingungen.html#en">terms of use</a>. The German version is authoritative.</p>
+  </section>
+</main>
+<script>
+  // gleiche Sprache wie im Spiel: eigene Wahl (feuer-frei-sprache), sonst die des Browsers; #de/#en geht vor
+  (function () {
+    var wahl = location.hash === '#en' ? 'en' : location.hash === '#de' ? 'de' : null;
+    if (!wahl) {
+      try { wahl = localStorage.getItem('feuer-frei-sprache'); } catch (e) { wahl = null; }
+    }
+    if (wahl !== 'de' && wahl !== 'en') {
+      var l = (navigator.languages && navigator.languages[0]) || navigator.language || 'en';
+      wahl = /^de/i.test(l) ? 'de' : 'en';
+    }
+    function zeige(code) {
+      document.getElementById('de').hidden = code !== 'de';
+      document.getElementById('en').hidden = code !== 'en';
+      document.documentElement.lang = code;
+      document.title = code === 'de' ? 'Datenschutz – Feuer Frei' : 'Privacy – Feuer Frei';
+      document.getElementById('back-de').textContent = code === 'de' ? '← Zurück zum Spiel' : '← Back to the game';
+      var b = document.querySelectorAll('.lang button');
+      for (var i = 0; i < b.length; i++) b[i].className = b[i].getAttribute('data-l') === code ? 'on' : '';
+    }
+    var knoepfe = document.querySelectorAll('.lang button');
+    for (var i = 0; i < knoepfe.length; i++) {
+      knoepfe[i].addEventListener('click', function () { zeige(this.getAttribute('data-l')); });
+    }
+    zeige(wahl);
+  })();
+</script>
+</body>
+</html>

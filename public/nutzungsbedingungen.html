@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nutzungsbedingungen – Feuer Frei</title>
+  <meta name="robots" content="noindex">
+  <style>
+    :root { color-scheme: dark; --text: #f3f1ec; --muted: #a9adb2; --accent: #f2b33d; --bg: #0d0f12; --panel: #171a1f; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 17px/1.55 'Segoe UI', system-ui, sans-serif; }
+    main { max-width: 760px; margin: 0 auto; padding: 24px 18px 60px; }
+    h1 { font-size: 30px; margin: 10px 0 4px; }
+    h2 { font-size: 21px; margin: 30px 0 6px; color: var(--accent); }
+    small, .stand { color: var(--muted); }
+    a { color: var(--accent); }
+    .top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .lang button { font: 600 15px inherit; background: var(--panel); color: var(--text); border: 1px solid #333a42; border-radius: 6px; padding: 5px 12px; cursor: pointer; }
+    .lang button.on { background: var(--accent); color: #1a1407; border-color: var(--accent); }
+    [hidden] { display: none !important; }
+  </style>
+</head>
+<body>
+<main>
+  <div class="top">
+    <a href="./" id="back">← Zurück zum Spiel</a>
+    <div class="lang"><button data-l="de">Deutsch</button> <button data-l="en">English</button></div>
+  </div>
+
+  <section id="de" lang="de">
+    <h1>Nutzungsbedingungen</h1>
+    <p class="stand">Feuer Frei · Stand: 3. Oktober 2026</p>
+
+    <h2>1. Das Spiel</h2>
+    <p>Feuer Frei ist ein kostenloses, privates Hobbyprojekt von Finn Marinov. Es gibt keinen Anspruch darauf, dass das Spiel, die Server oder einzelne Funktionen jederzeit verfügbar sind. Funktionen können sich ändern oder wegfallen.</p>
+
+    <h2>2. Konto</h2>
+    <p>Ein Konto ist freiwillig. Halte dein Passwort geheim und nimm eines, das du sonst nirgends benutzt. Weil es keine E-Mail gibt, kann ein vergessenes Passwort nicht zurückgesetzt werden. Du kannst dein Konto jederzeit im Spiel löschen.</p>
+
+    <h2>3. Namen und Verhalten</h2>
+    <p>Benutze keine beleidigenden, diskriminierenden oder anstößigen Namen und gib dich nicht als jemand anderes aus. Nicht erlaubt sind außerdem Schummeln (zum Beispiel das Spiel oder seine Daten im Netz zu verändern), Angriffe auf die Server oder deren Überlastung und das absichtliche Stören anderer Spieler.</p>
+
+    <h2>4. Sperren und Löschen</h2>
+    <p>Bei Verstößen kann ich Namen ändern sowie Konten sperren oder löschen. Konten, die sehr lange nicht benutzt wurden, kann ich nach einer Ankündigung auf dieser Seite löschen.</p>
+
+    <h2>5. Spielstände und Notizen</h2>
+    <p>Das Speichern von Fortschritt, Skins und Notizen ist eine kostenlose Zusatzfunktion ohne Garantie. Bewahre wichtige Inhalte nicht nur hier auf. Was gespeichert wird, steht in der <a href="datenschutz.html">Datenschutzerklärung</a>.</p>
+
+    <h2>6. Haftung</h2>
+    <p>Ich hafte nur für Vorsatz und grobe Fahrlässigkeit. Das gilt nicht bei Verletzung von Leben, Körper oder Gesundheit.</p>
+
+    <h2>7. Änderungen</h2>
+    <p>Diese Bedingungen können sich ändern. Es gilt die Fassung, die auf dieser Seite steht.</p>
+
+    <h2>8. Kontakt</h2>
+    <p>Finn Marinov · <a href="mailto:finn.marinov@outlook.de">finn.marinov@outlook.de</a></p>
+  </section>
+
+  <section id="en" lang="en" hidden>
+    <h1>Terms of use</h1>
+    <p class="stand">Feuer Frei · Last updated: 3 October 2026</p>
+
+    <h2>1. The game</h2>
+    <p>Feuer Frei is a free, private hobby project by Finn Marinov. There is no entitlement to the game, the servers or individual features being available at all times. Features may change or be removed.</p>
+
+    <h2>2. Account</h2>
+    <p>An account is optional. Keep your password secret and use one you don’t use anywhere else. Since there is no e-mail, a forgotten password cannot be reset. You can delete your account in the game at any time.</p>
+
+    <h2>3. Names and behaviour</h2>
+    <p>Don’t use offensive, discriminating or indecent names, and don’t pretend to be someone else. Cheating (for example modifying the game or its network data), attacking or overloading the servers, and deliberately disrupting other players are not allowed either.</p>
+
+    <h2>4. Suspension and deletion</h2>
+    <p>In case of violations I may change names and suspend or delete accounts. Accounts that have not been used for a very long time may be deleted after an announcement on this page.</p>
+
+    <h2>5. Saved progress and notes</h2>
+    <p>Saving progress, skins and notes is a free extra feature without guarantee. Don’t keep important content only here. What is stored is described in the <a href="datenschutz.html#en">privacy policy</a>.</p>
+
+    <h2>6. Liability</h2>
+    <p>I am only liable for intent and gross negligence. This does not apply to injury to life, body or health.</p>
+
+    <h2>7. Changes</h2>
+    <p>These terms may change. The version on this page applies. The German version is authoritative.</p>
+
+    <h2>8. Contact</h2>
+    <p>Finn Marinov · <a href="mailto:finn.marinov@outlook.de">finn.marinov@outlook.de</a></p>
+  </section>
+</main>
+<script>
+  // gleiche Sprache wie im Spiel: eigene Wahl (feuer-frei-sprache), sonst die des Browsers; #de/#en geht vor
+  (function () {
+    var wahl = location.hash === '#en' ? 'en' : location.hash === '#de' ? 'de' : null;
+    if (!wahl) {
+      try { wahl = localStorage.getItem('feuer-frei-sprache'); } catch (e) { wahl = null; }
+    }
+    if (wahl !== 'de' && wahl !== 'en') {
+      var l = (navigator.languages && navigator.languages[0]) || navigator.language || 'en';
+      wahl = /^de/i.test(l) ? 'de' : 'en';
+    }
+    function zeige(code) {
+      document.getElementById('de').hidden = code !== 'de';
+      document.getElementById('en').hidden = code !== 'en';
+      document.documentElement.lang = code;
+      document.title = code === 'de' ? 'Nutzungsbedingungen – Feuer Frei' : 'Terms of use – Feuer Frei';
+      document.getElementById('back').textContent = code === 'de' ? '← Zurück zum Spiel' : '← Back to the game';
+      var b = document.querySelectorAll('.lang button');
+      for (var i = 0; i < b.length; i++) b[i].className = b[i].getAttribute('data-l') === code ? 'on' : '';
+    }
+    var knoepfe = document.querySelectorAll('.lang button');
+    for (var i = 0; i < knoepfe.length; i++) {
+      knoepfe[i].addEventListener('click', function () { zeige(this.getAttribute('data-l')); });
+    }
+    zeige(wahl);
+  })();
+</script>
+</body>
+</html>

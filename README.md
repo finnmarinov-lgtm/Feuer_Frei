@@ -384,6 +384,19 @@ Damit das Spiel sparsam bleibt: Teile, die sich gemeinsam bewegen und dasselbe M
 
 Die Leinwand ist auf geringe Verzögerung eingestellt (`desynchronized`). Dabei kann der Browser Zwischenstände anzeigen, deshalb wird jedes Bild erst im Hintergrund fertig zusammengesetzt und dann in einem Zug ausgegeben. Direkt in mehreren Durchgängen ins sichtbare Bild zu zeichnen führt zu Flackern.
 
+## Datenschutz und Nutzungsbedingungen
+
+Seit dem 03.10.2026 gibt es [Datenschutzerklärung](public/datenschutz.html) und [Nutzungsbedingungen](public/nutzungsbedingungen.html), beide deutsch und englisch auf einer Seite (öffnen in der Sprache des Spiels, `#de`/`#en` erzwingt eine). Verlinkt sind sie im Hauptmenü unter dem Infotext und beim Anlegen eines Kontos. Verantwortlich ist Finn Marinov, Kontakt per E-Mail (siehe Seite).
+
+Die Erklärung beschreibt alle Datenflüsse. Ändert sich daran etwas, muss sie mit:
+- **GitHub Pages:** speichert die IP-Adresse der Besucher zur Sicherheit.
+- **Browser-Speicher:** Einstellungen, Fortschritt, Notizen, Name, Konto-Schlüssel; keine Cookies.
+- **Zähler:** nur Datum, Spiel und Herkunfts-Domain.
+- **Mehrspieler:** Direktverbindung über Trystero. Die Mitspieler sehen die IP-Adresse; die Verbindungsangebote laufen AES-GCM-verschlüsselt über öffentliche Nostr-Relais; die STUN-Server von Google und Cloudflare sehen die IP-Adresse. Rückfall und Lobby-Liste laufen über Supabase Realtime und werden nur weitergeleitet.
+- **Konto:** liegt bei Supabase Pte. Ltd., mit Auftragsverarbeitung und Standardvertragsklauseln.
+
+**Schrift:** Rajdhani kommt nicht mehr von Google Fonts, sondern aus dem Paket `@fontsource/rajdhani`. Vite bündelt die Dateien mit, die Lizenz (SIL Open Font License) liegt unter `public/lizenzen/`. Vorher ging beim Laden die IP-Adresse jedes Besuchers an Google.
+
 ## Zähler für Seitenaufrufe
 
 `src/net/zaehler.js` meldet bei jedem Laden der Seite einen Aufruf an die eigene Supabase-Datenbank. Gespeichert werden nur **Datum und Herkunft** (der Hostname der verweisenden Seite, z. B. `itch.io`) – keine IP, kein Cookie, nichts Personenbezogenes. Auf `localhost` zählt es nicht mit.

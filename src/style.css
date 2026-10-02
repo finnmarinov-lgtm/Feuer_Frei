@@ -1,3 +1,9 @@
+/* Schrift Rajdhani liegt beim Spiel selbst (SIL Open Font License, siehe lizenzen/), nicht bei Google:
+   so geht beim Laden keine IP-Adresse an Google */
+@import '@fontsource/rajdhani/500.css';
+@import '@fontsource/rajdhani/600.css';
+@import '@fontsource/rajdhani/700.css';
+
 :root {
   --text: #f3f1ec;
   --muted: #a9adb2;
@@ -252,6 +258,8 @@ body.radar #tasks-hud { top: 328px; }
 .about li { margin-bottom: 3px; }
 .about b { color: var(--text); font-weight: 600; }
 .about .tech { font-size: 13px; opacity: 0.75; }
+.legal a { color: var(--accent); }
+.about .legal { text-align: center; opacity: 1; }
 .bar { width: 320px; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; }
 .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width 0.2s; }
 .hint { color: var(--muted); font-size: 16px; }

@@ -635,6 +635,9 @@ const EN = {
     'Really delete the account? Skins, progress and notes in the account will be gone.',
   'Wird gespeichert …': 'Saving …',
   'Gerade keine Verbindung, wird später gespeichert': 'No connection right now, will save later',
+  'Datenschutz': 'Privacy',
+  'Nutzungsbedingungen': 'Terms of use',
+  'Mit dem Anlegen eines Kontos stimmst du den Nutzungsbedingungen zu.': 'By creating an account you agree to the terms of use.',
 };
 
 // Trennzeichen, über die ein Platzhalter nur greifen darf, wenn die Vorlage sie selbst enthält
