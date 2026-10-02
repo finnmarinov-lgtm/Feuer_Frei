@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { ARMS, BOMB, DUEL, ECONOMY, GRENADES, KILLERS, MOVE, SPECIAL, WEAPONS, WEAPON_IDS } from '../config.js';
+import { ARMOR, ARMS, BOMB, DUEL, ECONOMY, GRENADES, KILLERS, MOVE, SPECIAL, WEAPONS, WEAPON_IDS } from '../config.js';
 import { BOMB_SITES, MAP, SPAWNS } from '../world/map.js';
 import { Player } from '../player/player.js';
 import { FLAG } from '../game/remote.js';
@@ -594,11 +594,11 @@ export class Bot {
         this._switch('secondary');
       }
     }
-    if (b.armor < 100 && m >= 650 && !(this.L.weak && Math.random() < 0.5)) {
-      const helmet = m >= 1000 + 800 && !this.L.weak;
-      b.armor = 100;
+    if (b.armor < ARMOR.points && m >= ARMOR.vest.price && !(this.L.weak && Math.random() < 0.5)) {
+      const helmet = m >= ARMOR.helmet.price + 800 && !this.L.weak;
+      b.armor = ARMOR.points;
       b.helmet = helmet;
-      m -= helmet ? 1000 : 650;
+      m -= helmet ? ARMOR.helmet.price : ARMOR.vest.price;
     }
     this.money = m;
     this.roundArmor = { armor: b.armor, helmet: b.helmet };

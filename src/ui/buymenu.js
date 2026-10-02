@@ -86,7 +86,7 @@ export class BuyMenu {
       const why = m.blockReason(id);
       const owned = WEAPONS[id] && WEAPONS[id].slot !== 'utility'
         ? inv.has(id)
-        : id === 'vest' ? p.armor >= 100 : id === 'helmet' ? p.helmet && p.armor >= 100 : false;
+        : id === 'vest' ? p.armor >= ARMOR.points : id === 'helmet' ? p.helmet && p.armor >= ARMOR.points : false;
       b.classList.toggle('owned', owned);
       b.classList.toggle('blocked', !!why && !owned);
       const price = m.priceOf(id);

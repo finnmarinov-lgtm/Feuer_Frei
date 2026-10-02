@@ -151,7 +151,7 @@ export class Match {
   priceOf(id) {
     const p = this.g.player;
     if (id === 'vest') return ARMOR.vest.price;
-    if (id === 'helmet') return p.armor >= 100 && !p.helmet ? ARMOR.helmet.upgrade : ARMOR.helmet.price;
+    if (id === 'helmet') return p.armor >= ARMOR.points && !p.helmet ? ARMOR.helmet.upgrade : ARMOR.helmet.price;
     return WEAPONS[id].price;
   }
 
@@ -161,8 +161,8 @@ export class Match {
     const p = g.player;
     const inv = g.weapons.inv;
     if (!this.canBuy) return this.phase === 'live' && this.buyTimer <= 0 ? 'Kaufzeit vorbei' : 'Nur im Spawn';
-    if (id === 'vest' && p.armor >= 100) return 'Schon ausgerüstet';
-    if (id === 'helmet' && p.armor >= 100 && p.helmet) return 'Schon ausgerüstet';
+    if (id === 'vest' && p.armor >= ARMOR.points) return 'Schon ausgerüstet';
+    if (id === 'helmet' && p.armor >= ARMOR.points && p.helmet) return 'Schon ausgerüstet';
     if (WEAPONS[id]) {
       const def = WEAPONS[id];
       if (def.slot === 'utility') {
@@ -187,10 +187,10 @@ export class Match {
     const inv = g.weapons.inv;
     if (id === 'vest') {
       this.purchases.push({ id, price, armorBefore: p.armor, helmetBefore: p.helmet });
-      p.armor = 100;
+      p.armor = ARMOR.points;
     } else if (id === 'helmet') {
       this.purchases.push({ id, price, armorBefore: p.armor, helmetBefore: p.helmet });
-      p.armor = 100;
+      p.armor = ARMOR.points;
       p.helmet = true;
     } else {
       const slot = inv.slotFor(id);

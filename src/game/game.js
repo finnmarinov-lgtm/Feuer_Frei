@@ -549,8 +549,6 @@ export class Game {
         m.callAirstrike(point);
         // gehaltene Maustaste nach dem Bestätigen nicht als Schuss werten
         this.weapons.holdFire = true;
-      } else if (as.tooClose) {
-        this.hud.message('Zu nah', `Im Kreis trifft der Jet auch dich. Ziel mindestens ${SPECIAL.minDist} m entfernt wählen.`, 1.8);
       } else {
         this.hud.message('Kein Ziel', 'Schau auf den Boden unter freiem Himmel, dort feuert der Jet hin', 1.6);
       }

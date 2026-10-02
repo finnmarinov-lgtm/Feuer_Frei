@@ -98,9 +98,6 @@ export const SPECIAL = {
   blastRadius: 2.2,
   damage: 48,
   armorPen: 0.6,
-  // so weit muss das Ziel mindestens von einem selbst weg sein (Kreis plus Sprengradius): sonst traf
-  // der eigene Luftschlag oft einen selbst, wenn man aus Versehen auf den Boden vor sich zielte
-  minDist: 9,
 };
 
 // Waffen-Modus im 1 gegen 1 (Lobby bzw. Gegen KI): was man kaufen darf. allow = erlaubte Dinge
@@ -132,7 +129,10 @@ export const PLAYER = {
   helmetHeadMul: 0.5,
 };
 
+// Schutzweste: 50 Punkte (vorher 100, die hat in einem Leben nie jemand aufgebraucht). Jeder Treffer
+// kostet die Weste die Hälfte des Schadens, den sie abhält; leer schützt sie nicht mehr.
 export const ARMOR = {
+  points: 50,
   vest: { name: 'Schutzweste', price: 650 },
   helmet: { name: 'Weste + Helm', price: 1000, upgrade: 350 },
 };

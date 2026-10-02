@@ -111,7 +111,7 @@ export class Hud {
       QUICK_CHAT.map((t, i) => `<div data-chat="${i}"><kbd>${key('slot' + (i + 1))}</kbd>${escapeHtml(t)}</div>`).join('');
     // dynamische Hinweise beim nächsten Anzeigen neu aufbauen
     this.el.useprompt._html = null;
-    this.el.specialHint._mode = null;
+    this.el.specialHint._touch = null;
   }
 
   /** 'training' oder 'duel': Punktestand, Leben und Verbindung nur im Duell */
@@ -607,19 +607,14 @@ export class Hud {
       el.special._ready = ready;
       el.special.classList.toggle('ready', ready);
     }
-    const as = this.g.airstrikes;
-    const targeting = as.targeting;
+    const targeting = this.g.airstrikes.targeting;
     this._show(el.specialHint, targeting);
     const touch = this.g.input.touch;
-    // nur neu schreiben, wenn sich etwas ändert (Touch oder Tastatur, Ziel zu nah)
-    const mode = `${touch ? 't' : 'k'}${as.tooClose ? 'c' : ''}`;
-    if (targeting && el.specialHint._mode !== mode) {
-      el.specialHint._mode = mode;
-      el.specialHint.innerHTML = as.tooClose
-        ? 'Zu nah an dir: weiter weg zielen (im Kreis trifft der Jet auch dich)'
-        : touch
-          ? 'Luftschlag: Ziel anschauen · roter Knopf bestätigt · Flugzeug bricht ab'
-          : `Luftschlag: Ziel anschauen · <kbd>Linksklick</kbd> bestätigen · <kbd>Rechtsklick</kbd> oder <kbd>${escapeHtml(this.g.input.label('special'))}</kbd> abbrechen`;
+    if (targeting && el.specialHint._touch !== touch) {
+      el.specialHint._touch = touch;
+      el.specialHint.innerHTML = touch
+        ? 'Luftschlag: Ziel anschauen · roter Knopf bestätigt · Flugzeug bricht ab'
+        : `Luftschlag: Ziel anschauen · <kbd>Linksklick</kbd> bestätigen · <kbd>Rechtsklick</kbd> oder <kbd>${escapeHtml(this.g.input.label('special'))}</kbd> abbrechen`;
     }
   }
 

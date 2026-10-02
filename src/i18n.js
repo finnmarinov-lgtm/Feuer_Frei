@@ -586,10 +586,6 @@ const EN = {
   'Hier läuft schon eine Partie: Du schaust zu, bis sie vorbei ist, danach geht es in der Lobby weiter':
     'A match is already running here: you spectate until it is over, then it continues in the lobby',
 
-  // Luftschlag zu nah
-  'Zu nah': 'Too close',
-  'Zu nah an dir: weiter weg zielen (im Kreis trifft der Jet auch dich)': 'Too close to you: aim further away (the jet hits you too inside the circle)',
-
   // beim Durchspielen noch gefunden
   '+ Helm': '+ helmet',
   'gratis': 'free',
@@ -637,7 +633,6 @@ const VORLAGEN = [
   ['{}: nächster Spieler', '{1}: next player'],
   ['{} schaut zu', '{1} is spectating'],
   ['{} gewinnt', '{1} wins'],
-  ['Im Kreis trifft der Jet auch dich. Ziel mindestens {n} m entfernt wählen.', 'The jet hits you too inside the circle. Pick a target at least {1} m away.'],
   ['Zurück im Duell – {} zum Weiterspielen', 'Back in the duel – {1} to resume'],
   ['Zurück im Spiel – {} zum Weiterspielen', 'Back in the match – {1} to resume'],
   ['1 gegen 1 gegen {}', '1v1 against {1}'],
