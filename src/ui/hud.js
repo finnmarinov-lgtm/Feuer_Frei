@@ -32,6 +32,11 @@ export function netText(net) {
   if (net.mode === 'server') return `Über Server${ms}`;
   return 'Verbindung unterbrochen …';
 }
+/** Leben als Punkte: voll = übrig, leer = verloren */
+export function pips(n, total) {
+  return '●'.repeat(Math.max(0, n)) + '○'.repeat(Math.max(0, total - n));
+}
+
 const fmtTime = (s) => {
   const t = Math.max(0, Math.ceil(s));
   return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
@@ -48,7 +53,7 @@ export class Hud {
       root: $('hud'), cross: $('crosshair'), hit: $('hitmarker'), dmgLayer: $('damage-layer'),
       round: $('hud-round'), timer: $('hud-timer'), phase: $('hud-phase'), targets: $('hud-targets'),
       money: $('hud-money'), moneyDelta: $('money-delta'), buyhint: $('buyhint'), buyhintTime: $('buyhint-time'),
-      health: $('hud-health'), armor: $('hud-armor'), helmet: $('hud-helmet'),
+      health: $('hud-health'), armor: $('hud-armor'), helmet: $('hud-helmet'), lives: $('hud-lives'), livesBox: $('lives-box'),
       ammo: $('ammo'), weapon: $('hud-weapon'), mag: $('hud-mag'), reserve: $('hud-reserve'),
       slots: $('slots'), killfeed: $('killfeed'), center: $('center-msg'), roundEnd: $('round-end'),
       stats: $('stats-panel'), fps: $('fps'), scope: $('scope'), vignette: $('vignette'), flash: $('flash'),
@@ -59,7 +64,7 @@ export class Hud {
       waypoint: $('waypoint'), waypointText: $('waypoint-text'), bombBadge: $('bomb-badge'),
       special: $('special'), specialPips: $('special-pips'), specialHint: $('special-hint'),
       spectate: $('spectate'), specTag: $('spec-tag'), specWho: $('spec-who'), specHint: $('spec-hint'),
-      specLeft: $('spec-left'), killbars: $('killbars'),
+      specLeft: $('spec-left'), specInfo: $('spec-info'), killbars: $('killbars'),
       tasks: $('tasks-hud'), toast: $('task-toast'), tags: $('name-tags'),
     };
     // Team-Spiel: Namensschild pro Mitspieler (Kennung -> Element)
@@ -206,6 +211,9 @@ export class Hud {
     this._text(el.specLeft, info.left);
     this._show(el.specLeft, !!info.left);
     this._show(el.specHint, !!info.hint);
+    // Lebenspunkte (und Leben) dessen, der einen erwischt hat
+    this._text(el.specInfo, info.info || '');
+    this._show(el.specInfo, !!info.info);
   }
 
   // neuer Skin: Einblendung oben mit Klang
@@ -510,9 +518,8 @@ export class Hud {
       this._text(el.duelMe, m.names[m.me]);
       this._text(el.duelThem, m.names[m.them]);
       this._text(el.duelScore, `${m.wins[m.me]} : ${m.wins[m.them]}`);
-      const pips = (n) => '●'.repeat(Math.max(0, n)) + '○'.repeat(Math.max(0, m.cfg.lives - n));
-      this._text(el.livesMe, m.cfg.lives > 1 ? pips(m.lives[m.me]) : '');
-      this._text(el.livesThem, m.cfg.lives > 1 ? pips(m.lives[m.them]) : '');
+      this._text(el.livesMe, m.cfg.lives > 1 ? pips(m.lives[m.me], m.cfg.lives) : '');
+      this._text(el.livesThem, m.cfg.lives > 1 ? pips(m.lives[m.them], m.cfg.lives) : '');
       for (const side of [el.duelMe.parentElement, el.duelThem.parentElement]) {
         if (side._team) {
           side._team = null;
@@ -650,6 +657,10 @@ export class Hud {
     el.health.parentElement.classList.toggle('hurt', p.health <= 25);
     this._text(el.armor, String(Math.ceil(p.armor)));
     if (el.helmet.hidden !== !p.helmet) el.helmet.hidden = !p.helmet;
+    // eigene Leben in dieser Runde (nur bei mehreren Leben): volle Punkte = übrig
+    const lives = m.duel && m.cfg?.lives > 1 && !m.spectator;
+    this._show(el.livesBox, lives);
+    if (lives) this._text(el.lives, pips(m.lives[m.me] ?? 0, m.cfg.lives));
     el.ammo.classList.toggle('reloading', ws.reloading);
 
     const canBuy = m.canBuy;

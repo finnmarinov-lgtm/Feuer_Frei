@@ -2,6 +2,7 @@
 // Aufruf: npm run models                 alle Modelle
 //         npm run models -- --preview    zusätzlich Vorschaubilder nach blender/preview
 //         npm run models -- wolf natter  nur bestimmte Modelle
+//         npm run models -- texturen     nur die gemeinsamen Oberflächen der Waffen
 import { spawnSync } from 'node:child_process';
 import { existsSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -28,7 +29,7 @@ console.log(`Blender: ${blender}`);
 const res = spawnSync(blender, args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
 const out = (res.stdout || '') + (res.stderr || '');
 for (const line of out.split(/\r?\n/)) {
-  if (/^(EXPORT|PREVIEW|PROP|BUILD_DONE)|Error|Traceback|File "|^\s{2,}\S/.test(line)) console.log(line);
+  if (/^(EXPORT|PREVIEW|PROP|TEXTURE|BUILD_DONE)|Error|Traceback|File "|^\s{2,}\S/.test(line)) console.log(line);
 }
 if (res.status !== 0 || !out.includes('BUILD_DONE')) {
   console.error('Modellbau fehlgeschlagen.');

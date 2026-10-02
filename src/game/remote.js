@@ -247,7 +247,7 @@ export class RemotePlayer {
     });
     for (const o of remove) o.removeFromParent();
     // in fremder Hand bewegt sich nichts an der Waffe: ganz zusammenfassen, nur Teile mit Skin
-    // (beim Messer je nach Messerart) und mit Textur bleiben für sich
+    // (beim Messer je nach Messerart) bleiben für sich
     flattenParts(w, PAINT[def.slot === 'knife' ? holdKey : def.id] || [], ['Muzzle']);
     const off = HOLD_OFFSET[holdKey];
     if (off) w.position.set(...off);

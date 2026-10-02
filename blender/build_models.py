@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import bpy
 from lib import (reset, mat, textured_mat, box, cyl, cyl_between, sphere, dome, torus, tube, profile, empty,
                  parent_all, export, render_preview, join_meshes, triangle_count, ROOT,
-                 pbr_mat, tex_brushed, tex_grain, tex_stipple, text_mesh)
+                 pbr_mat, tex_brushed, tex_grain, tex_stipple, text_mesh, AUTO_UV, weapon_surfaces)
 
 ARGS = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 PREVIEW = '--preview' in ARGS
@@ -747,7 +747,17 @@ def build_target():
     return root
 
 
+def build_textures():
+    """Gemeinsame Oberflächen der Waffen (Abrieb, Stahl, Korn, Holz, Narbung, Stoff) als Bilder."""
+    weapon_surfaces(os.path.join(ROOT, 'public', 'assets', 'textures', 'waffen'))
+
+
+# Modelle mit Textur-Koordinaten an allen Teilen (für die gemeinsamen Oberflächen im Spiel)
+WEAPON_MODELS = ('wolf', 'falke', 'adler', 'keiler', 'luchs', 'natter', 'kobra', 'karambit', 'butterfly',
+                 'he', 'flash', 'smoke')
+
 BUILDS = [
+    ('texturen', build_textures, None),
     ('wolf', build_wolf, (1.0, -0.2, 0.3)),
     ('falke', build_falke, (1.0, -0.2, 0.3)),
     ('adler', build_adler, (1.0, -0.2, 0.3)),
@@ -770,6 +780,11 @@ for name, fn, view in BUILDS:
     if ONLY and name not in ONLY:
         continue
     reset()
+    if view is None:
+        fn()
+        continue
+    # Waffen und Granaten: 10 cm pro Kachel, längs zur Waffe (Y)
+    AUTO_UV['tile'] = 0.1 if name in WEAPON_MODELS else None
     fn()
     export(f'{name}.glb', jpeg=name in ('props', 'crates', 'natter', 'karambit', 'butterfly'))
     if PREVIEW:

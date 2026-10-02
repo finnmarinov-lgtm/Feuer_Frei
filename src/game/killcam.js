@@ -3,6 +3,7 @@ import { KILLERS, KNIFE_SKINS, MOVE, TEAM_KNIFE, WEAPONS, WEAPON_IDS } from '../
 import { FLAG, RemotePlayer, sampleSnaps } from './remote.js';
 import { MAP } from '../world/map.js';
 import { TEAM_NAMES } from './sides.js';
+import { pips } from '../ui/hud.js';
 
 // Nach dem eigenen Tod, bis zum Wiedereinstieg (oder bis zur nächsten Runde):
 // 1. Der Blick sinkt zu Boden und dreht sich zum Schützen.
@@ -132,6 +133,9 @@ export class KillCam {
     this.watch = null;
     this.last = last;
     this.label = weaponLabel(w, m.teamOf ? m.teamOf(by) : by);
+    // so stand der Schütze da, als er einen erwischt hat: Lebenspunkte und (bei mehreren) Leben
+    this.killerHp = r && by !== m.me && r.alive ? Math.max(1, Math.round(r.hp ?? 0)) : null;
+    this.killerLives = this.killerHp !== null && m.cfg?.lives > 1 ? m.lives?.[by] ?? null : null;
     const h = r?.history;
     // Kill-Cam nur, wenn ein anderer einen erwischt hat und genug von ihm aufgezeichnet ist
     this.canReplay = !!r && w !== 'bombe' && r.clockOff !== null && h.length > 5;
@@ -531,16 +535,25 @@ export class KillCam {
       return;
     }
     const mates = team ? this._candidates().filter((r) => r.team === m.myTeam) : [];
-    let tag = '', who = '', hint = '';
+    let tag = '', who = '', hint = '', info = '';
     if (view === 'replay') {
       tag = 'Kill-Cam';
       who = `${killer} · ${this.label}`;
       hint = `${key}: ${team ? 'Zuschauen' : 'Gegner-Sicht'}`;
+      // Lebenspunkte und Leben des Schützen, als er einen erwischt hat
+      if (this.killerHp !== null) {
+        info = `♥ ${this.killerHp}${this.killerLives !== null ? ` ${pips(this.killerLives, m.cfg.lives)}` : ''}`;
+      }
     } else if (view === 'live') {
       const r = this.eyes;
       const mate = team && r?.team === m.myTeam;
       tag = team ? (mate ? 'Mitspieler' : 'Zuschauen') : 'Gegner-Sicht';
       who = team ? r?.name ?? '' : m.names[m.them];
+      // live beim Schützen (oder einem anderen Gegner): seine Lebenspunkte jetzt
+      if (r && !mate && r.alive) {
+        const lives = m.cfg?.lives > 1 ? m.lives?.[team ? r.key : m.them] : undefined;
+        info = `♥ ${Math.max(1, Math.round(r.hp ?? 0))}${lives !== undefined ? ` ${pips(lives, m.cfg.lives)}` : ''}`;
+      }
       if (team && mates.length > 1 && mates.indexOf(r) < mates.length - 1) hint = `${key}: nächster Mitspieler`;
       else if (this.canReplay) hint = `${key}: Kill-Cam`;
       // nach dem letzten Leben: nur noch reihum zuschauen
@@ -553,7 +566,7 @@ export class KillCam {
     const lives = m.lives[m.me] ?? 0;
     if (m.phase === 'live' && m.respawnT > 0 && lives > 0) left = `Zurück in ${Math.ceil(m.respawnT)} s`;
     else if (m.phase === 'live' && lives <= 0) left = 'Keine Leben mehr in dieser Runde';
-    g.hud.spectate({ view, tag, who, hint, left });
+    g.hud.spectate({ view, tag, who, hint, left, info });
   }
 }
 

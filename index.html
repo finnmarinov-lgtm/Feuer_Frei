@@ -78,6 +78,7 @@
     <div id="vitals">
       <div class="vital"><svg viewBox="0 0 24 24"><path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6z"/></svg><b id="hud-health">100</b></div>
       <div class="vital" id="armor-box"><svg viewBox="0 0 24 24"><path d="M12 2l8 3v6c0 5-3.4 9.4-8 11-4.6-1.6-8-6-8-11V5z"/></svg><b id="hud-armor">0</b><span id="hud-helmet" hidden>+ Helm</span></div>
+      <div class="vital lives" id="lives-box" hidden><svg viewBox="0 0 24 24"><path d="M12 21l-1.5-1.4C5.3 14.9 2 11.9 2 8.2 2 5.2 4.4 3 7.3 3c1.8 0 3.5.9 4.7 2.3C13.2 3.9 14.9 3 16.7 3 19.6 3 22 5.2 22 8.2c0 3.7-3.3 6.7-8.5 11.4z"/></svg><b id="hud-lives"></b></div>
       <div class="vital bomb" id="bomb-badge" hidden title="Du trägst die Bombe"><svg viewBox="0 0 24 24"><circle cx="10" cy="14" r="7"/><path d="M14 7.5l2-2 2.2 2.2-2 2z"/><path d="M17.5 4.5c.6-1.6 2.2-2.2 3.5-1.5" fill="none" stroke-width="1.6"/></svg><span>Bombe</span></div>
     </div>
 
@@ -90,7 +91,7 @@
 
     <div id="slots"></div>
     <div id="spectate" hidden>
-      <div class="head"><b id="spec-tag"></b><span id="spec-who"></span></div>
+      <div class="head"><b id="spec-tag"></b><span id="spec-who"></span><span id="spec-info" hidden></span></div>
       <div class="foot"><span id="spec-hint"></span><span id="spec-left"></span></div>
     </div>
     <div id="killfeed"></div>

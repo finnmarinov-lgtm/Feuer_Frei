@@ -64,6 +64,9 @@ kbd { display: inline-block; min-width: 1.6em; padding: 0 0.35em; border: 1px so
 #usebar .track i { display: block; height: 100%; width: 0; background: #ff6a3d; }
 #usebar.defuse .track i { background: #5cc8ff; }
 .vital.bomb { font-size: 18px; color: #ff9a7a; padding: 6px 12px; }
+/* eigene Leben in dieser Runde: volle Punkte = übrig */
+.vital.lives b { font-size: 24px; letter-spacing: 2px; color: #ff8f7f; }
+.vital.lives svg { fill: #ff8f7f; }
 .vital.bomb svg { width: 22px; height: 22px; fill: #ff9a7a; stroke: #ff9a7a; }
 
 /* Abschussserie (Luftschlag) über der Munitionsanzeige */
@@ -164,6 +167,8 @@ body.radar #tasks-hud { top: 328px; }
 #spectate .head { display: flex; align-items: center; gap: 10px; background: var(--panel-strong); padding: 6px 16px 6px 8px; border-radius: 7px; font-size: 21px; font-weight: 700; }
 #spectate .head b { background: #d23b2a; color: #fff; padding: 2px 10px; border-radius: 4px; font-size: 15px; letter-spacing: 1.5px; text-transform: uppercase; }
 #spectate.live .head b { background: #2f6fd0; }
+/* Lebenspunkte und Leben dessen, der einen erwischt hat */
+#spec-info { color: #ff8f7f; font-variant-numeric: tabular-nums; letter-spacing: 1px; }
 #spectate .foot { display: flex; gap: 14px; font-size: 15px; font-weight: 600; color: var(--muted); background: var(--panel); padding: 4px 12px; border-radius: 6px; }
 #spectate .foot span + span:not([hidden])::before { content: '·'; margin-right: 14px; }
 #hud.spectating #vitals, #hud.spectating #ammo, #hud.spectating #special, #hud.spectating #slots, #hud.spectating #buyhint,

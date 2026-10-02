@@ -88,13 +88,13 @@ export function surfaceMaterial(name = 'Teile') {
 const textured = (m) => TEXTURE_SLOTS.some((s) => m[s]);
 
 /**
- * Teile nach Material ordnen: jedes Material aus keep (Skins, Teamfarbe) und jedes mit Textur bleibt
- * für sich, alle anderen landen zusammen unter '' (für surfaceMaterial).
+ * Teile nach Material ordnen: jedes Material aus keep (Skins, Teamfarbe) und (mit splitTextured) jedes
+ * mit Textur bleibt für sich, alle anderen landen zusammen unter '' (für surfaceMaterial).
  */
-function groupParts(parts, keep) {
+function groupParts(parts, keep, splitTextured = true) {
   const groups = new Map();
   for (const p of parts) {
-    const key = keep.includes(p.material.name) || textured(p.material) ? p.material.name : '';
+    const key = keep.includes(p.material.name) || (splitTextured && textured(p.material)) ? p.material.name : '';
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(p);
   }
@@ -201,8 +201,10 @@ export function skinParts(root, keep = []) {
 
 /**
  * Modell, dessen Teile sich nicht mehr gegeneinander bewegen (Waffe in fremder Hand), ganz
- * zusammenfassen: je ein Mesh pro Gruppe (siehe groupParts). Alle anderen Knoten verschwinden bis auf
- * die mit Namen in nodes (z. B. die Mündung), die an ihrer Stelle direkt unter dem Modell bleiben.
+ * zusammenfassen: je ein Mesh pro Gruppe (siehe groupParts). Texturen von Teilen ohne Skin fallen
+ * dabei weg (so klein sieht man sie nicht, ein Zeichenaufruf weniger je Material); Farbe, Rauheit und
+ * Metall kommen aus dem Material. Alle anderen Knoten verschwinden bis auf die mit Namen in nodes
+ * (z. B. die Mündung), die an ihrer Stelle direkt unter dem Modell bleiben.
  */
 export function flattenParts(model, keep = [], nodes = []) {
   model.updateWorldMatrix(true, true);
@@ -214,7 +216,7 @@ export function flattenParts(model, keep = [], nodes = []) {
   for (const o of kept) {
     o.matrix.multiplyMatrices(to, o.matrixWorld).decompose(o.position, o.quaternion, o.scale);
   }
-  const groups = groupParts(parts, keep);
+  const groups = groupParts(parts, keep, false);
   let baked = parts.length ? flatCache.get(parts[0].geometry) : [];
   if (!baked) {
     // die Waffe schimmert nie: alle Kopien teilen sich auch das Material der einfarbigen Teile

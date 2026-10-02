@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { HDRLoader } from 'three/addons/loaders/HDRLoader.js';
+import { SURFACE_SETS, applySurfaces } from '../weapons/surfaces.js';
 
 const BASE = import.meta.env.BASE_URL + 'assets/';
 
@@ -34,6 +35,21 @@ export async function loadAssets(renderer, onProgress) {
       .then(([diff, nor, arm]) => { textures[id] = { diff, nor, arm }; }));
   }
 
+  // gemeinsame Oberflächen der Waffen (siehe weapons/surfaces.js): Werte statt Farben, also ohne
+  // Farbraum; flipY wie bei glTF, weil die Textur-Koordinaten aus Blender kommen
+  const surfaces = {};
+  const surfaceTex = (url) => texLoader.loadAsync(url).then((t) => {
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.flipY = false;
+    t.anisotropy = Math.min(4, aniso);
+    return t;
+  });
+  for (const id of SURFACE_SETS) {
+    const dir = `${BASE}textures/waffen/${id}/`;
+    jobs.push(Promise.all(['col', 'arm', 'nor'].map((k) => surfaceTex(`${dir}${k}.jpg`)))
+      .then(([col, arm, nor]) => { surfaces[id] = { col, arm, nor }; }));
+  }
+
   const models = {};
   for (const name of MODELS) {
     jobs.push(gltfLoader.loadAsync(`${BASE}models/${name}.glb`).then((g) => { models[name] = g.scene; }));
@@ -45,6 +61,7 @@ export async function loadAssets(renderer, onProgress) {
   }));
 
   await Promise.all(jobs);
+  applySurfaces(models, surfaces);
   return { textures, models, sky };
 }
 

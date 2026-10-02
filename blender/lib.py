@@ -207,6 +207,167 @@ def tex_stipple(name, size=256, seed=3, dots=520, radius=5.5, rough=(0.62, 0.86)
             image_from_array(name + 'Nor', _normal_from_height(h, strength)))
 
 
+# ---------- Gemeinsame Oberflächen der Waffen (Bilder fürs Spiel, siehe src/weapons/surfaces.js) ----------
+# Jede Oberfläche hat drei kachelbare Bilder: col (Faktor auf die Grundfarbe, knapp unter 1), arm
+# (rot: Flecken für abgegriffene Kanten, grün: Faktor auf die Rauheit, blau: Faktor aufs Metall)
+# und nor (Relief). Grundfarbe, Rauheit und
+# Metall bleiben im Material aus Blender, deshalb passt ein Satz für viele Materialien und Waffen.
+def _fbm(size, rng, cells, octaves=4, gain=0.5, aniso=(1.0, 1.0)):
+    import numpy as np
+    total = np.zeros((size, size))
+    amp, norm, c = 1.0, 0.0, cells
+    for _ in range(octaves):
+        total += _value_noise(size, max(1, round(c * aniso[0])), max(1, round(c * aniso[1])), rng) * amp
+        norm += amp
+        amp *= gain
+        c *= 2
+    return total / norm
+
+
+def _smoothstep(x, a, b):
+    import numpy as np
+    t = np.clip((x - a) / (b - a), 0, 1)
+    return t * t * (3 - 2 * t)
+
+
+def _blur(a, passes=1):
+    import numpy as np
+    for _ in range(passes):
+        a = (a * 4 + np.roll(a, 1, 0) + np.roll(a, -1, 0) + np.roll(a, 1, 1) + np.roll(a, -1, 1)) / 8
+    return a
+
+
+def _scratches(size, rng, count, length=(0.04, 0.3), along_u=0.6):
+    """Feine Kratzer (kachelbar), Maske 0 bis 1: meist längs (u), einige kreuz und quer."""
+    import numpy as np
+    m = np.zeros((size, size))
+    for _ in range(count):
+        x0, y0 = rng.random() * size, rng.random() * size
+        ang = rng.normal(0, 0.12) if rng.random() < along_u else rng.random() * math.pi
+        length_px = size * (length[0] + rng.random() * (length[1] - length[0]))
+        t = np.linspace(0, 1, int(length_px * 2) + 2)
+        off = rng.normal(0, 0.06) * length_px * 4 * t * (1 - t)
+        xs = x0 + math.cos(ang) * length_px * t - math.sin(ang) * off
+        ys = y0 + math.sin(ang) * length_px * t + math.cos(ang) * off
+        w = (0.35 + 0.65 * rng.random()) * np.sqrt(np.sin(math.pi * t))
+        np.maximum.at(m, (np.round(ys).astype(int) % size, np.round(xs).astype(int) % size), w)
+    return m
+
+
+def _stipple_height(size, rng, dots, radius):
+    import numpy as np
+    h = np.zeros((size, size), dtype=np.float64)
+    r = int(math.ceil(radius * 1.25))
+    oy, ox = np.mgrid[-r:r + 1, -r:r + 1]
+    for _ in range(dots):
+        cx, cy = rng.random() * size, rng.random() * size
+        rad = radius * (0.75 + rng.random() * 0.5)
+        ix, iy = int(cx), int(cy)
+        d = np.sqrt((ox + ix - cx) ** 2 + (oy + iy - cy) ** 2) / rad
+        np.maximum.at(h, ((oy + iy) % size, (ox + ix) % size), np.clip(1 - d * d, 0, None))
+    return h
+
+
+def save_jpeg(arr, path, quality=92):
+    """numpy-Feld (Höhe x Breite x 3, Werte 0 bis 1) unverändert als JPEG speichern."""
+    import numpy as np
+    h, w = arr.shape[:2]
+    rgba = np.ones((h, w, 4), dtype=np.float32)
+    rgba[:, :, :3] = np.clip(arr[:, :, :3], 0, 1)
+    img = bpy.data.images.new(os.path.basename(path), w, h, alpha=False)
+    img.colorspace_settings.name = 'Non-Color'
+    img.pixels.foreach_set(rgba.ravel())
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    img.file_format = 'JPEG'
+    img.filepath_raw = path
+    img.save(filepath=path, quality=quality)
+    bpy.data.images.remove(img)
+    print(f'TEXTURE {os.path.relpath(path, ROOT)} {os.path.getsize(path) / 1024:.1f} KB')
+
+
+def weapon_surfaces(out_dir, size=256):
+    """Baut die gemeinsamen Oberflächen nach out_dir/<name>/{col,arm,nor}.jpg."""
+    import numpy as np
+    grid_v = (np.arange(size) / size)[:, None] * np.ones((1, size))
+    grid_u = (np.arange(size) / size)[None, :] * np.ones((size, 1))
+    sets = {}
+
+    # Abrieb (Waffenstahl, Gehäuse): feines Korn, leicht fleckige Farbe, Fingerabdrücke und Ölflecken
+    # (glänzen mehr), dazu feine Kratzer, meist in Längsrichtung
+    rng = np.random.default_rng(101)
+    grain = _fbm(size, rng, 32, 3)
+    mottle = _fbm(size, rng, 4, 4)
+    smudge = _smoothstep(_fbm(size, rng, 3, 4), 0.5, 0.75)
+    scr = _scratches(size, rng, 70)
+    rough = (0.95 + (grain - 0.5) * 0.2 - smudge * 0.38) * (1 - scr * 0.42)
+    col = 0.92 + (mottle - 0.5) * 0.16 - smudge * 0.04 + scr * 0.035
+    sets['abnutzung'] = (col, rough, grain * 0.3 + mottle * 0.15 - _blur(scr) * 0.7, 2.4)
+
+    # Gebürsteter Stahl: feine Längsstreifen, ein paar Kratzer quer
+    rng = np.random.default_rng(102)
+    streak = (_value_noise(size, 2, 128, rng) * 0.55 + _value_noise(size, 3, 64, rng) * 0.3
+              + _value_noise(size, 6, 256, rng) * 0.15)
+    streak = (streak - streak.min()) / (streak.max() - streak.min())
+    smudge = _smoothstep(_fbm(size, rng, 3, 4), 0.55, 0.8)
+    scr = _scratches(size, rng, 40, along_u=0.3)
+    rough = (0.8 + streak * 0.2 - smudge * 0.15) * (1 - scr * 0.35)
+    col = 0.93 + streak * 0.07
+    sets['gebuerstet'] = (col, rough, streak * 0.5 - _blur(scr) * 0.6, 1.6)
+
+    # Korn: mattierter Kunststoff, Gummi und Handschuh, mit Glanzstellen vom Anfassen
+    rng = np.random.default_rng(103)
+    fine = _value_noise(size, 96, 96, rng) * 0.6 + _value_noise(size, 48, 48, rng) * 0.4
+    smudge = _smoothstep(_fbm(size, rng, 3, 4), 0.5, 0.78)
+    mottle = _fbm(size, rng, 6, 3)
+    rough = 0.95 + (fine - 0.5) * 0.12 - smudge * 0.18
+    col = 0.95 + (mottle - 0.5) * 0.08 + (fine - 0.5) * 0.04
+    sets['korn'] = (col, rough, fine, 1.4)
+
+    # Holz: Maserung längs (u) mit dunklerem Spätholz und feinen Poren, lackiert
+    rng = np.random.default_rng(104)
+    warp = _fbm(size, rng, 3, 4)
+    rings = 0.5 + 0.5 * np.sin(2 * math.pi * (11 * grid_v + 2.2 * warp))
+    fibers = _value_noise(size, 2, 160, rng) * 0.6 + _value_noise(size, 4, 80, rng) * 0.4
+    pores = _smoothstep(_value_noise(size, 12, 220, rng), 0.75, 0.95)
+    late = _smoothstep(rings, 0.6, 0.98)
+    col = 0.98 - late * 0.2 - (fibers - 0.5) * 0.2 - pores * 0.1 + (_fbm(size, rng, 2, 3) - 0.5) * 0.12
+    rough = 0.9 + (fibers - 0.5) * 0.1 + pores * 0.1 - late * 0.05
+    sets['holz'] = (col, rough, fibers * 0.4 + late * 0.3 - pores * 0.5, 1.2)
+
+    # Narbung: dicht an dicht kleine Noppen (Schaft des Adler)
+    rng = np.random.default_rng(105)
+    bumps = _stipple_height(size, rng, 700, 4.2) + _value_noise(size, 48, 48, rng) * 0.12
+    rough = 1.0 - np.clip(bumps, 0, 1) * 0.16
+    col = 0.97 + (np.clip(bumps, 0, 1) - 0.5) * 0.05
+    sets['narbung'] = (col, rough, bumps, 3.0)
+
+    # Stoff: Leinwandbindung für die Ärmel, Faden über Faden
+    rng = np.random.default_rng(106)
+    n = 48
+    wobble = (_value_noise(size, 6, 6, rng) - 0.5) * 0.3 / n
+    across_u = np.abs(np.sin(math.pi * n * (grid_u + wobble)))
+    across_v = np.abs(np.sin(math.pi * n * (grid_v + wobble)))
+    warp_on_top = (np.floor(n * grid_u) + np.floor(n * grid_v)) % 2 == 0
+    cloth = np.where(warp_on_top, across_u * np.sqrt(across_v), across_v * np.sqrt(across_u))
+    mottle = _fbm(size, rng, 5, 3)
+    rough = 0.96 - cloth * 0.08
+    col = 0.9 + cloth * 0.06 + (mottle - 0.5) * 0.08
+    sets['stoff'] = (col, rough, cloth + mottle * 0.2, 1.6)
+
+    # rot: Maske für abgegriffene Kanten (im Spiel nur dort, wo eine Kante ist), fleckig
+    rng = np.random.default_rng(107)
+    wear = _fbm(size, rng, 6, 4)
+    wear = (wear - wear.min()) / (wear.max() - wear.min())
+    for name, (col, rough, height, strength) in sets.items():
+        d = os.path.join(out_dir, name)
+        save_jpeg(np.repeat(np.clip(col, 0, 1)[:, :, None], 3, axis=2), os.path.join(d, 'col.jpg'))
+        arm = np.ones((size, size, 3))
+        arm[:, :, 0] = wear
+        arm[:, :, 1] = np.clip(rough, 0.3, 1.0)
+        save_jpeg(arm, os.path.join(d, 'arm.jpg'))
+        save_jpeg(_normal_from_height(height, strength), os.path.join(d, 'nor.jpg'))
+
+
 def text_mesh(name, body, size, center, material, facing='-X', parent=None):
     """Schrift als flaches Mesh (z. B. eine Gravur auf dem Schlitten).
     facing='-X': Schrift liegt auf der linken Seite (liest sich von vorne nach hinten)."""
@@ -247,8 +408,19 @@ def _world_offset(parent):
     return off
 
 
+# Textur-Koordinaten für alle Teile ohne eigene (Box-Projektion, siehe project_uv): tile = Meter pro
+# Kachel, long = Achse, entlang der die Textur läuft (1 = Y, die Längsachse der Waffen). None = keine.
+# Die Waffen setzen sie für die gemeinsamen Oberflächen im Spiel (src/weapons/surfaces.js).
+AUTO_UV = {'tile': None, 'long': 1}
+AXIS_INDEX = {'X': 0, 'Y': 1, 'Z': 2}
+
+
 def _finish(name, bm, material, parent, origin, bevel, segs, angle, smooth, uv_tile=None, uv_long=None):
     origin = Vector(origin)
+    if not uv_tile and AUTO_UV['tile']:
+        uv_tile = AUTO_UV['tile']
+        if uv_long is None:
+            uv_long = AUTO_UV['long']
     if uv_tile:
         project_uv(bm, uv_tile, uv_long)
     bmesh.ops.translate(bm, verts=bm.verts, vec=-origin)
@@ -323,7 +495,7 @@ def cyl(name, r, length, center, material, axis='Y', r2=None, segs=24, bevel=0.0
                           radius2=r if r2 is None else r2, depth=length)
     bmesh.ops.rotate(bm, verts=bm.verts, cent=(0, 0, 0), matrix=_axis_matrix(axis))
     bmesh.ops.translate(bm, verts=bm.verts, vec=Vector(center))
-    return _finish(name, bm, material, parent, center, bevel, bsegs, 35, True)
+    return _finish(name, bm, material, parent, center, bevel, bsegs, 35, True, uv_long=AXIS_INDEX[axis])
 
 
 def cyl_between(name, start, end, r1, r2, material, segs=20, bevel=0.002, parent=None):
@@ -335,7 +507,8 @@ def cyl_between(name, start, end, r1, r2, material, segs=20, bevel=0.002, parent
     bmesh.ops.rotate(bm, verts=bm.verts, cent=(0, 0, 0), matrix=rot)
     center = (start + end) / 2
     bmesh.ops.translate(bm, verts=bm.verts, vec=center)
-    return _finish(name, bm, material, parent, center, bevel, 2, 35, True)
+    long_axis = max(range(3), key=lambda i: abs(d[i]))
+    return _finish(name, bm, material, parent, center, bevel, 2, 35, True, uv_long=long_axis)
 
 
 def tube(name, r_out, r_in, length, center, material, axis='Y', segs=32, bevel=0.0008, parent=None):
@@ -354,7 +527,7 @@ def tube(name, r_out, r_in, length, center, material, axis='Y', segs=32, bevel=0
     bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
     bmesh.ops.rotate(bm, verts=bm.verts, cent=(0, 0, 0), matrix=_axis_matrix(axis))
     bmesh.ops.translate(bm, verts=bm.verts, vec=Vector(center))
-    return _finish(name, bm, material, parent, center, bevel, 2, 35, True)
+    return _finish(name, bm, material, parent, center, bevel, 2, 35, True, uv_long=AXIS_INDEX[axis])
 
 
 def sphere(name, r, center, material, scale=(1, 1, 1), parent=None, segs=24):
