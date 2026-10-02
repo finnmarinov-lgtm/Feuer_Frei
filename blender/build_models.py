@@ -197,9 +197,12 @@ def build_adler():
     cyl('LensRear', 0.019, 0.002, (0, -0.1405, 0.125), m['lens'], bevel=0)
     cyl('TurretTop', 0.011, 0.02, (0, 0.07, 0.148), m['gun'], axis='Z')
     cyl('TurretSide', 0.011, 0.02, (0.025, 0.07, 0.125), m['gun'], axis='X')
-    for i, yy in enumerate((-0.03, 0.14)):
-        box(f'ScopeMount{i}', (0.03, 0.02, 0.03), (0, yy, 0.095), m['gun'], bevel=0.003)
-        cyl(f'ScopeRing{i}', 0.019, 0.02, (0, yy, 0.125), m['gun'])
+    # Montageschiene auf dem Gehäuse, darauf zwei kräftige Montagen mit Ringen (vorher saßen schmale
+    # Stege nur auf der Rundung, der vordere stand über dem Lauf: das Zielfernrohr schien zu schweben)
+    box('ScopeBase', (0.017, 0.21, 0.011), (0, 0.01, 0.0805), m['gun_dark'], bevel=0.002)
+    for i, yy in enumerate((-0.03, 0.095)):
+        box(f'ScopeMount{i}', (0.028, 0.024, 0.03), (0, yy, 0.098), m['gun'], bevel=0.003)
+        cyl(f'ScopeRing{i}', 0.019, 0.022, (0, yy, 0.125), m['gun'])
     bolt = empty('Bolt', (0.021, -0.06, 0.06))
     cyl('BoltBody', 0.012, 0.07, (0, -0.125, 0.06), m['steel'], parent=bolt)
     cyl_between('BoltHandle', (0.018, -0.06, 0.06), (0.062, -0.07, 0.044), 0.005, 0.005, m['steel'],
