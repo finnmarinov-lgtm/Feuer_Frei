@@ -534,6 +534,15 @@ export class Arena {
           z: ((z0 + z1) / 2) * s,
         };
         this._collider(this.physics.addBox(center, { x: len / 2, y: t / 2, z: (z1 - z0) / 2 }, 'stone', q, GROUP.CLIP));
+        // Unter der Rampe ist für Spieler nichts fest (die Stufen halten nur Kugeln auf). Ist am oberen
+        // Ende darunter frei (Laufsteg in der Lagerhalle), lief man von unten in die Stufen hinein:
+        // dort eine unsichtbare Wand bis knapp unter die Rampe, oben läuft man darüber hinweg
+        const top = h - t - 0.05;
+        const inward = Math.sign(x0 - x1) * 0.03;
+        this._collider(this.physics.addBox(
+          { x: x1 + inward, y: top / 2, z: ((z0 + z1) / 2) * s },
+          { x: 0.03, y: top / 2, z: (z1 - z0) / 2 }, 'stone', null, GROUP.CLIP,
+        ));
       }
     }
   }

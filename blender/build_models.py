@@ -73,10 +73,13 @@ def build_wolf():
     root = empty('Wolf')
     box('Receiver', (0.042, 0.29, 0.058), (0, 0.045, 0.022), m['gun'], bevel=0.003)
     box('DustCover', (0.039, 0.26, 0.024), (0, 0.035, 0.058), m['gun'], bevel=0.009, segs=4)
-    box('RearSight', (0.03, 0.05, 0.026), (0, 0.205, 0.064), m['gun'], bevel=0.004)
-    box('RearSightLeaf', (0.02, 0.045, 0.006), (0, 0.2, 0.08), m['gun_dark'], bevel=0.0015)
+    # Kimme und Korn stehen 1,6 cm höher als beim Vorbild: im Anschlag liegt das Gehäuse dann weiter
+    # unten im Bild und verdeckt weniger (vorher füllte der Deckel das untere Drittel), der Kimmenfuß
+    # ist schmal
+    box('RearSight', (0.022, 0.05, 0.042), (0, 0.205, 0.072), m['gun'], bevel=0.004)
+    box('RearSightLeaf', (0.018, 0.04, 0.006), (0, 0.2, 0.096), m['gun_dark'], bevel=0.0015)
     for sx in (-1, 1):
-        box(f'RearNotch{sx}', (0.005, 0.012, 0.005), (0.0048 * sx, 0.2, 0.0855), m['gun_dark'], bevel=0.0008)
+        box(f'RearNotch{sx}', (0.005, 0.012, 0.005), (0.0048 * sx, 0.2, 0.1015), m['gun_dark'], bevel=0.0008)
     cyl('Barrel', 0.0085, 0.39, (0, 0.385, 0.035), m['gun_dark'])
     box('GasBlock', (0.024, 0.035, 0.05), (0, 0.43, 0.055), m['gun'], bevel=0.004)
     cyl('GasTube', 0.011, 0.21, (0, 0.325, 0.072), m['gun'])
@@ -85,10 +88,10 @@ def build_wolf():
     profile('LowerGuard', [(0.2, 0.058), (0.395, 0.058), (0.405, 0.047), (0.405, 0.0), (0.393, -0.013),
                            (0.21, -0.019), (0.2, -0.01)], 0.052, m['wood'], bevel=0.008, segs=3)
     box('GuardBand', (0.055, 0.012, 0.078), (0, 0.405, 0.021), m['gun'], bevel=0.003)
-    box('FrontSightBase', (0.022, 0.03, 0.045), (0, 0.535, 0.058), m['gun'], bevel=0.004)
+    box('FrontSightBase', (0.02, 0.03, 0.061), (0, 0.535, 0.066), m['gun'], bevel=0.004)
     for sx in (-1, 1):
-        box(f'SightEar{sx}', (0.004, 0.012, 0.03), (0.008 * sx, 0.54, 0.087), m['gun'], bevel=0.001)
-    box('SightPost', (0.0025, 0.004, 0.02), (0, 0.54, 0.084), m['gun_dark'], bevel=0.0006)
+        box(f'SightEar{sx}', (0.004, 0.012, 0.03), (0.008 * sx, 0.54, 0.103), m['gun'], bevel=0.001)
+    box('SightPost', (0.0025, 0.004, 0.02), (0, 0.54, 0.1), m['gun_dark'], bevel=0.0006)
     cyl('MuzzleBrake', 0.0125, 0.045, (0, 0.6025, 0.035), m['gun'])
     cyl('Bore', 0.006, 0.002, (0, 0.6255, 0.035), m['bore'], bevel=0)
     profile('Grip', [(-0.008, -0.004), (0.036, -0.004), (0.028, -0.03), (0.012, -0.115), (-0.026, -0.118),
@@ -109,8 +112,8 @@ def build_wolf():
     empty('Muzzle', (0, 0.63, 0.035))
     empty('Eject', (0.025, 0.06, 0.05))
     # Visierlinie: Oberkante Kimme -> Kornspitze
-    empty('SightRear', (0, 0.2, 0.088))
-    empty('SightFront', (0, 0.54, 0.094))
+    empty('SightRear', (0, 0.2, 0.104))
+    empty('SightFront', (0, 0.54, 0.11))
     parent_all(root)
     return root
 
@@ -226,10 +229,15 @@ def build_keiler():
     box('Receiver', (0.04, 0.2, 0.062), (0, 0.04, 0.019), recv, bevel=0.004)
     box('EjectPort', (0.004, 0.06, 0.022), (0.0205, 0.065, 0.03), m['bore'], bevel=0.001)
     box('LoadingPort', (0.03, 0.07, 0.004), (0, 0.075, -0.0125), m['bore'], bevel=0.001)
-    # Lauf mit Laufschiene, Messingkorn und Röhrenmagazin darunter
+    # Lauf mit erhöhter Laufschiene auf Stegen (wie bei Sportflinten), Messingkorn und Röhrenmagazin
+    # darunter. Die Schiene hebt die Visierlinie knapp 3 cm über das Gehäuse: im Anschlag verdeckte
+    # das Gehäuse sonst die ganze Bildmitte unter dem Korn
     cyl('Barrel', 0.012, 0.53, (0, 0.405, 0.035), m['gun'])
-    box('VentRib', (0.009, 0.52, 0.004), (0, 0.4, 0.049), m['gun_dark'], bevel=0.001)
-    sphere('Bead', 0.0028, (0, 0.655, 0.0535), mat('BeadBrass', (0.8, 0.62, 0.3), 1.0, 0.3))
+    box('VentRib', (0.009, 0.52, 0.004), (0, 0.4, 0.074), m['gun_dark'], bevel=0.001)
+    box('RibRiser', (0.009, 0.03, 0.026), (0, 0.155, 0.061), m['gun_dark'], bevel=0.001)
+    for i in range(7):
+        box(f'RibPost{i}', (0.006, 0.006, 0.026), (0, 0.22 + i * 0.07, 0.06), m['gun_dark'], bevel=0.0008)
+    sphere('Bead', 0.0028, (0, 0.655, 0.0788), mat('BeadBrass', (0.8, 0.62, 0.3), 1.0, 0.3))
     cyl('MagTube', 0.0105, 0.47, (0, 0.375, 0.003), m['gun_dark'])
     cyl('MagCap', 0.012, 0.022, (0, 0.62, 0.003), m['gun'], bevel=0.002)
     box('BarrelClamp', (0.028, 0.018, 0.044), (0, 0.585, 0.019), m['gun'], bevel=0.003)
@@ -253,9 +261,9 @@ def build_keiler():
     arm(1, (0, -0.004, -0.06), (0.07, 0.085, 0.1), (0.13, -0.42, -0.26), m, hand_rot=(-0.2, 0, 0))
     empty('Muzzle', (0, 0.672, 0.035))
     empty('Eject', (0.024, 0.065, 0.03))
-    # Visierlinie: über das Gehäuse hinweg auf die Mitte des Korns
-    empty('SightRear', (0, -0.05, 0.0535))
-    empty('SightFront', (0, 0.655, 0.0535))
+    # Visierlinie: über Gehäuse und Schiene hinweg auf die Mitte des Korns
+    empty('SightRear', (0, -0.05, 0.0788))
+    empty('SightFront', (0, 0.655, 0.0788))
     parent_all(root)
     return root
 
@@ -294,8 +302,9 @@ def build_luchs():
             bevel=0.003, parent=mag)
     # Rotpunktvisier: Montage, hohles Rohr, Frontlinse, Verstelltürme
     box('OpticMount', (0.024, 0.035, 0.022), (0, 0.05, 0.084), m['gun_dark'], bevel=0.002)
-    tube('OpticTube', 0.0195, 0.0155, 0.09, (0, 0.05, 0.114), m['gun_dark'], axis='Y')
-    cyl('OpticLens', 0.0156, 0.0015, (0, 0.093, 0.114), mat('RedDotGlass', (0.35, 0.5, 0.6), 0.0, 0.05), bevel=0)
+    # dünne Wände (2 mm): im Anschlag verdeckt das Rohr weniger
+    tube('OpticTube', 0.0185, 0.0165, 0.09, (0, 0.05, 0.114), m['gun_dark'], axis='Y')
+    cyl('OpticLens', 0.0166, 0.0015, (0, 0.093, 0.114), mat('RedDotGlass', (0.35, 0.5, 0.6), 0.0, 0.05), bevel=0)
     cyl('OpticTurretTop', 0.0075, 0.012, (0, 0.05, 0.1395), m['gun_dark'], axis='Z')
     cyl('OpticTurretSide', 0.0075, 0.012, (0.0255, 0.05, 0.114), m['gun_dark'], axis='X')
     empty('RedDot', (0, 0.0915, 0.114))
