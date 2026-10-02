@@ -11,7 +11,7 @@ const INFO = {
   keiler: 'Nah ein Treffer, weit schwach',
   wolf: 'Stark, aber mit Rückstoß',
   luchs: 'Rotpunktvisier, ruhiger Rückstoß',
-  adler: 'Ein Körpertreffer reicht',
+  adler: 'Ein Kopftreffer reicht',
   vest: 'Weniger Schaden am Körper',
   helmet: 'Schützt auch den Kopf',
   he: 'Schaden im Umkreis',

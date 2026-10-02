@@ -230,10 +230,11 @@ export const WEAPONS = {
     sound: 'rifle2', tracer: 2, anim: 'rifle', reddot: true,
   },
   adler: {
-    // Schaden 115: ein Körpertreffer reicht auf jede Entfernung, auch gegen eine Weste (mit 100 blieben
-    // ab 5 m wegen des Abfalls mit der Entfernung 1 bis 3 Lebenspunkte übrig)
+    // Schaden 88 (wie die Scout in CS): sofort tödlich ist nur ein Kopftreffer, auch mit Helm auf 100 m.
+    // Am Körper bleiben je nach Entfernung und Weste 12 bis 22 Lebenspunkte übrig (vorher 115, da
+    // reichte jeder Körpertreffer)
     name: 'Adler', type: 'Scharfschützengewehr', slot: 'primary', price: 4750, reward: 50, model: 'adler',
-    auto: false, rpm: 41, damage: 115, headMul: 2.4, armorPen: 0.975, rangeMod: 0.99,
+    auto: false, rpm: 41, damage: 88, headMul: 2.4, armorPen: 0.975, rangeMod: 0.99,
     mag: 5, reserve: 15, reload: 3.6, draw: 1.1, speed: 5.0, sprint: 6.3, sprintOut: 0.3,
     spread: { base: 70, scoped: 0.6, move: 90, air: 150, fire: 0, recovery: 0.3 },
     recoil: { up: 2.0, side: 0.2, decay: 3, viewKick: 4.5 },

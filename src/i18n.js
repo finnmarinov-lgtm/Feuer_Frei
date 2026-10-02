@@ -248,7 +248,7 @@ const EN = {
   'Nah ein Treffer, weit schwach': 'One hit up close, weak at range',
   'Stark, aber mit Rückstoß': 'Strong, but with recoil',
   'Rotpunktvisier, ruhiger Rückstoß': 'Red dot sight, calm recoil',
-  'Ein Körpertreffer reicht': 'One body hit is enough',
+  'Ein Kopftreffer reicht': 'One headshot is enough',
   'Weniger Schaden am Körper': 'Less damage to the body',
   'Schützt auch den Kopf': 'Protects the head as well',
   'Schaden im Umkreis': 'Damage in a radius',

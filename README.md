@@ -268,7 +268,7 @@ Das Spiel geht beim Start in den Vollbildmodus. `Esc` verlässt ihn (das macht d
 | Keiler | Pump-Schrotflinte | 1.050 $ | 9 Schrotkugeln, auf kurze Distanz ein Treffer, lädt Patrone für Patrone |
 | Wolf | Sturmgewehr | 2.700 $ | Stark, festes Rückstoßmuster |
 | Luchs | Sturmgewehr mit Rotpunkt | 3.100 $ | Rotpunktvisier, ruhigerer Rückstoß |
-| Adler | Scharfschützengewehr | 4.750 $ | Ein Körpertreffer reicht (115 Schaden, auf jede Entfernung, auch gegen eine Weste), Zielfernrohr nur beim Halten |
+| Adler | Scharfschützengewehr | 4.750 $ | Ein Kopftreffer reicht immer, auch mit Helm. Am Körper 88 Schaden (wie die Scout in CS): Es bleiben je nach Entfernung und Weste 12 bis 22 Lebenspunkte, ein zweiter Treffer oder ein Pistolenschuss erledigt den Rest. Zielfernrohr nur beim Halten |
 | Messer | Nahkampf | frei | Karambit oder Butterfly (siehe unten). Hieb (links, 60) und Stich (rechts, 90): zwei Treffer reichen immer, auch gegen eine Weste |
 
 Dazu Schutzweste, Weste mit Helm und drei Granaten (Splitter, Blend, Rauch) für die zwei Extra-Slots. Die Splittergranate macht direkt daneben 130 Schaden (1 m: 105, 2 m: 82, 3 m: 60, 4 m: 41), eine Weste hält die Hälfte ab.
