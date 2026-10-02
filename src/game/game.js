@@ -262,6 +262,7 @@ export class Game {
   startMatch(mapId = MAP.id) {
     this.loadMap(mapId);
     this._setMode('training');
+    this.hud.setSpectator(false);
     this.match = this.training;
     // im Training entscheidet der Zufall, welches Messer man bekommt
     this.viewmodel.knifeSkin = Math.random() < 0.5 ? 'karambit' : 'butterfly';
@@ -284,6 +285,7 @@ export class Game {
   startDuel(net, opts) {
     this.loadMap(opts.map);
     this._setMode('duel');
+    this.hud.setSpectator(false);
     this.match.dispose?.();
     this._releaseTeamRemotes();
     this.killcam.reset();
@@ -323,7 +325,8 @@ export class Game {
     this.remote.setActive(false);
     this.killcam.reset();
     this._releaseTeamRemotes();
-    const me = opts.roster.find((e) => e.key === opts.key);
+    // Zuschauer stehen nicht in der Aufstellung: sie sehen alles wie von Rot aus
+    const me = opts.roster.find((e) => e.key === opts.key) || { team: 'rot' };
     for (const e of opts.roster) {
       if (e.key === opts.key) continue;
       const r = this.remotePool.pop() || new RemotePlayer(this);
@@ -338,7 +341,8 @@ export class Game {
       this.teamRemotes.set(e.key, r);
     }
     this.others = [...this.teamRemotes.values()];
-    this.foes = this.others.filter((r) => r.team !== me.team);
+    this.foes = opts.spectate ? [] : this.others.filter((r) => r.team !== me.team);
+    this.hud.setSpectator(!!opts.spectate);
     this.viewmodel.knifeSkin = TEAM_KNIFE[me.team];
     this.viewmodel.looks = this.looks;
     this.match = new TeamMatch(this, net, opts);
@@ -382,7 +386,23 @@ export class Game {
 
   quitToMenu() {
     if (this.mode === 'duel') this.match.leave();
+    this._endMatch();
+  }
+
+  /**
+   * Partie verlassen, aber im Raum bleiben (nach dem Ende zurück in die Lobby): kein Tschüss an die
+   * anderen, die Verbindung bekommt die Lobby. Liefert sie zurück.
+   */
+  leaveToLobby() {
+    const net = this.match.net;
+    this.match.detach?.();
+    this._endMatch();
+    return net;
+  }
+
+  _endMatch() {
     this.match.dispose?.();
+    this.hud.setSpectator(false);
     this.viewmodel.clearDrops();
     this.state = 'menu';
     this.buyMenu.hide();
@@ -487,8 +507,8 @@ export class Game {
     this.match.tick(dt);
     // Spiel gegen die KI: sie rechnet im selben Takt mit
     this.match.net?.tick?.(dt);
-    // beim Legen, Entschärfen und Zielen für den Luftschlag steht man still
-    this.player.busy = this.match.busy || this.airstrikes.targeting;
+    // beim Legen und Entschärfen steht man still (beim Zielen für den Luftschlag nicht mehr)
+    this.player.busy = this.match.busy;
     this.player.tick(dt, this.input);
     this.weapons.tick(dt, this.input);
     this.grenades.tick(dt);
@@ -529,6 +549,8 @@ export class Game {
         m.callAirstrike(point);
         // gehaltene Maustaste nach dem Bestätigen nicht als Schuss werten
         this.weapons.holdFire = true;
+      } else if (as.tooClose) {
+        this.hud.message('Zu nah', `Im Kreis trifft der Jet auch dich. Ziel mindestens ${SPECIAL.minDist} m entfernt wählen.`, 1.8);
       } else {
         this.hud.message('Kein Ziel', 'Schau auf den Boden unter freiem Himmel, dort feuert der Jet hin', 1.6);
       }

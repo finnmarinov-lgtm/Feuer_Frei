@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { KILLERS, KNIFE_SKINS, MOVE, TEAM_KNIFE, WEAPONS, WEAPON_IDS } from '../config.js';
 import { FLAG, RemotePlayer, sampleSnaps } from './remote.js';
+import { MAP } from '../world/map.js';
+import { TEAM_NAMES } from './sides.js';
 
 // Nach dem eigenen Tod, bis zum Wiedereinstieg (oder bis zur nächsten Runde):
 // 1. Der Blick sinkt zu Boden und dreht sich zum Schützen.
@@ -210,6 +212,8 @@ export class KillCam {
     const g = this.g;
     const m = g.match;
     if (!m.teamMode) return watchable(g.remote) ? [g.remote] : [];
+    // Zuschauer: alle, die gerade leben
+    if (m.spectator) return g.others.filter(watchable);
     const mates = g.others.filter((r) => r.team === m.myTeam && watchable(r));
     if (mates.length) return mates;
     if (watchable(this.killer)) return [this.killer];
@@ -273,11 +277,14 @@ export class KillCam {
    */
   camera(dt, eye) {
     const g = this.g;
+    const spec = !!g.match.spectator;
     let view = this.active ? this.view : 'death';
+    // Zuschauer: nie die eigene Todesansicht; lebt gerade niemand, kreist die Kamera über der Karte
+    if (spec && view !== 'replay') view = 'live';
     let r = null;
     if (view === 'live') {
       r = this._watchTarget();
-      if (!r) view = 'death';
+      if (!r) view = spec ? 'overview' : 'death';
     }
     if (view === 'replay') {
       r = this.killer;
@@ -294,7 +301,10 @@ export class KillCam {
     } else if (this.ghost) {
       this.ghost.root.visible = false;
     }
-    if (!fp) {
+    if (view === 'overview') {
+      this.scoped = false;
+      this._overview(dt);
+    } else if (!fp) {
       this.scoped = false;
       this._deathView(dt, eye);
     } else {
@@ -340,6 +350,20 @@ export class KillCam {
       fov += (zoomed - fov) * smooth(this.ads);
     }
     this._fov(fov);
+    cam.updateMatrixWorld();
+    g.viewCamera.quaternion.copy(cam.quaternion);
+    g.viewCamera.updateMatrixWorld();
+  }
+
+  // Zuschauer, wenn gerade niemand lebt: langsamer Rundflug über die Karte (wie hinter dem Hauptmenü)
+  _overview(dt) {
+    const g = this.g;
+    const cam = g.camera;
+    this.ovAngle = (this.ovAngle ?? 0) + dt * 0.05;
+    const mc = MAP.menu;
+    cam.position.set(Math.cos(this.ovAngle) * mc.rx, mc.y, Math.sin(this.ovAngle) * mc.rz);
+    cam.lookAt(mc.look[0], mc.look[1], mc.look[2]);
+    this._fov(g.settings.fov);
     cam.updateMatrixWorld();
     g.viewCamera.quaternion.copy(cam.quaternion);
     g.viewCamera.updateMatrixWorld();
@@ -498,6 +522,14 @@ export class KillCam {
     const team = !!m.teamMode;
     const killer = m.name(this.killerKey);
     const key = g.input.touch ? 'Feuerknopf' : `${g.input.label('jump')} / Klick`;
+    if (m.spectator) {
+      const r = view === 'live' ? this.eyes : null;
+      g.hud.spectate({
+        view, tag: 'Zuschauer', who: r ? `${r.name} · ${TEAM_NAMES[r.team] ?? ''}` : 'Gerade lebt niemand',
+        hint: this._candidates().length > 1 ? `${key}: nächster Spieler` : '', left: '',
+      });
+      return;
+    }
     const mates = team ? this._candidates().filter((r) => r.team === m.myTeam) : [];
     let tag = '', who = '', hint = '';
     if (view === 'replay') {

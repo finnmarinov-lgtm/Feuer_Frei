@@ -121,12 +121,17 @@ def build_falke():
     root = empty('Falke')
     cyl('ReceiverTube', 0.024, 0.38, (0, 0.1, 0.045), m['gun'])
     box('TopRail', (0.016, 0.26, 0.01), (0, 0.06, 0.072), m['gun_dark'], bevel=0.002)
-    # Ring-Diopter hinten, Korn mit Kornschutz vorne, beide auf der Visierhöhe 0.095
-    box('RearSightBase', (0.018, 0.02, 0.016), (0, -0.07, 0.08), m['gun'], bevel=0.002)
-    torus('RearAperture', 0.0055, 0.0022, (0, -0.07, 0.095), m['gun_dark'], axis='Y', seg=20, rseg=6)
-    box('FrontSightBase', (0.024, 0.02, 0.012), (0, 0.272, 0.078), m['gun'], bevel=0.002)
-    torus('FrontHood', 0.011, 0.0025, (0, 0.272, 0.095), m['gun'], axis='Y', seg=24, rseg=6)
-    box('FrontPost', (0.002, 0.003, 0.011), (0, 0.272, 0.0895), m['gun_dark'], bevel=0.0004)
+    # Visier auf der Höhe S. Hinten ein Geisterring: dünner Ring mit großer Öffnung auf einem
+    # schmalen Steg, im Anschlag sieht man viel durch (vorher ein dicker Ring mit kleinem Loch auf
+    # einem breiten Sockel, der die Bildmitte verdeckte). Vorne Korn mit Kornschutz. Die Visierlinie
+    # liegt etwas höher über dem Gehäuse, damit die Waffe im Anschlag weiter unten im Bild bleibt.
+    S = 0.103
+    box('RearSightFoot', (0.014, 0.018, 0.004), (0, -0.07, 0.079), m['gun'], bevel=0.0012)
+    box('RearSightPost', (0.0035, 0.005, 0.015), (0, -0.07, 0.0875), m['gun'], bevel=0.0008)
+    torus('RearAperture', 0.0075, 0.0011, (0, -0.07, S), m['gun_dark'], axis='Y', seg=32, rseg=6)
+    box('FrontSightBase', (0.02, 0.02, 0.0185), (0, 0.272, 0.08125), m['gun'], bevel=0.002)
+    torus('FrontHood', 0.011, 0.0018, (0, 0.272, S), m['gun'], axis='Y', seg=24, rseg=6)
+    box('FrontPost', (0.002, 0.003, 0.011), (0, 0.272, S - 0.0055), m['gun_dark'], bevel=0.0004)
     box('LowerReceiver', (0.036, 0.15, 0.03), (0, 0.015, 0.012), m['polymer'], bevel=0.004)
     box('MagWell', (0.034, 0.045, 0.03), (0, 0.125, 0.012), m['gun'], bevel=0.003)
     profile('Grip', [(-0.012, -0.002), (0.03, -0.002), (0.022, -0.03), (0.008, -0.11), (-0.028, -0.112),
@@ -152,8 +157,8 @@ def build_falke():
              wrist=(-0.032, 0.18, -0.02))
     empty('Muzzle', (0, 0.342, 0.045))
     empty('Eject', (0.026, 0.07, 0.05))
-    empty('SightRear', (0, -0.07, 0.095))
-    empty('SightFront', (0, 0.272, 0.095))
+    empty('SightRear', (0, -0.07, S))
+    empty('SightFront', (0, 0.272, S))
     parent_all(root)
     return root
 

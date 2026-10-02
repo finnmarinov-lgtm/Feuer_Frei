@@ -34,6 +34,8 @@ function readEntry(m) {
     mode: MODES.includes(m.mode) ? m.mode : 'kampf',
     arms: ARMS[m.arms] ? m.arms : 'alle',
     since: num(m.since, 0, Number.MAX_SAFE_INTEGER),
+    // dort wird gerade gespielt: wer beitritt, schaut zu
+    live: m.live ? 1 : 0,
   };
 }
 

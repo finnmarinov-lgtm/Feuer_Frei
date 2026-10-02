@@ -10,8 +10,9 @@ import { RealtimeClient } from '@supabase/realtime-js';
 const APP_ID = 'feuer-frei-duell-v1';
 // Version des Netzprotokolls: beide Spieler brauchen denselben Stand des Spiels
 // (6: Mehrspieler-Lobby mit Teams bis 4 gegen 4, 7: Karte Hafen, 8: Hafen mit weniger Durchgängen,
-// 9: Luftschlag als Abschussserie, Entschärfen dauert 10 s, 10: offene Lobbys, Host kann rauswerfen)
-export const PROTOCOL = 10;
+// 9: Luftschlag als Abschussserie, Entschärfen dauert 10 s, 10: offene Lobbys, Host kann rauswerfen,
+// 11: nach der Partie zurück in die Lobby, Zuschauer bei laufenden Partien)
+export const PROTOCOL = 11;
 export const SUPABASE_WS = 'wss://yzzipjtounvktdhhvrnt.supabase.co/realtime/v1';
 const SUPABASE_REST = 'https://yzzipjtounvktdhhvrnt.supabase.co/realtime/v1/api/broadcast';
 // "publishable" Schlüssel: darf öffentlich im Code stehen
@@ -42,6 +43,9 @@ export class Net {
     this.partner = null;
     // Team-Spiel: Kennungen aller Mitspieler (senden ohne Empfänger geht an sie)
     this.group = null;
+    // Zuschauer in der Gruppe (nur beim Host): bekommen alles mit, zählen aber nicht für den
+    // langsamsten Weg (sonst würden alle Spieler seltener senden, weil ein Zuschauer über den Server hängt)
+    this.watchers = new Set();
     this.onMessage = null;
     this.onPeer = null;
     this.onChange = null;
@@ -93,7 +97,7 @@ export class Net {
     const p = this.partner;
     if (!p && this.group) {
       let mode = 'direkt';
-      for (const id of this.group) if (this.modeOf(id) === 'server') mode = 'server';
+      for (const id of this.group) if (!this.watchers.has(id) && this.modeOf(id) === 'server') mode = 'server';
       return mode;
     }
     if (!p) return 'suche';

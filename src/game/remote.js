@@ -376,6 +376,8 @@ export class RemotePlayer {
   /** Puffer gegen Ruckeln im Netz (ms); die KI schickt 60 Zustände pro Sekunde ohne Verzögerung */
   get delay() {
     if (this.local) return 35;
+    // Zuschauer: alles kommt über den Host (zwei Wege hintereinander), da darf der Puffer größer sein
+    if (this.g.match.spectator) return 220;
     const net = this.g.match.net;
     const mode = this.peer && net?.modeOf ? net.modeOf(this.peer) : net?.mode;
     // im Team-Spiel über den Server kommen weniger Zustände pro Sekunde: mehr Puffer

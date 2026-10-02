@@ -109,6 +109,9 @@ kbd { display: inline-block; min-width: 1.6em; padding: 0 0.35em; border: 1px so
   mask: radial-gradient(circle, transparent 62%, #000 63%, #000 71%, transparent 72%); }
 
 #radar { position: absolute; left: 22px; top: 18px; width: 216px; height: 150px; background: rgba(14, 16, 20, 0.8); border-radius: 6px; }
+/* Zuschauer (kam während einer laufenden Partie): nichts Eigenes anzeigen */
+body.spectator #money, body.spectator #buyhint, body.spectator #vitals, body.spectator #ammo, body.spectator #slots,
+body.spectator #special, body.spectator #special-hint, body.spectator #radar, body.spectator #tasks-hud { display: none !important; }
 /* mit Radar rücken Geld, Kaufhinweis, Verbindung und Aufgaben darunter */
 body.radar #money { top: 178px; }
 body.radar #buyhint { top: 226px; }
@@ -326,6 +329,7 @@ body.radar #tasks-hud { top: 328px; }
 .open-list .count { font-size: 17px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
 .open-list button { padding: 6px 14px; font-size: 16px; }
 .open-list button:disabled { opacity: 0.45; cursor: default; }
+.open-list li.live .who small { color: #ffb23d; }
 .lobby-choice .open-empty { min-height: 0; }
 .lobby-room { display: flex; flex-direction: column; align-items: center; gap: 14px; width: min(640px, 94vw); }
 .code-box { font-size: 18px; color: var(--muted); font-weight: 600; display: flex; align-items: baseline; gap: 14px; }

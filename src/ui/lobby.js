@@ -14,6 +14,8 @@ const COUNTDOWN = 3;
 const MAX_TEAM = 4;
 // so lange (ms) hält der Host den Platz für jemanden frei, der gerade neu lädt
 const AWAY_KEEP = 15000;
+// ... und für jemanden, der nach der Partie noch die Auswertung ansieht
+const RETURN_KEEP = 60000;
 const VERSION_PROBLEM = 'Ihr habt verschiedene Versionen des Spiels. Bitte alle die Seite neu laden (Strg + F5).';
 const MODE_INFO = {
   kampf: () => 'Eine Runde gewinnt, wer alle Gegner ausschaltet (mit 3 Leben muss jeder dreimal fallen).',
@@ -150,6 +152,7 @@ export class Lobby {
     this.opts = { ...this.opts, map: MAP.id, pub: $('lobby-public').checked ? 1 : 0 };
     this.rejoin = null;
     this.banned.clear();
+    this.lastTeams = null;
     this._enterRoom(randomCode());
   }
 
@@ -202,7 +205,28 @@ export class Lobby {
     setUrlLobby(null);
   }
 
-  _enterRoom(code) {
+  /**
+   * Nach der Partie zurück in denselben Raum: gleiche Rolle, gleiche Einstellungen, die Verbindung
+   * aus dem Spiel bleibt (net). Der Host behält die Aufstellung: KI-Spieler bleiben, die anderen
+   * kommen in ihr altes Team zurück, sobald sie wieder "Hallo" sagen (eine Minute lang ist ihr Platz frei).
+   */
+  returnFromMatch(net) {
+    this.show('lobby');
+    const prev = this.roster;
+    this.lastTeams = new Map(prev.map((e) => [e.key, e.team]));
+    this.rejoin = null;
+    this._enterRoom(this.code || net.code, net);
+    if (this.role === 'host') {
+      const now = performance.now();
+      for (const e of prev) {
+        if (e.key === this.key) continue;
+        this.roster.push({ ...e, away: e.bot ? 0 : now, awayKeep: RETURN_KEEP });
+      }
+      this._changed();
+    }
+  }
+
+  _enterRoom(code, reuse = null) {
     const { role, rejoin } = this;
     if (this.net) this.leave();
     this.role = role;
@@ -219,7 +243,12 @@ export class Lobby {
     this.enteredAt = performance.now();
     this.list.listen(false);
     this._note('');
-    const net = (this.net = new Net(code, { only: this.netMode }));
+    // nach der Partie: dieselbe Verbindung weiter (alle sind schon verbunden), sonst eine neue
+    const net = (this.net = reuse || new Net(code, { only: this.netMode }));
+    if (reuse) {
+      net.partner = null;
+      net.watchers.clear();
+    }
     this.roster = [];
     if (role === 'host') {
       this.since = Date.now();
@@ -263,18 +292,22 @@ export class Lobby {
     } else if (this.role === 'host') {
       const now = performance.now();
       const n = this.roster.length;
-      this.roster = this.roster.filter((e) => !e.away || now - e.away < AWAY_KEEP);
+      this.roster = this.roster.filter((e) => !e.away || now - e.away < (e.awayKeep || AWAY_KEEP));
       if (this.roster.length !== n) {
         this._stopCountdown();
         this._changed();
       } else {
-        this._sendLobby();
+        // an alle im Raum, nicht nur an die Aufstellung: wer nach der Partie noch in der Auswertung
+        // steht (auch Zuschauer), kommt damit in die Lobby nach
+        this._sendLobby([...net.known]);
         // falls die Anmeldung in der Liste nicht geklappt hat
         this._announce();
       }
     } else {
-      // Gast: "Hallo" an alle, bis der Host einen aufgenommen hat (auch nach seinem Neuladen)
-      const inRoom = this.hostPeer && this.roster.some((e) => e.key === this.key) && !net.lostPeer(this.hostPeer);
+      // Gast: "Hallo" an alle, bis der Host einen aufgenommen hat (auch nach seinem Neuladen). Steht
+      // man bei ihm als "weg" (zurück aus der Partie), muss er erst hören, dass man wieder da ist.
+      const mine = this.roster.find((e) => e.key === this.key);
+      const inRoom = this.hostPeer && mine && !mine.away && !net.lostPeer(this.hostPeer);
       if (!inRoom) for (const id of net.known) this._sayHi(id);
       // laufendes Team-Spiel wieder aufnehmen: kommt keine Antwort, ist es wohl vorbei
       if (this.rejoin?.kind === 'team' && performance.now() - this.enteredAt > 15000) {
@@ -316,7 +349,7 @@ export class Lobby {
       this._adopt(from, msg.name, msg.looks);
       // das Duell läuft beim anderen noch: mit dem geschickten Stand wieder einsteigen
       if (msg.resume) {
-        this._launchDuel(msg.cfg || saved.cfg, msg.resume);
+        if (msg.resume.ph !== 'over') this._launchDuel(msg.cfg || saved.cfg, msg.resume);
         return;
       }
       // beide haben neu geladen: der Host hat den Stand der Partie in seinem Speicher
@@ -367,7 +400,7 @@ export class Lobby {
           return;
         }
         // ein 1 gegen 1 läuft noch (man hat neu geladen, der eigene Stand fehlte): weiterspielen
-        if (msg.resume && msg.role === 'guest') {
+        if (msg.resume && msg.role === 'guest' && msg.resume.ph !== 'over') {
           this._adopt(from, msg.name, msg.looks);
           this._launchDuel(msg.cfg || this.opts, msg.resume);
           return;
@@ -387,8 +420,11 @@ export class Lobby {
           p.name = cleanName(msg.name) || p.name;
           p.looks = msg.looks && typeof msg.looks === 'object' ? msg.looks : p.looks;
           p.away = 0;
+          p.awayKeep = 0;
         } else {
-          const team = this._freeTeam();
+          // wer schon in der letzten Partie dabei war, kommt in sein altes Team (wenn dort Platz ist)
+          const was = this.lastTeams?.get(msg.key);
+          const team = was && this._canJoin(was) ? was : this._freeTeam();
           if (!team) {
             this.net.send({ t: 'full' }, from);
             return;
@@ -518,8 +554,11 @@ export class Lobby {
     net.send(msg, to);
   }
 
-  /** Host einer öffentlichen Lobby: in der Liste anmelden (Änderungen nachtragen), sonst abmelden */
-  _announce() {
+  /**
+   * Host einer öffentlichen Lobby: in der Liste anmelden (Änderungen nachtragen), sonst abmelden.
+   * live: die Partie läuft gerade (wer jetzt beitritt, schaut zu und spielt in der nächsten mit)
+   */
+  _announce(live = false) {
     if (this.role !== 'host' || !this.net || this.rejoin || this.opts.pub !== 1) {
       this.list.announce(null);
       return;
@@ -527,8 +566,13 @@ export class Lobby {
     const humans = this.roster.filter((e) => !e.bot).length;
     this.list.announce({
       code: this.code, host: this.name, n: humans, bots: this.roster.length - humans,
-      map: this.opts.map, mode: this.opts.mode, arms: this.opts.arms, since: this.since,
+      map: this.opts.map, mode: this.opts.mode, arms: this.opts.arms, since: this.since, live: live ? 1 : 0,
     });
+  }
+
+  /** Host geht ins Hauptmenü (Partie verlassen): die Lobby ist zu, raus aus der Liste */
+  unlist() {
+    this.list.announce(null);
   }
 
   /** Host: Aufstellung geändert, an alle schicken */
@@ -605,9 +649,15 @@ export class Lobby {
     switch (msg.t) {
       case 'hi':
         // ein 1 gegen 1 läuft noch (man hat neu geladen, der eigene Stand fehlte): weiterspielen
-        if (msg.v === PROTOCOL && msg.resume && msg.role === 'host') {
+        if (msg.v === PROTOCOL && msg.resume && msg.role === 'host' && msg.resume.ph !== 'over') {
           this._adopt(from, msg.name, msg.looks);
           this._launchDuel(msg.cfg || this.opts, msg.resume);
+        }
+        return;
+      case 'spec':
+        // dort läuft gerade eine Partie: zuschauen, bis sie vorbei ist (danach geht es hier weiter)
+        if (msg.v === PROTOCOL && msg.kind === 'team' && Array.isArray(msg.roster) && msg.phase && msg.phase.ph !== 'over') {
+          this._launchSpectate(msg, from);
         }
         return;
       case 'lobby': {
@@ -630,8 +680,10 @@ export class Lobby {
           : [];
         if (msg.cfg) this.opts = msg.cfg;
         this.countdown = msg.cd || 0;
-        if (this.roster.some((e) => e.key === this.key)) this.problem = '';
-        else if (first) this._sayHi(from);
+        const mine = this.roster.find((e) => e.key === this.key);
+        if (mine) this.problem = '';
+        // nicht dabei, oder beim Host noch als "weg" (zurück aus der Partie): Hallo sagen
+        if ((!mine && first) || mine?.away) this._sayHi(from);
         this._render();
         return;
       }
@@ -675,7 +727,8 @@ export class Lobby {
         return;
       case 'resume':
         // Stand eines laufenden Team-Spiels (nach dem Neuladen oder weil der Start verloren ging)
-        if (msg.v === PROTOCOL && msg.kind === 'team' && Array.isArray(msg.roster) && msg.roster.some((e) => e.key === this.key)) {
+        if (msg.v === PROTOCOL && msg.kind === 'team' && Array.isArray(msg.roster) && msg.phase?.ph !== 'over'
+          && msg.roster.some((e) => e.key === this.key)) {
           this.hostPeer = from;
           this._launchTeam(msg, msg.phase);
         }
@@ -730,8 +783,8 @@ export class Lobby {
   _detach() {
     const net = this.net;
     this._stopTimers();
-    // das Spiel läuft: aus der Liste der offenen Lobbys nehmen
-    this.list.announce(null);
+    // das Spiel läuft: eine öffentliche Lobby bleibt in der Liste (zum Zuschauen), sonst raus
+    this._announce(true);
     this.net = null;
     net.onPeer = null;
     net.onChange = null;
@@ -746,11 +799,28 @@ export class Lobby {
     const saved = resume && this.rejoin?.kind === 'duel' ? this.rejoin : null;
     this.rejoin = null;
     session.setLobby(this.code, this.role, 'duel');
+    // feste Kennungen beider Spieler: damit schickt der Host Zuschauern die Partie
+    const guest = this.roster.find((e) => !e.bot && e.key !== this.hostKey);
+    const keys = saved?.keys || (this.hostKey && guest ? { host: this.hostKey, guest: guest.key } : null);
     const net = this._detach();
     this.onStart(net, {
       kind: 'duel', role: this.role, lives: cfg.lives, wins: cfg.wins, mode: cfg.mode, map: cfg.map, arms: cfg.arms,
       myName: this.name, theirName: this.partnerName || 'Mitspieler', theirLooks: this.partnerLooks,
-      resume, saved,
+      keys, banned: [...this.banned], resume, saved,
+    });
+  }
+
+  /** zuschauen: dort lief schon eine Partie (msg wie beim Wiedereinstieg ins Team-Spiel) */
+  _launchSpectate(msg, from) {
+    this.rejoin = null;
+    this.hostPeer = from;
+    this.hostKey = msg.host;
+    // nach dem Neuladen geht es einfach wieder in die Lobby (und von dort wieder zum Zuschauen)
+    session.setLobby(this.code, 'guest');
+    const net = this._detach();
+    this.onStart(net, {
+      kind: 'team', spectate: true, key: this.key, isHost: false, hostKey: msg.host, hostPeer: from,
+      cfg: msg.cfg, roster: msg.roster, myName: this.name, startMsg: null, resume: msg.phase, saved: null,
     });
   }
 
@@ -763,7 +833,7 @@ export class Lobby {
     const net = this._detach();
     this.onStart(net, {
       kind: 'team', key: this.key, isHost, hostKey: start.host, hostPeer: isHost ? net.id : this.hostPeer,
-      cfg: start.cfg, roster: start.roster, myName: this.name,
+      cfg: start.cfg, roster: start.roster, myName: this.name, banned: [...this.banned],
       startMsg: isHost && !resume ? start : null, resume, saved,
     });
   }
@@ -916,15 +986,18 @@ export class Lobby {
     const list = this.list;
     const rows = list.lobbies
       .filter((l) => !this.kickedFrom.has(l.code))
-      .sort((a, b) => (a.n >= 2 * MAX_TEAM) - (b.n >= 2 * MAX_TEAM) || b.n - a.n || b.since - a.since)
+      // erst die, die auf Spieler warten, dann laufende Partien (dort schaut man zu und spielt danach mit)
+      .sort((a, b) => a.live - b.live || (a.n >= 2 * MAX_TEAM) - (b.n >= 2 * MAX_TEAM) || b.n - a.n || b.since - a.since)
       .slice(0, 12)
       .map((l) => {
-        const full = l.n >= 2 * MAX_TEAM;
+        const full = !l.live && l.n >= 2 * MAX_TEAM;
         const what = [MAPS[l.map].name, l.mode === 'bombe' ? 'Bombe' : 'Kampf'];
         if (l.arms !== 'alle') what.push(ARMS[l.arms].name);
-        return `<li><div class="who"><b>${escapeHtml(l.host)}</b><small>${what.join(' · ')}</small></div>`
+        if (l.live) what.push('Spiel läuft');
+        const label = l.live ? 'Zuschauen' : full ? 'Voll' : 'Beitreten';
+        return `<li class="${l.live ? 'live' : ''}"><div class="who"><b>${escapeHtml(l.host)}</b><small>${what.join(' · ')}</small></div>`
           + `<span class="count" title="Spieler in der Lobby">${l.n}/${2 * MAX_TEAM}</span>`
-          + `<button data-code="${l.code}"${full ? ' disabled' : ''}>${full ? 'Voll' : 'Beitreten'}</button></li>`;
+          + `<button data-code="${l.code}"${full ? ' disabled' : ''}>${label}</button></li>`;
       });
     const el = $('lobby-open-list');
     const html = rows.join('');

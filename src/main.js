@@ -203,6 +203,12 @@ function setupMenus(game, input, audio) {
     window.addEventListener('beforeunload', leaveGuard);
     const m = game.match;
     const tap = input.touch ? 'Tippen' : 'Klicken';
+    if (m.spectator) {
+      $('click-title').textContent = `${tap} zum Zuschauen`;
+      $('click-hint').textContent = `Hier läuft schon eine Partie: Du schaust zu, bis sie vorbei ist, danach geht es in der Lobby weiter · ${input.touch ? 'Feuerknopf' : 'Leertaste oder Klick'}: nächster Spieler`;
+      show('click-resume');
+      return;
+    }
     $('click-title').textContent = opts.resume ? `Zurück im Spiel – ${tap} zum Weiterspielen` : `${tap} zum Spielen`;
     const place = `${MAPS[m.cfg.map].name}${m.arms.allow ? ` · ${m.arms.name}` : ''}`;
     const size = `${m.members(m.team).length} gegen ${m.members(otherTeam(m.team)).length}`;
@@ -358,8 +364,26 @@ function setupMenus(game, input, audio) {
     lockOrAsk();
   }
 
+  // nach einer Partie im Netz: zurück in dieselbe Lobby (Verbindung, Rolle und Einstellungen bleiben)
+  function toLobby() {
+    const net = game.leaveToLobby();
+    input.enabled = false;
+    input.unlock();
+    window.removeEventListener('beforeunload', leaveGuard);
+    duelNet = null;
+    teamNet = null;
+    syncMenuMap();
+    lobby.returnFromMatch(net);
+  }
+  // der Host ist schon zurück in der Lobby: wer noch in der Auswertung steht, kommt nach
+  game.onLobbyOpen = () => {
+    if (game.state === 'results') toLobby();
+  };
+
   function toMenu() {
     const wasDuel = game.mode === 'duel';
+    // eine öffentliche Lobby stand während der Partie noch in der Liste (zum Zuschauen): jetzt ist sie zu
+    if (wasDuel) lobby.unlist();
     game.quitToMenu();
     input.enabled = false;
     input.unlock();
@@ -429,6 +453,11 @@ function setupMenus(game, input, audio) {
   $('btn-again').addEventListener('click', () => {
     if (game.mode !== 'duel') {
       start();
+      return;
+    }
+    // im Netz geht es über die Lobby weiter (dort lässt sich alles neu einstellen, neue Leute kommen dazu)
+    if (game.match.online) {
+      toLobby();
       return;
     }
     game.match.requestAgain();
@@ -683,6 +712,17 @@ function setupMenus(game, input, audio) {
   function updateRematch() {
     const m = game.match;
     if (!m.duel) return;
+    // im Netz: weiter in der Lobby (der Host nimmt alle mit)
+    if (m.online) {
+      const hostGone = m.teamMode ? m.hostLeft : m.left && !m.isHost;
+      let text;
+      if (hostGone) text = 'Der Host hat das Spiel verlassen.';
+      else if (m.isHost && !m.spectator) text = 'Mit „Zur Lobby“ kommen alle mit zurück in die Lobby. Dort kannst du alles neu einstellen, und neue Leute können dazukommen.';
+      else text = 'Geht der Host zurück in die Lobby, kommst du automatisch mit.';
+      $('res-status').textContent = text;
+      $('btn-again').disabled = hostGone;
+      return;
+    }
     if (m.teamMode) {
       const host = m.name(m.hostKey);
       let text;
@@ -736,7 +776,7 @@ function setupMenus(game, input, audio) {
     $('res-rounds').innerHTML = '<tr><th>Runde</th><th>Ergebnis</th><th>Wie</th><th>Ausgeschaltet</th><th>Tode</th></tr>' +
       r.rounds.map((x, i) => `<tr><td>${i + 1}</td><td class="${x.won ? 'win' : x.draw ? '' : 'loss'}">${x.won ? 'Gewonnen' : x.draw ? 'Unentschieden' : 'Verloren'}</td>` +
         `<td>${why[x.why] || ''}</td><td>${x.kills}</td><td>${x.deaths}</td></tr>`).join('');
-    $('btn-again').textContent = 'Nochmal';
+    $('btn-again').textContent = m.online ? 'Zur Lobby' : 'Nochmal';
     updateRematch();
     showNewSkins();
     show('results');
@@ -746,6 +786,27 @@ function setupMenus(game, input, audio) {
   function teamResults(r) {
     const m = game.match;
     m.onAgainChange = updateRematch;
+    const table = (team) => {
+      const rows = r.board.filter((x) => x.team === team).map((x) => `<tr class="${x.me ? 'me' : ''}"><td>${escapeHtml(x.me ? `${x.name} (Du)` : x.name)}`
+        + `${x.left ? '<small>weg</small>' : ''}</td><td class="n">${x.kills}</td><td class="n">${x.deaths}</td></tr>`).join('');
+      return `<table class="board"><tbody class="t-${team}"><tr><th class="tname">${TEAM_NAMES[team]}</th><th class="n">Abschüsse</th><th class="n">Tode</th></tr>${rows}</tbody></table>`;
+    };
+    // Zuschauer: nur das Ergebnis der Teams und die Tabelle, keine eigenen Werte
+    if (r.spectator) {
+      const [rot, blau] = r.score;
+      $('res-title').textContent = r.reason === 'host' ? 'Der Host ist weg – Spiel vorbei'
+        : rot === blau ? 'Unentschieden' : `${TEAM_NAMES[rot > blau ? 'rot' : 'blau']} gewinnt`;
+      $('res-score').hidden = false;
+      $('res-score').textContent = `${rot} : ${blau}`;
+      $('res-grid').hidden = true;
+      $('res-rounds').hidden = true;
+      $('res-board').innerHTML = table('rot') + table('blau');
+      $('res-board').hidden = false;
+      $('btn-again').textContent = 'Zur Lobby';
+      updateRematch();
+      show('results');
+      return;
+    }
     const acc = Math.round(r.accuracy * 100);
     const hs = Math.round(r.headshots * 100);
     const mine = TEAM_NAMES[r.myTeam];
@@ -765,11 +826,6 @@ function setupMenus(game, input, audio) {
       r.bomb ? [String(r.defused), 'Entschärft'] : [String(r.grenades), 'Granaten'],
     ];
     $('res-grid').innerHTML = tiles.map(([v, l]) => `<div><b>${v}</b><span>${l}</span></div>`).join('');
-    const table = (team) => {
-      const rows = r.board.filter((x) => x.team === team).map((x) => `<tr class="${x.me ? 'me' : ''}"><td>${escapeHtml(x.me ? `${x.name} (Du)` : x.name)}`
-        + `${x.left ? '<small>weg</small>' : ''}</td><td class="n">${x.kills}</td><td class="n">${x.deaths}</td></tr>`).join('');
-      return `<table class="board"><tbody class="t-${team}"><tr><th class="tname">${TEAM_NAMES[team]}</th><th class="n">Abschüsse</th><th class="n">Tode</th></tr>${rows}</tbody></table>`;
-    };
     $('res-board').innerHTML = table(r.myTeam) + table(otherTeam(r.myTeam));
     $('res-board').hidden = false;
     const why = {
@@ -779,7 +835,7 @@ function setupMenus(game, input, audio) {
     $('res-rounds').innerHTML = '<tr><th>Runde</th><th>Ergebnis</th><th>Wie</th><th>Ausgeschaltet</th><th>Tode</th></tr>' +
       r.rounds.map((x, i) => `<tr><td>${i + 1}</td><td class="${x.won ? 'win' : x.draw ? '' : 'loss'}">${x.won ? 'Gewonnen' : x.draw ? 'Unentschieden' : 'Verloren'}</td>` +
         `<td>${why[x.why] || ''}</td><td>${x.kills}</td><td>${x.deaths}</td></tr>`).join('');
-    $('btn-again').textContent = 'Nochmal';
+    $('btn-again').textContent = m.online ? 'Zur Lobby' : 'Nochmal';
     updateRematch();
     showNewSkins();
     show('results');
@@ -794,6 +850,8 @@ function setupMenus(game, input, audio) {
     $('res-status').textContent = '';
     $('res-gift').hidden = true;
     $('res-board').hidden = true;
+    $('res-grid').hidden = false;
+    $('res-rounds').hidden = false;
     if (r.team) {
       teamResults(r);
       return;

@@ -1,5 +1,5 @@
-// Sprache der Oberfläche. Englisch ist die Voreinstellung, Deutsch lässt sich
-// in den Einstellungen wählen.
+// Sprache der Oberfläche: Deutsch oder Englisch, in den Einstellungen wählbar. Ohne Wahl richtet
+// sie sich nach dem Browser (Deutsch zuerst -> Deutsch, sonst Englisch).
 //
 // So funktioniert es: Die Seite ist auf Deutsch geschrieben, das bleibt die Quelle.
 // Beim Start werden die Texte im Dokument gegen die englischen getauscht - auch bei
@@ -16,7 +16,11 @@ export function sprache() {
     const s = localStorage.getItem(KEY);
     if (s === 'de' || s === 'en') return s;
   } catch {}
-  return 'en';
+  // noch nichts gewählt: Deutsch, wenn der Browser zuerst Deutsch möchte, sonst Englisch. Früher
+  // immer Englisch; auf deutschen Handys ließen viele dann den Browser übersetzen, und die Texte
+  // sprangen hin und her (das Spiel übersetzte zurück). Das Übersetzen ist jetzt abgeschaltet.
+  const first = (navigator.languages?.[0] || navigator.language || '').toLowerCase();
+  return first.startsWith('de') ? 'de' : 'en';
 }
 
 export function setSprache(code) {
@@ -567,6 +571,25 @@ const EN = {
   'Aus der Lobby werfen': 'Kick from the lobby',
   'Der Host hat dich aus der Lobby geworfen.': 'The host kicked you from the lobby.',
 
+  // zurück in die Lobby, Zuschauer
+  'Zur Lobby': 'Back to lobby',
+  'Mit „Zur Lobby“ kommen alle mit zurück in die Lobby. Dort kannst du alles neu einstellen, und neue Leute können dazukommen.':
+    'With “Back to lobby” everyone returns to the lobby. There you can change the settings, and new people can join.',
+  'Geht der Host zurück in die Lobby, kommst du automatisch mit.': 'When the host goes back to the lobby, you follow automatically.',
+  'Zuschauer': 'Spectator',
+  'Zuschauen': 'Watch',
+  'Spiel läuft': 'Match running',
+  'Du schaust zu': 'You are spectating',
+  'Gerade lebt niemand': 'Nobody is alive right now',
+  'Team Rot gegen Team Blau': 'Team Red vs Team Blue',
+  'Leertaste oder Klick': 'Space or click',
+  'Hier läuft schon eine Partie: Du schaust zu, bis sie vorbei ist, danach geht es in der Lobby weiter':
+    'A match is already running here: you spectate until it is over, then it continues in the lobby',
+
+  // Luftschlag zu nah
+  'Zu nah': 'Too close',
+  'Zu nah an dir: weiter weg zielen (im Kreis trifft der Jet auch dich)': 'Too close to you: aim further away (the jet hits you too inside the circle)',
+
   // beim Durchspielen noch gefunden
   '+ Helm': '+ helmet',
   'gratis': 'free',
@@ -610,6 +633,11 @@ const VORLAGEN = [
   ['Entschärfe sie: hingehen und {} ({})', 'Defuse it: walk over and {1} ({2})'],
   // Spielstart
   ['{} zum Spielen', '{1} to play'],
+  ['{} zum Zuschauen', '{1} to spectate'],
+  ['{}: nächster Spieler', '{1}: next player'],
+  ['{} schaut zu', '{1} is spectating'],
+  ['{} gewinnt', '{1} wins'],
+  ['Im Kreis trifft der Jet auch dich. Ziel mindestens {n} m entfernt wählen.', 'The jet hits you too inside the circle. Pick a target at least {1} m away.'],
   ['Zurück im Duell – {} zum Weiterspielen', 'Back in the duel – {1} to resume'],
   ['Zurück im Spiel – {} zum Weiterspielen', 'Back in the match – {1} to resume'],
   ['1 gegen 1 gegen {}', '1v1 against {1}'],

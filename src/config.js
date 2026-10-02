@@ -98,6 +98,9 @@ export const SPECIAL = {
   blastRadius: 2.2,
   damage: 48,
   armorPen: 0.6,
+  // so weit muss das Ziel mindestens von einem selbst weg sein (Kreis plus Sprengradius): sonst traf
+  // der eigene Luftschlag oft einen selbst, wenn man aus Versehen auf den Boden vor sich zielte
+  minDist: 9,
 };
 
 // Waffen-Modus im 1 gegen 1 (Lobby bzw. Gegen KI): was man kaufen darf. allow = erlaubte Dinge
@@ -160,6 +163,11 @@ const LUCHS_PATTERN = [
   [0.03, 0.4], [0, 0.3], [0.03, -0.2], [0, -0.35], [0.03, -0.2], [0, 0.25], [0, 0.3],
 ];
 
+// Aus der Hüfte geschossen schlägt die Waffe stärker aus als im Anschlag (rechte Maustaste): aim gilt
+// für die Trefferlage (Muster bzw. Hochschlagen), view für das Wackeln der Ansicht. Im Anschlag
+// bleibt alles wie gehabt (Ansicht 0,65), dazwischen wird überblendet.
+export const HIP_RECOIL = { aim: 1.6, view: 1.3 };
+
 export const WEAPONS = {
   natter: {
     name: 'Natter', type: 'Pistole', slot: 'secondary', price: 200, reward: 150, model: 'natter',
@@ -187,7 +195,7 @@ export const WEAPONS = {
     mag: 30, reserve: 60, reload: 2.6, draw: 0.7, speed: 5.8, sprint: 7.6, sprintOut: 0.16,
     spread: { base: 9, move: 14, air: 55, fire: 5, recovery: 0.22 },
     recoil: { pattern: FALKE_PATTERN, up: 0.05, side: 0.3, decay: 12, viewKick: 0.5 },
-    ads: { eye: 0.07, zoom: 1.2, time: 0.18, speed: 0.7, spread: 0.5 },
+    ads: { eye: 0.07, zoom: 1.3, time: 0.18, speed: 0.7, spread: 0.5 },
     view: { pos: [0.15, -0.18, -0.44], rot: [0.03, 0.1, -0.03] },
     sound: 'smg', tracer: 2, anim: 'rifle',
   },
@@ -222,8 +230,10 @@ export const WEAPONS = {
     sound: 'rifle2', tracer: 2, anim: 'rifle', reddot: true,
   },
   adler: {
+    // Schaden 115: ein Körpertreffer reicht auf jede Entfernung, auch gegen eine Weste (mit 100 blieben
+    // ab 5 m wegen des Abfalls mit der Entfernung 1 bis 3 Lebenspunkte übrig)
     name: 'Adler', type: 'Scharfschützengewehr', slot: 'primary', price: 4750, reward: 50, model: 'adler',
-    auto: false, rpm: 41, damage: 100, headMul: 2.4, armorPen: 0.975, rangeMod: 0.99,
+    auto: false, rpm: 41, damage: 115, headMul: 2.4, armorPen: 0.975, rangeMod: 0.99,
     mag: 5, reserve: 15, reload: 3.6, draw: 1.1, speed: 5.0, sprint: 6.3, sprintOut: 0.3,
     spread: { base: 70, scoped: 0.6, move: 90, air: 150, fire: 0, recovery: 0.3 },
     recoil: { up: 2.0, side: 0.2, decay: 3, viewKick: 4.5 },
@@ -272,7 +282,9 @@ export const WEAPON_IDS = Object.keys(WEAPONS);
 for (const id of WEAPON_IDS) WEAPONS[id].id = id;
 
 export const GRENADES = {
-  he: { fuse: 1.6, radius: 7.5, damage: 100, armorPen: 0.5 },
+  // Splittergranate: 130 direkt daneben (vorher 100), nimmt mit dem Abstand ab: 1 m 105, 2 m 82,
+  // 3 m 60, 4 m 41; eine Weste hält die Hälfte ab
+  he: { fuse: 1.6, radius: 7.5, damage: 130, armorPen: 0.5 },
   flash: { fuse: 1.6, radius: 22, maxBlind: 4.5 },
   smoke: { fuse: 1.8, radius: 3.6, duration: 16, stopSpeed: 0.25 },
   throwSpeed: 15.5,

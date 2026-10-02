@@ -34,10 +34,14 @@ Danach `http://localhost:5173` öffnen und auf **Mehrspieler**, **Gegen KI** ode
 
 **Zu zweit (ein Mensch pro Team, keine KI) wird daraus das 1 gegen 1**, genau wie bisher. Sonst ist es ein Team-Spiel (siehe unten).
 
+**Nach der Partie zurück in die Lobby:** In der Auswertung führt **Zur Lobby** in dieselbe Lobby zurück (statt „Nochmal“). Die Verbindung bleibt dabei bestehen, alle sind sofort wieder da. Geht der Host zurück, kommen alle anderen automatisch mit, auch wer noch die Auswertung ansieht. Jeder landet in seinem alten Team, die KI-Spieler bleiben, und wer nicht zurückkommt, verliert seinen Platz nach einer Minute. Der Host kann dann alles neu einstellen und wieder starten; neue Leute können beitreten. Das Hauptmenü verlässt die Lobby ganz.
+
+**Zuschauen:** Wer einer Lobby beitritt, während dort gespielt wird, schaut zu, bis die Partie vorbei ist, und spielt danach in der Lobby mit. Man sieht durch die Augen der Spieler (wie nach dem eigenen Tod), `Leertaste` oder Klick wechselt zum nächsten. Lebt gerade niemand, kreist die Kamera über der Karte. Geld, Leben, Munition, Luftschlag und Radar sind dabei ausgeblendet. Der Host meldet „… schaut zu“. Wer aus der Lobby geworfen wurde, darf nicht zuschauen.
+
 ### Offene Lobbys (mit Fremden spielen)
 
 - **Öffentlich machen:** Beim Erstellen das Häkchen **Öffentlich** setzen. Im Raum lässt es sich unter **Sichtbarkeit** jederzeit umstellen (**Nur mit Code** oder **Öffentlich**).
-- **Liste:** Unter **Mehrspieler** steht unten **Offene Lobbys** mit Host, Karte, Modus und Spielerzahl (z. B. „2/8“). **Beitreten** reicht, ein Code ist nicht nötig. Volle Lobbys stehen hinten mit **Voll**. Sobald das Spiel startet, der Host die Lobby verlässt oder sein Tab zugeht, verschwindet sie aus der Liste.
+- **Liste:** Unter **Mehrspieler** steht unten **Offene Lobbys** mit Host, Karte, Modus und Spielerzahl (z. B. „2/8“). **Beitreten** reicht, ein Code ist nicht nötig. Volle Lobbys stehen hinten mit **Voll**. Läuft dort gerade eine Partie, steht sie mit „Spiel läuft“ und **Zuschauen** weiter in der Liste: Wer dazukommt, schaut zu und spielt danach mit. Verlässt der Host die Lobby oder geht sein Tab zu, verschwindet sie aus der Liste.
 - **Rauswerfen:** Der Host sieht bei jedem Mitspieler ein **✕**. Wer rausfliegt, landet wieder in der Auswahl mit dem Hinweis „Der Host hat dich aus der Lobby geworfen.“, sieht die Lobby nicht mehr in seiner Liste und kommt auch per Code nicht mehr hinein (solange der Host die Seite nicht neu lädt).
 - **Namensfilter:** Namen mit groben Wörtern (Schimpfwörter, Beleidigungen, Nazi-Begriffe, auf Deutsch und Englisch) sehen alle anderen als „Spieler NN“. Getarnte Schreibweisen wie `F1ck`, `F.i.c.k` oder `Fiiick` fallen auch darunter. Wer so einen Namen eintippt, sieht unter dem Namensfeld, wie die anderen ihn sehen. Der Filter gilt immer, also auch in Lobbys nur mit Code. Er fängt das Gröbste, nicht alles; für den Rest gibt es das Rauswerfen.
 
@@ -66,7 +70,7 @@ Alles wie im 1 gegen 1 (Geld, Kaufen, Leben pro Runde, Kill-Cam, Bombenmodus, Lu
 - **Nach dem letzten Leben** (keine Leben mehr in dieser Runde) läuft die Kill-Cam nur noch 2 Sekunden (bis zum Abschuss und dem Fallen) und ist danach weg: Man schaut nur noch den Mitspielern zu, `Leertaste` oder Klick wechselt reihum zwischen ihnen. Wer sie überspringt, kommt auch nicht mehr zurück.
 - **KI-Spieler** spielen wie im Modus „Gegen KI“ (kaufen, hören Schritte, legen und entschärfen die Bombe, fordern Luftschläge an), nur mit mehreren Gegnern und Mitspielern. Sie laufen im Browser des Hosts mit.
 - **Verbindung:** Lädt ein Spieler neu, ist er gleich wieder drin (mit Geld, Waffen und Tabelle). Wer länger als 20 Sekunden weg ist, zählt in der Runde als ausgeschieden. Lädt der Host neu, warten alle anderen auf ihn (die Zeit steht), danach geht es weiter. Ist der Host länger als 60 Sekunden weg oder verlässt er das Spiel, ist die Partie vorbei. Ist ein ganzes Team 60 Sekunden lang weg, gewinnt das andere kampflos.
-- **Nochmal:** Der Host startet mit **Nochmal** die nächste Partie mit denselben Teams (wer gegangen ist, fehlt dann). Die anderen zeigen mit **Nochmal**, dass sie noch einmal wollen.
+- **Danach geht es in der Lobby weiter** (siehe unten).
 
 ### Bombenmodus
 
@@ -80,7 +84,7 @@ Alles wie im 1 gegen 1 (Geld, Kaufen, Leben pro Runde, Kill-Cam, Bombenmodus, Lu
 ### Abschussserie und Luftschlag
 
 - Den **Luftschlag** gibt es für eine **Abschussserie**: 3 Abschüsse hintereinander, ohne selbst zu sterben (im Training zählen die Klappziele). Rechts über der Munition zeigen drei Punkte, wie weit man ist. Stirbt man, fängt die Serie von vorne an. Ein schon verdienter Luftschlag bleibt aber, bis man ihn einsetzt. Die Serie läuft über die Runden weiter, Abschüsse mit dem Luftschlag selbst zählen nicht.
-- Ist die Serie geschafft, **X** drücken und das Ziel anschauen: ein Kreis zeigt, wohin der Jet feuert. **Linksklick** bestätigt, **Rechtsklick** oder **X** bricht ab. Beim Zielen steht man still. Das Ziel muss unter freiem Himmel liegen (nicht im Tunnel). Auf der Karte Lagerhalle gibt es keinen Luftschlag.
+- Ist die Serie geschafft, **X** drücken und das Ziel anschauen: ein Kreis zeigt, wohin der Jet feuert. **Linksklick** bestätigt, **Rechtsklick** oder **X** bricht ab. Beim Zielen kann man weiterlaufen. Das Ziel muss unter freiem Himmel liegen (nicht im Tunnel) und mindestens 9 m von einem selbst entfernt sein: Ist es näher, wird der Kreis blass und ein Hinweis erscheint (vorher traf der eigene Luftschlag oft einen selbst, wenn man auf den Boden vor sich zielte, und die Runde war mit dem letzten Leben verloren). Auf der Karte Lagerhalle gibt es keinen Luftschlag.
 - Am Ziel steigt roter Rauch auf, alle hören eine Warnung. Der Warnkreis hat keinen Rand: in der Mitte ist er kräftig rot, nach außen immer blasser, genau so verteilt sich auch der Schaden. Nach 3,2 Sekunden kommt ein Jet im Sturzflug und feuert mit der **Bordkanone** („Drrrrrt“, 48 Granaten in 1,2 Sekunden). Die Einschläge wandern in Flugrichtung durch den Kreis, mit Leuchtspuren, Feuer und Sandfontänen. In der Mitte ist das fast immer tödlich, 3 m daneben kostet es im Schnitt gut 90 Lebenspunkte, am Rand kaum noch etwas. Deckung schützt. Wer rechtzeitig aus dem Kreis läuft, überlebt. Auch der eigene Luftschlag trifft einen selbst.
 - Ein Abschuss mit dem Luftschlag bringt 300 $, zählt aber nicht für die nächste Serie. Nach dem Einsatz fängt die Serie wieder bei 0 an. Der Luftschlag geht im Training und im Mehrspieler. Den Luftschlag eines Mitspielers kündigt eine eigene Meldung an, er schadet einem nicht.
 
@@ -99,7 +103,7 @@ Gezeichnet wird es in `src/ui/radar.js` aus den Bauteilen der Karte (`arena.boxe
 
 ## Sprache
 
-Die Oberfläche ist auf **Englisch**, Deutsch lässt sich unter *Einstellungen → Sprache* wählen (gespeichert unter `feuer-frei-sprache`). Geschrieben ist alles auf Deutsch, das bleibt die Quelle und steht so auch im HTML, das Google liest. `src/i18n.js` tauscht beim Start und bei jeder Änderung die Texte im Dokument gegen die englischen:
+Die Oberfläche ist auf **Deutsch oder Englisch**, wählbar unter *Einstellungen → Sprache* (gespeichert unter `feuer-frei-sprache`). Ohne Wahl richtet sie sich nach dem Browser: Steht dort Deutsch an erster Stelle, ist das Spiel deutsch, sonst englisch. Das Übersetzen durch den Browser ist abgeschaltet (`translate="no"`, `<meta name="google" content="notranslate">`): Auf dem Handy übersetzte Chrome sonst die englische Seite ins Deutsche, das Spiel übersetzte zurück, und die Texte sprangen hin und her. Geschrieben ist alles auf Deutsch, das bleibt die Quelle und steht so auch im HTML, das Google liest. `src/i18n.js` tauscht beim Start und bei jeder Änderung die Texte im Dokument gegen die englischen:
 
 - **Wörterbuch `EN`** für feste Texte, dazu **Vorlagen** für zusammengesetzte (`'{} hat dich erwischt' → '{1} got you'`, `{n}` steht für eine Zahl). Was in einem Platzhalter steht, wird selbst wieder übersetzt (Kartennamen, „E halten“).
 - Texte mit ` · `, ` – `, `: ` oder `, ` zerfallen in Teile, die einzeln übersetzt werden („Hof · Nur Pistolen“ → „Yard · Pistols only“). Namen von Spielern bleiben dabei stehen.
@@ -204,6 +208,8 @@ Technik:
 - **Wiedereinstieg:** Jeder Tab merkt sich Lobby, Rolle und den eigenen Stand im `sessionStorage` (übersteht das Neuladen, nicht das Schließen des Tabs). Auch beim Host steht der Lobby-Code in der Adresse. Beim Verlassen der Seite meldet sich der Tab ab, zusätzlich per `fetch` mit `keepalive` über die REST-Schnittstelle von Supabase, damit die Abmeldung auch bei schnellem Neuladen ankommt. Wer zurückkommt, bekommt vom anderen den Stand der Partie (Runde, Phase, Zeit, Leben, Siege).
 - **Offene Lobbys:** Der Host einer öffentlichen Lobby meldet sie in einem gemeinsamen Kanal auf Supabase Realtime an (Presence, Kanal `ff-offen-v` plus Protokollversion) und trägt Änderungen nach (Spielerzahl, Karte, Modus). Das Mehrspieler-Menü hört dort mit, solange es offen ist. Bricht die Verbindung des Hosts ab, streicht der Server den Eintrag von selbst. Einträge anderer werden geprüft (Code, Karte, Modus, Zahlen), Namen laufen durch den Filter.
 - **Namen:** `src/names.js` räumt jeden Namen auf, bevor er angezeigt wird (Steuer- und unsichtbare Zeichen raus, höchstens 16 Zeichen) und ersetzt grobe Wörter durch „Spieler NN“ (die Zahl hängt am Namen, alle sehen dieselbe). Vor dem Vergleich werden Ziffern und Zeichen zurückgebaut (`1` → i oder l, `3` → e, `@` → a …), ebenso gleich aussehende kyrillische und griechische Buchstaben. Lange Wörter zählen auch mitten im Namen, kurze nur als ganzes Wort (sonst träfe es „Marsch“, „Cocktail“ oder „Kanal“).
+- **Zuschauer:** Der Host schickt ihnen den Stand der Partie (`spec`, wie beim Wiedereinstieg) und reicht alle Zustände weiter (`fw`, mit der Kennung des Spielers); von den anderen Spielern bekommen sie selbst nichts. Im Team-Spiel stehen sie dazu in der Gruppe des Hosts, zählen aber nicht für den langsamsten Weg (`net.watchers`). Ein 1 gegen 1 schickt der Host im Format des Team-Spiels (Rot = Host, Blau = Gast, feste Kennungen aus der Lobby). Beim Zuschauer läuft ein Team-Spiel ohne eigenen Spieler (`spectate`), mit größerem Puffer gegen Ruckeln (220 ms), weil alles über zwei Wege kommt.
+- **Zurück in die Lobby:** Die Partie gibt ihre Verbindung ohne Tschüss an die Lobby zurück (`Game.leaveToLobby`, `Lobby.returnFromMatch`). Der Host schickt den Stand der Lobby alle 2 Sekunden an alle im Raum; wer noch in der Auswertung steht, folgt damit von selbst.
 - Beide Browser brauchen dieselbe Protokollversion (`PROTOCOL` in `src/net/net.js`). Nach einem Update also beide die Seite neu laden.
 - Zum Testen lässt sich ein Weg erzwingen: `?netz=server` oder `?netz=direkt` an die Adresse hängen.
 
@@ -256,14 +262,16 @@ Das Spiel geht beim Start in den Vollbildmodus. `Esc` verlässt ihn (das macht d
 |---|---|---|---|
 | Natter | Pistole | 200 $ | Startwaffe, 30 Schaden (Kopf 72); moderne Polymerpistole mit Bronzelauf und Visier mit drei weißen Punkten |
 | Kobra | Schwere Pistole | 700 $ | Kopftreffer tödlich |
-| Falke | Maschinenpistole | 1.250 $ | Genau auch im Laufen |
+| Falke | Maschinenpistole | 1.250 $ | Genau auch im Laufen; Geisterring-Visier (dünner Ring mit großer Öffnung), 1,3-facher Zoom |
 | Keiler | Pump-Schrotflinte | 1.050 $ | 9 Schrotkugeln, auf kurze Distanz ein Treffer, lädt Patrone für Patrone |
 | Wolf | Sturmgewehr | 2.700 $ | Stark, festes Rückstoßmuster |
 | Luchs | Sturmgewehr mit Rotpunkt | 3.100 $ | Rotpunktvisier, ruhigerer Rückstoß |
-| Adler | Scharfschützengewehr | 4.750 $ | Ein Körpertreffer reicht, Zielfernrohr nur beim Halten |
+| Adler | Scharfschützengewehr | 4.750 $ | Ein Körpertreffer reicht (115 Schaden, auf jede Entfernung, auch gegen eine Weste), Zielfernrohr nur beim Halten |
 | Messer | Nahkampf | frei | Karambit oder Butterfly (siehe unten). Hieb (links, 60) und Stich (rechts, 90): zwei Treffer reichen immer, auch gegen eine Weste |
 
-Dazu Schutzweste, Weste mit Helm und drei Granaten (Splitter, Blend, Rauch) für die zwei Extra-Slots. Mit einer Granate in der Hand zeigt die Bildmitte statt des Fadenkreuzes nur einen Punkt, der die Wurfrichtung markiert.
+Dazu Schutzweste, Weste mit Helm und drei Granaten (Splitter, Blend, Rauch) für die zwei Extra-Slots. Die Splittergranate macht direkt daneben 130 Schaden (1 m: 105, 2 m: 82, 3 m: 60, 4 m: 41), eine Weste hält die Hälfte ab.
+
+**Aus der Hüfte und im Anschlag:** Aus der Hüfte (ohne rechte Maustaste) schlagen alle Schusswaffen 1,6-mal so stark aus und streuen mehr, die Ansicht wackelt stärker (`HIP_RECOIL` in `src/config.js`). Im Anschlag bleibt der Rückstoß wie gehabt. Beim Scharfschützengewehr baut sich der Rückstoß schon während des Repetierens ab, so steht der Blick still, wenn man wieder im Zielfernrohr ist (vorher zog er ihn dann noch nach unten). Mit einer Granate in der Hand zeigt die Bildmitte statt des Fadenkreuzes nur einen Punkt, der die Wurfrichtung markiert.
 
 **Munition** (Magazin + Ersatz, pro Leben): Die Hauptwaffen haben nur zwei Ersatzmagazine, wer viel schießt, muss zwischendurch zur Pistole greifen. Nach dem Wiedereinstieg und zu Beginn jeder Runde ist alles wieder voll.
 

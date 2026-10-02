@@ -68,9 +68,17 @@ export class Duel extends Match {
     this.hitPoints = new Map();
     this.onAgainChange = null;
     this.saveT = 0;
-    // Nachrichten vom Partner; ein "Hallo" von einer neuen Kennung ist ein Wiedereinstieg
+    // feste Kennungen aus der Lobby (Rolle -> Kennung) und die Skins des Gegners: braucht der Host,
+    // um Zuschauern die Partie wie ein Team-Spiel zu schicken (Rot = Host, Blau = Gast)
+    this.keys = opts.keys || null;
+    this.theirLooks = opts.theirLooks || null;
+    // Host: wer gerade zuschaut (Kennung im Netz -> { key, name }); wer aus der Lobby geflogen ist, darf das nicht
+    this.spectators = new Map();
+    this.banned = new Set(opts.banned || []);
+    // Nachrichten vom Partner; ein "Hallo" von einer neuen Kennung ist ein Wiedereinstieg oder ein Zuschauer
     net.onMessage = (msg, from) => {
       if (from === net.partner) this._onMessage(msg);
+      else if (this.spectators.has(from)) this._onWatcher(msg, from);
       else if (msg.t === 'hi') this._onRejoin(msg, from);
     };
   }
@@ -255,6 +263,7 @@ export class Duel extends Match {
     const msg = this._phaseMsg(patch);
     this._applyPhase(msg);
     this.net.send(msg);
+    if (this.spectators.size && !this.teamMode) this._toWatchers(this.me, msg);
     this.phT = 1;
   }
 
@@ -546,7 +555,10 @@ export class Duel extends Match {
       this.phT -= dt;
       if (this.phT <= 0 && this.lastPhase) {
         // regelmäßig wiederholen, falls eine Nachricht verloren ging (mit Sieger der Runde)
-        this.net.send(this._currentPhase());
+        const ph = this._currentPhase();
+        this.net.send(ph);
+        if (this.spectators.size && !this.teamMode) this._toWatchers(this.me, ph);
+        this._tickWatchers();
         this.phT = 1;
       }
     }
@@ -779,6 +791,8 @@ export class Duel extends Match {
     this.sinceSend = 0;
     this._outgoing(msg);
     this.net.send(msg);
+    // im Team-Spiel bekommen Zuschauer die eigenen Zustände mit allen anderen (siehe teams.js)
+    if (this.spectators.size && !this.teamMode) this._toWatchers(this.me, msg);
   }
 
   _onMessage(msg) {
@@ -787,6 +801,7 @@ export class Duel extends Match {
       case 's':
         // Zustände kommen weiter: doch nicht weg (z. B. Seite wurde nicht wirklich verlassen)
         this.awayMsg = false;
+        if (this.spectators.size) this._toWatchers(this.them, msg);
         g.remote.push(msg);
         if (msg.ev) {
           for (const ev of msg.ev) {
@@ -813,8 +828,12 @@ export class Duel extends Match {
         this.awayMsg = true;
         break;
       case 'hi':
-        // der zurückgekehrte Gegner fragt nochmal nach dem Stand
-        if (!msg.ack) this._sendResume(this.net.partner);
+        // der zurückgekehrte Gegner fragt nochmal nach dem Stand (nach dem Ende geht es in der Lobby weiter)
+        if (!msg.ack && this.phase !== 'over') this._sendResume(this.net.partner);
+        break;
+      case 'lobby':
+        // der Host ist zurück in der Lobby: hinterher
+        if (!this.isHost && this.phase === 'over') g.onLobbyOpen?.();
         break;
       case 'chat':
         if (QUICK_CHAT[msg.i]) {
@@ -966,9 +985,15 @@ export class Duel extends Match {
   }
 
   // Gegner meldet sich mit neuer Kennung zurück (Seite neu geladen): nur annehmen, solange
-  // der alte Partner weg ist, dann bekommt er den Stand der Partie
+  // der alte Partner weg ist, dann bekommt er den Stand der Partie. Jemand anderes (andere feste
+  // Kennung) schaut beim Host zu, solange die Partie läuft.
   _onRejoin(msg, from) {
-    if (msg.v !== PROTOCOL || msg.role !== this.them || this.left) return;
+    if (msg.v !== PROTOCOL || this.left) return;
+    if (this.keys && msg.key && msg.key !== this.keys[this.them]) {
+      if (this.isHost && msg.key !== this.keys[this.me] && this.phase !== 'over') this._addWatcher(msg.key, from, msg.name);
+      return;
+    }
+    if (msg.role !== this.them) return;
     const gone = this.waiting || this.awayMsg || this.net.lost || this.net.mode === 'getrennt';
     if (!gone) return;
     this.net.setPartner(from);
@@ -984,6 +1009,82 @@ export class Duel extends Match {
       t: 'hi', v: PROTOCOL, ack: true, role: this.me, name: this.names[this.me], looks: this.g.looks, cfg: this.cfg,
       resume: this._currentPhase(),
     }, to);
+  }
+
+  // ---------- Zuschauer (nur beim Host) ----------
+  // Wer einer Lobby beitritt, während dort gespielt wird, schaut zu. Der Host schickt ihm den Stand
+  // und reicht alle Zustände weiter (Zuschauer bekommen von den anderen Spielern selbst nichts).
+  // Der Zuschauer sieht jede Partie wie ein Team-Spiel (siehe TeamMatch mit spectate).
+
+  _addWatcher(key, peer, name) {
+    if (this.banned.has(key)) return;
+    const fresh = !this.spectators.has(peer);
+    this.spectators.set(peer, { key, name: cleanName(name) || 'Zuschauer' });
+    this.net.watchers.add(peer);
+    this._watchersChanged();
+    this.net.send(this._specMsg(), peer);
+    if (fresh) this.g.hud.notice(`${this.spectators.get(peer).name} schaut zu`);
+  }
+
+  _dropWatcher(peer) {
+    if (!this.spectators.delete(peer)) return;
+    this.net.watchers.delete(peer);
+    this._watchersChanged();
+  }
+
+  /** Team-Spiel: Zuschauer kommen in die Gruppe (siehe TeamMatch._peers) */
+  _watchersChanged() {}
+
+  _onWatcher(msg, from) {
+    if (msg.t === 'bye') this._dropWatcher(from);
+    else if (msg.t === 'hi' && msg.v === PROTOCOL && this.phase !== 'over') this.net.send(this._specMsg(), from);
+  }
+
+  /** Zuschauer, von denen nichts mehr kommt (Tab zu, Netz weg), fallen raus */
+  _tickWatchers() {
+    for (const peer of this.spectators.keys()) if (this.net.lostPeer(peer)) this._dropWatcher(peer);
+  }
+
+  /** Nachricht eines Spielers (Rolle) an alle Zuschauer, im Format des Team-Spiels */
+  _toWatchers(role, msg) {
+    const k = this.keys;
+    if (!k) return;
+    let m = msg;
+    if (msg.t === 'ph') m = this._teamPhase(msg);
+    else if (msg.ev) m = { ...msg, ev: msg.ev.map((ev) => (ev.t === 'dead' && k[ev.by] ? { ...ev, by: k[ev.by] } : ev)) };
+    this.net.send({ t: 'fw', k: k[role], m }, [...this.spectators.keys()]);
+  }
+
+  /** Rundenmeldung im Format des Team-Spiels: Leben pro Kennung, Sieger als Team */
+  _teamPhase(msg) {
+    const k = this.keys;
+    const team = (r) => (r === 'host' ? 'rot' : r === 'guest' ? 'blau' : r);
+    const out = { ...msg, win: team(msg.win), by: k[msg.by] ?? msg.by };
+    if (Array.isArray(msg.lv)) out.lv = { [k.host]: msg.lv[0], [k.guest]: msg.lv[1] };
+    return out;
+  }
+
+  /** alles, was ein Zuschauer zum Einsteigen braucht (wie TeamMatch._resumeMsg) */
+  _specMsg() {
+    const k = this.keys;
+    const looks = { [this.me]: this.g.looks, [this.them]: this.theirLooks };
+    const peer = { [this.me]: this.net.id, [this.them]: this.net.partner };
+    const roster = ['host', 'guest'].map((role) => ({
+      key: k[role], name: this.names[role], team: role === 'host' ? 'rot' : 'blau', looks: looks[role] || null,
+      bot: false, peer: peer[role], slot: 0, left: false,
+    }));
+    return {
+      t: 'spec', v: PROTOCOL, kind: 'team', cfg: { ...this.cfg }, roster, host: k.host,
+      phase: this._teamPhase(this._currentPhase()), board: [],
+    };
+  }
+
+  /** Partie verlassen, ohne Tschüss: die Verbindung geht an die Lobby zurück (siehe Game.leaveToLobby) */
+  detach() {
+    this.detached = true;
+    this.net.onMessage = null;
+    for (const peer of this.spectators.keys()) this.net.watchers.delete(peer);
+    this.spectators.clear();
   }
 
   /**
@@ -1066,7 +1167,7 @@ export class Duel extends Match {
     const p = g.player;
     const inv = g.weapons.inv;
     session.setDuel({
-      code: this.net.code, role: this.me, cfg: this.cfg,
+      code: this.net.code, role: this.me, cfg: this.cfg, keys: this.keys,
       money: this.money, lossStreak: this.lossStreak, stats: this.stats, rounds: this.rounds, special: this.special,
       loadoutArmor: this.loadoutArmor, armor: p.armor, helmet: p.helmet, health: p.health, alive: p.alive,
       inv: SLOT_KEYS.filter((k) => inv.slots[k]).map((k) => [k, inv.slots[k].id, inv.slots[k].mag, inv.slots[k].reserve]),

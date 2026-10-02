@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { DUEL, GRENADES, MOVE, SLOT_KEYS } from '../config.js';
+import { DUEL, GRENADES, HIP_RECOIL, MOVE, SLOT_KEYS } from '../config.js';
 import { Inventory } from './inventory.js';
 import { shotEnd } from '../game/duel.js';
 
@@ -197,7 +197,11 @@ export class WeaponSystem {
 
     if (def.spread) this.fireInacc *= Math.exp(-dt / def.spread.recovery);
     const interval = def.rpm ? 60 / def.rpm : 0.4;
-    if (this.time - this.lastShot > interval * 1.3) {
+    // Rückstoß baut sich ab, sobald man nicht mehr im Takt schießt. Beim Scharfschützengewehr schon
+    // während des Repetierens: sonst blieb er fast 2 s stehen und zog den Blick erst nach unten, als
+    // man längst wieder im Zielfernrohr war
+    const settle = def.scope ? 0.35 : interval * 1.3;
+    if (this.time - this.lastShot > settle) {
       const k = Math.exp(-dt * 9);
       this.recoil.pitch *= k;
       this.recoil.yaw *= k;
@@ -313,8 +317,9 @@ export class WeaponSystem {
     this.lastShot = this.time;
     this.shotCounter++;
 
-    // Rückstoß vor dem Schuss (der erste Schuss sitzt genau)
+    // Rückstoß vor dem Schuss (der erste Schuss sitzt genau); aus der Hüfte stärker als im Anschlag
     const rc = def.recoil;
+    const hip = 1 + (HIP_RECOIL.aim - 1) * (1 - this.ads);
     const idx = Math.floor(this.recoilIndex);
     if (idx >= 1) {
       let up, side;
@@ -324,8 +329,8 @@ export class WeaponSystem {
         up = rc.up * (0.85 + Math.random() * 0.3);
         side = (Math.random() * 2 - 1) * rc.side;
       }
-      this.recoil.pitch += up;
-      this.recoil.yaw -= side;
+      this.recoil.pitch += up * hip;
+      this.recoil.yaw -= side * hip;
     }
     this.recoilIndex += 1;
 
@@ -342,10 +347,10 @@ export class WeaponSystem {
 
     if (!rc.pattern && idx === 0) {
       // Pistolen und Schrot: Rückstoß wirkt auf den nächsten Schuss
-      this.recoil.pitch += rc.up * (0.85 + Math.random() * 0.3);
-      this.recoil.yaw -= (Math.random() * 2 - 1) * rc.side;
+      this.recoil.pitch += rc.up * (0.85 + Math.random() * 0.3) * hip;
+      this.recoil.yaw -= (Math.random() * 2 - 1) * rc.side * hip;
     }
-    const kickScale = 1 - 0.35 * this.ads;
+    const kickScale = 0.65 + (HIP_RECOIL.view - 0.65) * (1 - this.ads);
     this.kick.pitch += rc.viewKick * (0.8 + Math.random() * 0.4) * kickScale;
     this.kick.yaw += (Math.random() - 0.5) * rc.viewKick * 0.4 * kickScale;
     this.fireInacc += def.spread.fire;

@@ -29,7 +29,7 @@ export class TeamMatch extends Duel {
     const cfg = opts.cfg;
     super(game, net, {
       role: opts.isHost ? 'host' : 'guest', lives: cfg.lives, wins: cfg.wins, mode: cfg.mode, map: cfg.map,
-      arms: cfg.arms, myName: opts.myName, theirName: '',
+      arms: cfg.arms, myName: opts.myName, theirName: '', banned: opts.banned,
     });
     this.teamMode = true;
     this.cfg.level = cfg.level || 'mittel';
@@ -47,9 +47,13 @@ export class TeamMatch extends Duel {
       this.roster.set(e.key, entry);
       if (entry.peer && e.key !== this.me) this.peerKey.set(entry.peer, e.key);
     }
+    // Zuschauer: kam, als die Partie schon lief. Hat keinen eigenen Spieler (steht nicht in der
+    // Aufstellung), schickt nichts und sieht alles über den Host (Nachrichten "fw"). Er schaut wie
+    // von Rot aus (Farben), den Spielern reihum über die Schulter, oder die Kamera kreist über der Karte.
+    this.spectator = !!opts.spectate;
     const mine = this.roster.get(this.me);
-    mine.peer = net.id;
-    this.team = mine.team;
+    if (mine) mine.peer = net.id;
+    this.team = mine?.team ?? 'rot';
     this.side = SIDE[this.team];
     this.board = new Map();
     for (const k of this.roster.keys()) this.board.set(k, { kills: 0, deaths: 0 });
@@ -118,9 +122,26 @@ export class TeamMatch extends Duel {
   }
 
   _peers() {
+    // Zuschauer hören nur auf den Host, er reicht alles weiter
+    if (this.spectator) return this.hostPeer ? [this.hostPeer] : [];
     const out = [];
     for (const e of this.roster.values()) if (!e.bot && !e.left && e.key !== this.me && e.peer) out.push(e.peer);
+    // Host: was er an alle schickt (eigene Zustände, KI, Runden, Aufstellung), bekommen auch die Zuschauer
+    if (this.isHost) for (const peer of this.spectators.keys()) out.push(peer);
     return out;
+  }
+
+  _watchersChanged() {
+    this.net.setGroup(this._peers());
+  }
+
+  /** Zustände der Spieler reicht der Host an die Zuschauer weiter (seine eigenen kommen über die Gruppe) */
+  _toWatchers(key, msg) {
+    this.net.send({ t: 'fw', k: key, m: msg }, [...this.spectators.keys()]);
+  }
+
+  _specMsg() {
+    return { ...this._resumeMsg(), t: 'spec' };
   }
 
   get _humans() {
@@ -153,7 +174,8 @@ export class TeamMatch extends Duel {
 
   // ---------- Stand der Partie ----------
   _spawnPoint() {
-    return slotSpawn(SPAWNS[this.side], this.roster.get(this.me).slot);
+    // Zuschauer stehen nicht in der Aufstellung (ihr Spieler bleibt ohnehin draußen)
+    return slotSpawn(SPAWNS[this.side], this.roster.get(this.me)?.slot ?? 0);
   }
 
   _phaseMsg(patch) {
@@ -206,6 +228,11 @@ export class TeamMatch extends Duel {
   _beginRound(r) {
     super._beginRound(r);
     const g = this.g;
+    if (this.spectator) {
+      this._bench();
+      g.hud.message(`Runde ${r}`, `Du schaust zu · ${this.bombMode ? `${TEAM_NAMES[this.attacker]} greift an` : `${TEAM_NAMES.rot} gegen ${TEAM_NAMES.blau}`}`, 3);
+      return;
+    }
     if (this.bombMode) {
       g.hud.message(
         this.attacking ? `Runde ${r} · Ihr greift an` : `Runde ${r} · Ihr verteidigt`,
@@ -224,7 +251,10 @@ export class TeamMatch extends Duel {
     g.audio.play('roundStart');
     const lives = this.cfg.lives > 1 ? ` · ${this.cfg.lives} Leben` : '';
     const n = this.members(otherTeam(this.team)).length;
-    if (this.bombMode) {
+    if (this.spectator) {
+      g.player.frozen = true;
+      g.hud.message('Los!', `${TEAM_NAMES.rot} gegen ${TEAM_NAMES.blau}${lives}`, 1.6);
+    } else if (this.bombMode) {
       g.hud.message('Los!', this.attacking
         ? `Legt die Bombe auf dem roten Platz (${g.hint('use')})${lives}`
         : `${TEAM_NAMES[this.attacker]} greift an · verteidigt euren Platz${lives}`, 2.2);
@@ -235,6 +265,18 @@ export class TeamMatch extends Duel {
 
   get roundLabel() {
     return `Runde ${this.round} · Sieg bei ${this.cfg.wins}`;
+  }
+
+  /** Zuschauer: der eigene Spieler bleibt draußen, die Kamera zeigt die anderen (siehe KillCam) */
+  _bench() {
+    const g = this.g;
+    const p = g.player;
+    p.alive = false;
+    p.health = 0;
+    p.frozen = true;
+    g.viewmodel.root.visible = false;
+    this.respawnT = 0;
+    g.killcam.start(null, null, true);
   }
 
   // ---------- Host: Runde entscheiden ----------
@@ -418,6 +460,8 @@ export class TeamMatch extends Duel {
 
   /** eigener Zustand (direkt 30-mal pro Sekunde, über den Server je nach Spielerzahl seltener), dazu die KI */
   netUpdate(dt) {
+    // Zuschauer schicken nichts (nur den Herzschlag der Verbindung an den Host)
+    if (this.spectator) return;
     this.sinceSend += dt;
     this.sendT -= dt;
     const server = this.net.mode === 'server';
@@ -438,12 +482,26 @@ export class TeamMatch extends Duel {
 
   // ---------- Nachrichten ----------
   _recvNet(msg, from) {
+    // Host: von Zuschauern kommt nur Hallo und Tschüss
+    if (this.isHost && this.spectators.has(from)) {
+      this._onWatcher(msg, from);
+      return;
+    }
     if (msg.t === 'hi') {
       this._onHi(msg, from);
       return;
     }
+    // Zuschauer: was die Spieler schicken, reicht der Host weiter
+    if (msg.t === 'fw') {
+      if (this.spectator && from === this.hostPeer && msg.m && typeof msg.m === 'object' && this.roster.has(msg.k)) {
+        this._handle(msg.m, msg.k);
+      }
+      return;
+    }
     const key = this.peerKey.get(from);
-    if (key) this._handle(msg, key);
+    if (!key) return;
+    this._handle(msg, key);
+    if (this.isHost && msg.t === 's' && this.spectators.size) this._toWatchers(key, msg);
   }
 
   _handle(msg, key) {
@@ -479,6 +537,10 @@ export class TeamMatch extends Duel {
       case 'away':
         // lädt neu oder schließt den Tab
         this.awayKeys.add(key);
+        break;
+      case 'lobby':
+        // der Host ist nach der Partie zurück in der Lobby: hinterher
+        if (!this.isHost && key === this.hostKey && this.phase === 'over') g.onLobbyOpen?.();
         break;
       case 'chat':
         this._chatFrom(msg.b && key === this.hostKey ? msg.b : key, msg.i);
@@ -590,7 +652,9 @@ export class TeamMatch extends Duel {
     const hostGone = !this.isHost && this._hostGone();
     for (const e of this.roster.values()) {
       if (e.key === this.me) continue;
-      const gone = e.left || (e.bot ? hostGone : this.awayKeys.has(e.key) || !e.peer || net.lostPeer(e.peer));
+      // Zuschauer hören nur vom Host: wer gegangen ist, steht in der Aufstellung, die er schickt
+      const gone = e.left || (e.bot || (this.spectator && e.key !== this.hostKey) ? hostGone
+        : this.awayKeys.has(e.key) || !e.peer || net.lostPeer(e.peer));
       const r = this.remoteOf(e.key);
       if (r && r.hidden !== gone) r.hidden = gone;
       const t = gone ? (this.awayT.get(e.key) || 0) + dt : 0;
@@ -741,10 +805,12 @@ export class TeamMatch extends Duel {
     const e = this.roster.get(msg.key);
     if (this.isHost) {
       if (!e || e.bot || msg.key === this.me) {
-        // wer nicht mitspielt, kann nicht mitten in die Partie
-        if (!e) this.net.send({ t: 'busy' }, from);
+        // wer nicht mitspielt, schaut zu, bis die Partie vorbei ist (dann geht es in der Lobby weiter)
+        if (!e && this.phase !== 'over' && !this.left) this._addWatcher(msg.key, from, msg.name);
         return;
       }
+      // nach dem Ende geht es nicht mehr ins Spiel zurück, sondern in die Lobby
+      if (this.phase === 'over') return;
       const back = e.peer !== from || e.left;
       if (back) this._mapPeer(e, from);
       if (msg.looks && typeof msg.looks === 'object') {
@@ -784,6 +850,12 @@ export class TeamMatch extends Duel {
   resume(sync, saved) {
     super.resume(sync, saved);
     for (const [k, v] of saved?.board || sync.board || []) if (this.board.has(k)) this.board.set(k, v);
+    if (this.spectator) {
+      if (sync.ph === 'over') return;
+      this._bench();
+      this.g.hud.message('Du schaust zu', `Runde ${this.round} · ${this.g.input.touch ? 'Feuerknopf' : 'Leertaste oder Klick'}: nächster Spieler`, 3);
+      return;
+    }
     // Host nach dem Neuladen: den anderen die neue Kennung sagen, die KI-Spieler steigen in die
     // laufende Runde ein
     if (this.isHost) {
@@ -794,6 +866,7 @@ export class TeamMatch extends Duel {
   }
 
   _save() {
+    if (this.spectator) return;
     const g = this.g;
     const p = g.player;
     const inv = g.weapons.inv;
@@ -846,11 +919,24 @@ export class TeamMatch extends Duel {
     this.dispose();
   }
 
+  detach() {
+    super.detach();
+    this.dispose();
+  }
+
   /** forfeit: kampflos vorbei; reason: 'host' (Host ist weg) oder das Ergebnis ('won'/'lost') */
   _finish(forfeit = false, reason = null) {
     this.phase = 'over';
     this.g.killcam.stop();
     this.g.player.frozen = true;
+    if (this.spectator) {
+      // Zuschauer: nur das Ergebnis der Teams, keine eigenen Werte und keine Aufgaben
+      this.g.onMatchOver({
+        duel: true, team: true, spectator: true, forfeit, reason, score: [this.wins.rot, this.wins.blau],
+        board: this.boardRows(), rounds: [],
+      });
+      return;
+    }
     const ff = this.lastPhase?.ff;
     if (ff && !reason) {
       forfeit = true;

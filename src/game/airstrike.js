@@ -131,6 +131,8 @@ export class Airstrikes {
     this.targeting = false;
     this.aimPoint = new THREE.Vector3();
     this.aimValid = false;
+    // Ziel zu nah an einem selbst (dann geht es nicht, der Kreis wird blass)
+    this.tooClose = false;
     this.aim = markerMesh(SPECIAL.radius, 0xffb23d);
     game.scene.add(this.aim);
     this.planeTemplate = planeModel();
@@ -140,6 +142,7 @@ export class Airstrikes {
   beginTargeting() {
     this.targeting = true;
     this.aimValid = false;
+    this.tooClose = false;
   }
 
   cancel() {
@@ -155,6 +158,8 @@ export class Airstrikes {
     cam.getWorldDirection(_dir);
     const hit = g.physics.raycast(cam.position, _dir, SPECIAL.maxRange);
     this.aimValid = false;
+    this.tooClose = false;
+    let sky = false;
     if (hit) {
       _a.copy(cam.position).addScaledVector(_dir, hit.distance);
       if (hit.normal.y < 0.6) {
@@ -165,13 +170,17 @@ export class Airstrikes {
       }
       this.aimPoint.copy(_a);
       // unter einem Dach (Lagerhalle) kommt der Jet nicht hin
-      this.aimValid = this.openSky(_a);
+      sky = this.openSky(_a);
+      const p = g.player.feet;
+      this.tooClose = sky && Math.hypot(_a.x - p.x, _a.z - p.z) < SPECIAL.minDist;
+      this.aimValid = sky && !this.tooClose;
     }
+    // zu nah: Kreis blass zeigen, damit man sieht, dass man selbst drin stünde
     const m = this.aim;
-    m.visible = this.aimValid;
-    if (this.aimValid) {
+    m.visible = sky;
+    if (sky) {
       m.position.copy(this.aimPoint).y += 0.04;
-      m.material.opacity = 0.7 + 0.2 * Math.sin(performance.now() / 120);
+      m.material.opacity = this.tooClose ? 0.25 : 0.7 + 0.2 * Math.sin(performance.now() / 120);
     }
   }
 
