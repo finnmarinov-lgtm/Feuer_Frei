@@ -597,6 +597,44 @@ const EN = {
   'Legt die Bombe auf dem Platz der Gegner': 'Plant the bomb on the opponents’ site',
   'Halte deinen Bombenplatz': 'Hold your bomb site',
   'Haltet euren Bombenplatz': 'Hold your bomb site',
+
+  // Konto
+  'Konto': 'Account',
+  'Mit einem Konto werden deine Skins, dein Aufgaben-Fortschritt und deine Notizen gespeichert. Meldest du dich auf einem anderen Gerät an, ist alles da.':
+    'An account saves your skins, your challenge progress and your notes. Sign in on another device and everything is there.',
+  'Anmelden': 'Sign in',
+  'Konto erstellen': 'Create account',
+  'Benutzername': 'Username',
+  'Passwort': 'Password',
+  'Passwort wiederholen': 'Repeat password',
+  'Es gibt keine E-Mail: Ein vergessenes Passwort lässt sich nicht zurücksetzen. Nimm ein Passwort, das du sonst nirgends benutzt.':
+    'There is no e-mail: a forgotten password cannot be reset. Use a password you do not use anywhere else.',
+  'Angemeldet als': 'Signed in as',
+  'Jetzt abgleichen': 'Sync now',
+  'Abmelden': 'Sign out',
+  'Beim Abmelden verschwinden Skins, Fortschritt und Notizen von diesem Gerät, im Konto bleiben sie.':
+    'Signing out removes skins, progress and notes from this device; they stay in your account.',
+  'Passwort ändern': 'Change password',
+  'Altes Passwort': 'Old password',
+  'Neues Passwort': 'New password',
+  'Konto löschen': 'Delete account',
+  'Löscht das Konto mit Skins, Fortschritt und Notizen auf dem Server. Auf diesem Gerät bleibt alles, bis du es selbst änderst.':
+    'Deletes the account with its skins, progress and notes on the server. Everything stays on this device until you change it.',
+  'Name oder Passwort stimmt nicht.': 'Wrong username or password.',
+  'Diesen Namen gibt es schon.': 'That name is already taken.',
+  'Name: 3 bis 20 Zeichen, nur Buchstaben, Ziffern, Punkt, Strich und Unterstrich.':
+    'Name: 3 to 20 characters, only letters, digits, dot, dash and underscore.',
+  'Passwort: mindestens 6 Zeichen.': 'Password: at least 6 characters.',
+  'Keine Verbindung zum Server. Bist du online?': 'No connection to the server. Are you online?',
+  'Konten sind noch nicht eingerichtet.': 'Accounts are not set up yet.',
+  'Das hat nicht geklappt. Versuch es nochmal.': 'That did not work. Please try again.',
+  'Bitte nimm einen anderen Namen.': 'Please choose a different name.',
+  'Die beiden Passwörter sind nicht gleich.': 'The two passwords do not match.',
+  'Passwort geändert. Andere Geräte sind jetzt abgemeldet.': 'Password changed. Other devices are now signed out.',
+  'Konto wirklich löschen? Skins, Fortschritt und Notizen im Konto sind dann weg.':
+    'Really delete the account? Skins, progress and notes in the account will be gone.',
+  'Wird gespeichert …': 'Saving …',
+  'Gerade keine Verbindung, wird später gespeichert': 'No connection right now, will save later',
 };
 
 // Trennzeichen, über die ein Platzhalter nur greifen darf, wenn die Vorlage sie selbst enthält
@@ -607,6 +645,8 @@ const GRENZEN = [' · ', ' – ', ': '];
 // nach). Was in einem Platzhalter steht, wird selbst wieder übersetzt (Kartennamen, "E halten" …).
 // Wird nur geprüft, wenn oben nichts genau passt.
 const VORLAGEN = [
+  ['Gespeichert um {}', 'Saved at {1}'],
+  ['Zu viele falsche Versuche. In {n} Minuten geht es wieder.', 'Too many wrong attempts. Try again in {1} minutes.'],
   ['Runde {n}', 'Round {1}'],
   ['Runde {n}/{n}', 'Round {1}/{2}'],
   ['Runde {n} · Sieg bei {n}', 'Round {1} · first to {2}'],
@@ -800,6 +840,8 @@ const ATTRIBUTE = ['aria-label', 'title', 'placeholder'];
 function uebersetzeText(knoten) {
   const roh = knoten.nodeValue;
   if (!roh || roh.length > 600) return;
+  // Namen (data-roh) bleiben, wie sie sind, auch wenn sie wie ein Wort im Spiel lauten
+  if (knoten.parentElement?.closest('[data-roh]')) return;
   const text = roh.trim();
   const neu = englisch(text);
   if (neu === null || neu === text) return;

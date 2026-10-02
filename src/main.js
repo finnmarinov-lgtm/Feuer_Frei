@@ -10,7 +10,11 @@ import { BotNet } from './ai/botnet.js';
 import { parseCode } from './net/net.js';
 import { maskUrl, session, setUrlLobby } from './net/session.js';
 import { loadSettings, saveSettings, SENSITIVITY } from './settings.js';
-import { LOCKER, cleanLooks, onProgress, skinOf } from './game/cosmetics.js';
+import {
+  LOCKER, cleanLooks, emptyLooks, mergeProgress, onProgress, onProgressSaved, progressSnapshot, resetProgress, skinOf,
+} from './game/cosmetics.js';
+import { Konto } from './net/konto.js';
+import { rude } from './names.js';
 import { FINISHES } from './weapons/finishes.js';
 import { Locker } from './ui/locker.js';
 import { ARMS } from './config.js';
@@ -23,7 +27,7 @@ starteUebersetzung();
 zaehleAufruf();
 
 const $ = (id) => document.getElementById(id);
-const SCREENS = ['loading', 'menu', 'lobby', 'bots', 'locker', 'pause', 'settings', 'controls', 'results', 'click-resume'];
+const SCREENS = ['loading', 'menu', 'lobby', 'bots', 'locker', 'konto', 'pause', 'settings', 'controls', 'results', 'click-resume'];
 const BOT_KEY = 'feuer-frei-ki';
 const MAP_KEY = 'feuer-frei-karte';
 const BOT_INFO = {
@@ -73,7 +77,7 @@ async function boot() {
   await game.warmup();
   window.addEventListener('resize', () => game.onResize());
 
-  const { lobby, touch } = setupMenus(game, input, audio);
+  const { lobby, touch, konto } = setupMenus(game, input, audio);
 
   let last = performance.now();
   const loop = (now) => {
@@ -95,6 +99,7 @@ async function boot() {
     window.__game = game;
     window.__lobby = lobby;
     window.__touch = touch;
+    window.__konto = konto;
   }
 }
 
@@ -241,6 +246,7 @@ function setupMenus(game, input, audio) {
       settings.looks = looks;
       saveSettings(settings);
       game.setLooks(looks);
+      konto.merken('looks');
     },
   });
   $('btn-locker').addEventListener('click', () => locker.open());
@@ -262,7 +268,38 @@ function setupMenus(game, input, audio) {
     settings.looks = looks;
     saveSettings(settings);
     game.setLooks(looks);
+    konto.merken('looks');
   });
+
+  // ---------- Konto: Skins, Fortschritt und Notizen auf jedem Gerät ----------
+  const konto = new Konto({
+    lesen: () => ({
+      fortschritt: progressSnapshot(),
+      looks: cleanLooks(settings.looks, true),
+      notizen: { title: $('notes-title').value, text: $('notes-text').value },
+    }),
+    schreiben: ({ fortschritt, looks, notizen }) => {
+      // erst der Fortschritt: davon hängt ab, welche Skins man tragen darf
+      if (fortschritt) mergeProgress(fortschritt);
+      if (looks) {
+        settings.looks = cleanLooks(looks, true);
+        saveSettings(settings);
+        game.setLooks(settings.looks);
+      }
+      if (notizen) setNotes(notizen);
+      if (!$('locker').hidden) locker.render();
+    },
+    leeren: () => {
+      resetProgress();
+      settings.looks = emptyLooks();
+      saveSettings(settings);
+      game.setLooks(settings.looks);
+      setNotes(null);
+    },
+    onChange: () => renderKonto(),
+  });
+  // jeder Fortschritt (Abschüsse, Aufgaben) geht gesammelt ins Konto
+  onProgressSaved(() => konto.merken('fortschritt'));
   const skinLabel = (t) => `${LOCKER.find((l) => l.id === t.reward[0]).name} · ${FINISHES[t.reward[1]].name}`;
   function showNewSkins() {
     const list = freshSkins;
@@ -414,7 +451,7 @@ function setupMenus(game, input, audio) {
   // Knopf, der dort zurückführt (Pause: Weiter, Auswertung: Hauptmenü)
   const ESC_BACK = {
     pause: 'btn-resume', settings: 'btn-settings-back', controls: 'btn-controls-back', lobby: 'btn-lobby-back',
-    bots: 'btn-bot-back', locker: 'btn-locker-back', results: 'btn-menu',
+    bots: 'btn-bot-back', locker: 'btn-locker-back', konto: 'btn-konto-back', results: 'btn-menu',
   };
   input.onEscape = () => {
     if (notesOpen) return;
@@ -665,13 +702,25 @@ function setupMenus(game, input, audio) {
   } catch {
     // ohne Speicher bleibt das Blatt leer
   }
-  const saveNotes = () => {
+  const storeNotes = () => {
     try {
       localStorage.setItem(NOTES_KEY, JSON.stringify({ title: $('notes-title').value, text: $('notes-text').value }));
     } catch {
       // Notizen gelten dann nur für diese Sitzung
     }
   };
+  // getippt: auf dem Gerät und (angemeldet) im Konto speichern
+  const saveNotes = () => {
+    storeNotes();
+    konto.merken('notizen');
+  };
+  // Notizen vom Konto (oder leer beim Abmelden)
+  function setNotes(n) {
+    $('notes-title').value = typeof n?.title === 'string' && n.title ? n.title : t('Notizen');
+    $('notes-text').value = typeof n?.text === 'string' ? n.text : '';
+    storeNotes();
+    if (notesOpen) document.title = $('notes-title').value || t('Notizen');
+  }
   $('notes-text').addEventListener('input', saveNotes);
   $('notes-title').addEventListener('input', () => {
     saveNotes();
@@ -713,6 +762,8 @@ function setupMenus(game, input, audio) {
       $('notes').hidden = false;
       document.title = $('notes-title').value || t('Notizen');
       maskUrl(NOTES_PATH);
+      // angemeldet: Notizen von anderen Geräten holen
+      syncKonto();
       $('notes-text').focus();
     } else {
       notesOpen = false;
@@ -880,7 +931,151 @@ function setupMenus(game, input, audio) {
     }
     duelResults(r);
   };
-  return { lobby, touch };
+  // ---------- Konto-Bildschirm ----------
+  let kontoModus = 'anmelden';
+  let kontoBusy = false;
+  const KONTO_TEXT = {
+    falsch: 'Name oder Passwort stimmt nicht.',
+    name_vergeben: 'Diesen Namen gibt es schon.',
+    name_ungueltig: 'Name: 3 bis 20 Zeichen, nur Buchstaben, Ziffern, Punkt, Strich und Unterstrich.',
+    passwort_ungueltig: 'Passwort: mindestens 6 Zeichen.',
+    netz: 'Keine Verbindung zum Server. Bist du online?',
+    kein_sql: 'Konten sind noch nicht eingerichtet.',
+  };
+  const kontoFehler = (e) => (e?.code === 'gesperrt'
+    ? `Zu viele falsche Versuche. In ${Math.max(1, Math.ceil((e.info?.sekunden || 600) / 60))} Minuten geht es wieder.`
+    : KONTO_TEXT[e?.code] || 'Das hat nicht geklappt. Versuch es nochmal.');
+
+  function kontoStand() {
+    if (konto.status === 'speichert') return 'Wird gespeichert …';
+    if (konto.status === 'offline') return 'Gerade keine Verbindung, wird später gespeichert';
+    if (konto.status === 'gespeichert') {
+      return `Gespeichert um ${new Date(konto.gespeichertUm).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })}`;
+    }
+    return '';
+  }
+
+  function renderKonto() {
+    const btn = $('btn-konto');
+    btn.hidden = !konto.bereit && !konto.angemeldet;
+    const name = konto.angemeldet ? ` · ${konto.name}` : '';
+    if ($('btn-konto-name').textContent !== name) $('btn-konto-name').textContent = name;
+    $('konto-aus').hidden = konto.angemeldet;
+    $('konto-an').hidden = !konto.angemeldet;
+    if (konto.angemeldet) {
+      $('konto-wer').textContent = konto.name;
+      $('konto-stand').textContent = kontoStand();
+      return;
+    }
+    for (const b of $('konto-modus').children) b.classList.toggle('on', b.dataset.v === kontoModus);
+    $('konto-pass2-row').hidden = kontoModus !== 'neu';
+    $('btn-konto-los').textContent = kontoModus === 'neu' ? 'Konto erstellen' : 'Anmelden';
+    $('konto-pass').autocomplete = kontoModus === 'neu' ? 'new-password' : 'current-password';
+  }
+
+  async function kontoLos() {
+    if (kontoBusy) return;
+    const name = $('konto-name').value.trim();
+    const pass = $('konto-pass').value;
+    const err = $('konto-fehler');
+    err.textContent = '';
+    if (!/^[A-Za-z0-9ÄÖÜäöüß_.-]{3,20}$/.test(name)) {
+      err.textContent = KONTO_TEXT.name_ungueltig;
+      return;
+    }
+    if (kontoModus === 'neu') {
+      if (rude(name)) {
+        err.textContent = 'Bitte nimm einen anderen Namen.';
+        return;
+      }
+      if (pass.length < 6) {
+        err.textContent = KONTO_TEXT.passwort_ungueltig;
+        return;
+      }
+      if (pass !== $('konto-pass2').value) {
+        err.textContent = 'Die beiden Passwörter sind nicht gleich.';
+        return;
+      }
+    }
+    kontoBusy = true;
+    $('btn-konto-los').disabled = true;
+    try {
+      if (kontoModus === 'neu') await konto.registrieren(name, pass);
+      else await konto.anmelden(name, pass);
+      $('konto-pass').value = $('konto-pass2').value = '';
+    } catch (e) {
+      err.textContent = kontoFehler(e);
+    } finally {
+      kontoBusy = false;
+      $('btn-konto-los').disabled = false;
+      renderKonto();
+    }
+  }
+
+  $('konto-modus').addEventListener('click', (e) => {
+    const v = e.target.dataset?.v;
+    if (!v) return;
+    kontoModus = v;
+    $('konto-fehler').textContent = '';
+    renderKonto();
+  });
+  $('btn-konto-los').addEventListener('click', kontoLos);
+  for (const id of ['konto-name', 'konto-pass', 'konto-pass2']) {
+    $(id).addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') kontoLos();
+    });
+  }
+  $('btn-konto-sync').addEventListener('click', () => konto.speichern());
+  $('btn-konto-ab').addEventListener('click', () => konto.abmelden());
+  $('btn-konto-pw').addEventListener('click', async () => {
+    const msg = $('konto-pw-msg');
+    if ($('konto-pw-neu').value.length < 6) {
+      msg.textContent = KONTO_TEXT.passwort_ungueltig;
+      return;
+    }
+    try {
+      await konto.passwortAendern($('konto-pw-alt').value, $('konto-pw-neu').value);
+      $('konto-pw-alt').value = $('konto-pw-neu').value = '';
+      msg.textContent = 'Passwort geändert. Andere Geräte sind jetzt abgemeldet.';
+    } catch (e) {
+      msg.textContent = kontoFehler(e);
+    }
+  });
+  $('btn-konto-del').addEventListener('click', async () => {
+    const msg = $('konto-del-msg');
+    if (!window.confirm(t('Konto wirklich löschen? Skins, Fortschritt und Notizen im Konto sind dann weg.'))) return;
+    try {
+      await konto.loeschen($('konto-del-pass').value);
+      $('konto-del-pass').value = '';
+      msg.textContent = '';
+    } catch (e) {
+      msg.textContent = kontoFehler(e);
+    }
+  });
+  $('btn-konto').addEventListener('click', () => {
+    $('konto-fehler').textContent = '';
+    renderKonto();
+    show('konto');
+    syncKonto();
+  });
+  $('btn-konto-back').addEventListener('click', () => show('menu'));
+
+  // abgleichen (höchstens alle 10 s): beim Start, wenn der Tab wieder sichtbar wird, beim Öffnen von
+  // Notizblock und Konto; dazwischen speichert das Konto selbst nach jeder Änderung
+  let kontoSync = 0;
+  function syncKonto() {
+    if (!konto.angemeldet || Date.now() - kontoSync < 10000) return;
+    kontoSync = Date.now();
+    konto.speichern();
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) syncKonto();
+  });
+  konto.pruefen();
+  syncKonto();
+  renderKonto();
+
+  return { lobby, touch, konto };
 }
 
 boot().catch((err) => {

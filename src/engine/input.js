@@ -164,7 +164,8 @@ export class Input {
       cb(e.code);
       return;
     }
-    if (isDown && e.code === this.bossKey) {
+    // in Eingabefeldern unter data-tippen (Name und Passwort im Konto) ist die Notizblock-Taste ein Zeichen
+    if (isDown && e.code === this.bossKey && !e.target?.matches?.('[data-tippen] input')) {
       e.preventDefault();
       if (!e.repeat) this.onBossKey?.();
       return;

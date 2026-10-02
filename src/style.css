@@ -388,6 +388,23 @@ body.radar #tasks-hud { top: 328px; }
 .form label.key button.waiting { background: var(--accent); color: #1a1407; }
 .form .hint { min-height: 1em; margin-top: -8px; color: var(--danger); font-size: 15px; }
 
+/* ---------- Konto ---------- */
+.konto-form label { grid-template-columns: 1fr 240px; }
+.konto-form input { font: 600 18px var(--font); background: #1d2126; color: var(--text); border: 1px solid rgba(255,255,255,0.22); border-radius: 6px; padding: 6px 10px; user-select: text; }
+.konto-form input:focus { outline: none; border-color: var(--accent); }
+.konto-form .seg { align-self: flex-start; }
+.konto-form .buttons { width: auto; }
+.konto-form .konto-row { flex-direction: row; }
+.konto-form .konto-row button { flex: 1; }
+.konto-form .hint { margin-top: 0; }
+.konto-info { margin: 0; font-size: 16px; color: var(--muted); line-height: 1.35; }
+.konto-info.small { font-size: 14px; }
+.konto-wer { margin: 0; font-size: 20px; }
+.konto-form details { border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px; display: flex; flex-direction: column; gap: 10px; }
+.konto-form details[open] { display: flex; }
+.konto-form summary { cursor: pointer; font-weight: 700; color: var(--muted); }
+.konto-form details > * + * { margin-top: 10px; }
+
 /* ---------- Touch-Steuerung (Handy) ---------- */
 body.touch { touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none; }
 #touch { position: fixed; inset: 0; touch-action: none; -webkit-tap-highlight-color: transparent; }

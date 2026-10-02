@@ -91,12 +91,59 @@ function load() {
   return s;
 }
 
+// nach jedem Speichern (für das Konto: Fortschritt auch dort sichern)
+const savedListeners = new Set();
+
 function save() {
   try {
     localStorage.setItem(KEY, JSON.stringify(state));
   } catch {
     // egal
   }
+  for (const fn of savedListeners) fn();
+}
+
+/** Zuhören: fn() nach jeder Änderung des Fortschritts */
+export function onProgressSaved(fn) {
+  savedListeners.add(fn);
+  return () => savedListeners.delete(fn);
+}
+
+/** Fortschritt für das Konto */
+export const progressSnapshot = () => ({ stats: { ...state.stats }, done: [...state.done] });
+
+/**
+ * Fortschritt aus dem Konto dazunehmen: je Zähler der größere Wert, geschaffte Aufgaben alle.
+ * Liefert die dabei neu geschafften Aufgaben (deren Skins kommen dazu).
+ */
+export function mergeProgress(p) {
+  if (!p || typeof p !== 'object') return [];
+  let changed = false;
+  if (p.stats && typeof p.stats === 'object') {
+    for (const [key, v] of Object.entries(p.stats)) {
+      if (typeof v === 'number' && Number.isFinite(v) && v > (state.stats[key] || 0)) {
+        state.stats[key] = v;
+        changed = true;
+      }
+    }
+  }
+  const fresh = [];
+  const ids = new Set(TASKS.map((t) => t.id));
+  for (const id of Array.isArray(p.done) ? p.done : []) {
+    if (ids.has(id) && !state.done.includes(id)) {
+      state.done.push(id);
+      fresh.push(TASKS.find((t) => t.id === id));
+      changed = true;
+    }
+  }
+  if (changed) save();
+  return fresh;
+}
+
+/** Fortschritt vom Gerät nehmen (beim Abmelden: er bleibt im Konto) */
+export function resetProgress() {
+  state = { stats: {}, done: [] };
+  save();
 }
 
 /** Zuhören: fn({ task, value, done }) bei jedem Fortschritt einer Aufgabe */

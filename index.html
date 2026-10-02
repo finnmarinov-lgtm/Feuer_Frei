@@ -149,6 +149,7 @@
       <button id="btn-bots">Gegen KI</button>
       <button id="btn-start">Training</button>
       <button id="btn-locker">Skins &amp; Aufgaben</button>
+      <button id="btn-konto" hidden><span>Konto</span><span id="btn-konto-name" data-roh></span></button>
       <button id="btn-settings">Einstellungen</button>
       <button id="btn-controls">Steuerung</button>
     </div>
@@ -256,6 +257,41 @@
       <button id="btn-quit">Training beenden</button>
     </div>
     <div class="hint" id="pause-fullscreen" hidden>Vollbild verlassen: Esc · zurück: hier oder mit Weiter</div>
+  </div>
+
+  <div id="konto" class="screen dim" hidden data-tippen>
+    <h1>Konto</h1>
+    <div class="form konto-form" id="konto-aus">
+      <p class="konto-info">Mit einem Konto werden deine Skins, dein Aufgaben-Fortschritt und deine Notizen gespeichert. Meldest du dich auf einem anderen Gerät an, ist alles da.</p>
+      <div class="seg" id="konto-modus"><button data-v="anmelden" class="on">Anmelden</button><button data-v="neu">Konto erstellen</button></div>
+      <label><span>Benutzername</span><input id="konto-name" maxlength="20" spellcheck="false" autocomplete="username"></label>
+      <label><span>Passwort</span><input id="konto-pass" type="password" maxlength="72" autocomplete="current-password"></label>
+      <label id="konto-pass2-row" hidden><span>Passwort wiederholen</span><input id="konto-pass2" type="password" maxlength="72" autocomplete="new-password"></label>
+      <div class="hint" id="konto-fehler"></div>
+      <div class="buttons"><button class="primary" id="btn-konto-los">Anmelden</button></div>
+      <p class="konto-info small">Es gibt keine E-Mail: Ein vergessenes Passwort lässt sich nicht zurücksetzen. Nimm ein Passwort, das du sonst nirgends benutzt.</p>
+    </div>
+    <div class="form konto-form" id="konto-an" hidden>
+      <p class="konto-wer">Angemeldet als <b id="konto-wer" data-roh></b></p>
+      <p class="konto-info small" id="konto-stand"></p>
+      <div class="buttons konto-row"><button id="btn-konto-sync">Jetzt abgleichen</button><button id="btn-konto-ab">Abmelden</button></div>
+      <p class="konto-info small">Beim Abmelden verschwinden Skins, Fortschritt und Notizen von diesem Gerät, im Konto bleiben sie.</p>
+      <details>
+        <summary>Passwort ändern</summary>
+        <label><span>Altes Passwort</span><input id="konto-pw-alt" type="password" maxlength="72" autocomplete="current-password"></label>
+        <label><span>Neues Passwort</span><input id="konto-pw-neu" type="password" maxlength="72" autocomplete="new-password"></label>
+        <div class="buttons"><button id="btn-konto-pw">Passwort ändern</button></div>
+        <div class="hint" id="konto-pw-msg"></div>
+      </details>
+      <details>
+        <summary>Konto löschen</summary>
+        <p class="konto-info small">Löscht das Konto mit Skins, Fortschritt und Notizen auf dem Server. Auf diesem Gerät bleibt alles, bis du es selbst änderst.</p>
+        <label><span>Passwort</span><input id="konto-del-pass" type="password" maxlength="72" autocomplete="current-password"></label>
+        <div class="buttons"><button id="btn-konto-del">Konto löschen</button></div>
+        <div class="hint" id="konto-del-msg"></div>
+      </details>
+    </div>
+    <div class="buttons"><button id="btn-konto-back">Zurück</button></div>
   </div>
 
   <div id="settings" class="screen dim" hidden>
