@@ -139,6 +139,16 @@
   </div>
 
   <div id="menu" class="screen" hidden>
+    <!-- oben rechts wie in anderen Spielen: Konto und Einstellungen (Zahnrad) -->
+    <div class="menu-top">
+      <button id="btn-konto" class="top-btn konto-chip" title="Konto" hidden>
+        <span class="avatar"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4.3"/><path d="M3.6 21c0-4.5 3.8-7.3 8.4-7.3s8.4 2.8 8.4 7.3z"/></svg><b id="btn-konto-initial" data-roh></b></span>
+        <span id="btn-konto-text">Anmelden</span><span id="btn-konto-name" data-roh hidden></span>
+      </button>
+      <button id="btn-settings" class="top-btn gear" title="Einstellungen" aria-label="Einstellungen">
+        <svg viewBox="0 0 24 24"><path fill-rule="evenodd" d="M9.83 3.89L10.28 1.14L13.72 1.14L14.17 3.89A8.4 8.4 0 0 1 16.2 4.73L18.47 3.1L20.9 5.53L19.27 7.8A8.4 8.4 0 0 1 20.11 9.83L22.86 10.28L22.86 13.72L20.11 14.17A8.4 8.4 0 0 1 19.27 16.2L20.9 18.47L18.47 20.9L16.2 19.27A8.4 8.4 0 0 1 14.17 20.11L13.72 22.86L10.28 22.86L9.83 20.11A8.4 8.4 0 0 1 7.8 19.27L5.53 20.9L3.1 18.47L4.73 16.2A8.4 8.4 0 0 1 3.89 14.17L1.14 13.72L1.14 10.28L3.89 9.83A8.4 8.4 0 0 1 4.73 7.8L3.1 5.53L5.53 3.1L7.8 4.73A8.4 8.4 0 0 1 9.83 3.89ZM15.3 12A3.3 3.3 0 1 0 8.7 12A3.3 3.3 0 1 0 15.3 12Z"/></svg>
+      </button>
+    </div>
     <div class="logo">FEUER <span>FREI</span></div>
     <div class="tagline">Mit Freunden online (1 gegen 1 bis 4 gegen 4), gegen die KI oder Training</div>
     <div class="buttons">
@@ -146,9 +156,6 @@
       <button id="btn-bots">Gegen KI</button>
       <button id="btn-start">Training</button>
       <button id="btn-locker">Skins &amp; Aufgaben</button>
-      <button id="btn-konto" hidden><span>Konto</span><span id="btn-konto-name" data-roh></span></button>
-      <button id="btn-settings">Einstellungen</button>
-      <button id="btn-controls">Steuerung</button>
     </div>
     <div class="menu-map">Karte <div class="seg" id="menu-map"><button data-v="hof">Hof</button><button data-v="halle">Lagerhalle</button><button data-v="hafen">Hafen</button></div>
       <small id="menu-map-info"></small></div>
@@ -294,9 +301,11 @@
     <div class="buttons"><button id="btn-konto-back">Zurück</button></div>
   </div>
 
+  <!-- Einstellungen mit zwei Reitern: Allgemein und Steuerung (Tastenbelegung) -->
   <div id="settings" class="screen dim" hidden>
     <h1>Einstellungen</h1>
-    <div class="form">
+    <div class="seg set-tabs" id="set-tabs"><button data-v="allgemein" class="on">Allgemein</button><button data-v="steuerung">Steuerung</button></div>
+    <div class="form" id="set-allgemein">
       <label><span>Mausempfindlichkeit <small>(wie in CS)</small></span><input type="range" id="set-sens" min="0" max="1000" step="1"><output id="out-sens"></output></label>
       <label><span>Sichtfeld</span><input type="range" id="set-fov" min="60" max="95" step="1"><output id="out-fov"></output></label>
       <label><span>Lautstärke</span><input type="range" id="set-vol" min="0" max="1" step="0.01"><output id="out-vol"></output></label>
@@ -348,26 +357,23 @@
         </select>
       </label>
     </div>
-    <div class="buttons"><button class="primary" id="btn-settings-back">Zurück</button></div>
-  </div>
-
-  <div id="controls" class="screen dim" hidden>
-    <h1>Steuerung</h1>
-    <div class="hint keys-help">Zum Ändern auf eine Taste klicken und die neue drücken (auch Maustaste 3 bis 5).
-      <kbd>Entf</kbd> löscht die Belegung, <kbd>Esc</kbd> bricht ab. Mit <b>+</b> kommt eine zweite Taste dazu.</div>
-    <div class="keys-note" id="keys-note"></div>
-    <!-- wird aus der Belegung erzeugt (main.js) -->
-    <table class="keys" id="keys-table"></table>
-    <div class="touch-help">
-      <h3>Auf dem Handy</h3>
-      <p>Linker Daumen: Stick zum Laufen (ganz nach vorne schieben = Sprinten). Rechter Daumen: wischen zum Umsehen.
-        Roter Knopf: schießen, beim Halten weiter wischen und zielen. Kreis-Knopf: Zielen an/aus.
-        Pfeile: springen und ducken. Unten tippst du die Waffe an. Flugzeug: Luftschlag, wenn der Ring voll ist.</p>
+    <div class="set-steuerung" id="set-steuerung" hidden>
+      <div class="hint keys-help">Zum Ändern auf eine Taste klicken und die neue drücken (auch Maustaste 3 bis 5).
+        <kbd>Entf</kbd> löscht die Belegung, <kbd>Esc</kbd> bricht ab. Mit <b>+</b> kommt eine zweite Taste dazu.</div>
+      <div class="keys-note" id="keys-note"></div>
+      <!-- wird aus der Belegung erzeugt (main.js) -->
+      <table class="keys" id="keys-table"></table>
+      <div class="touch-help">
+        <h3>Auf dem Handy</h3>
+        <p>Linker Daumen: Stick zum Laufen (ganz nach vorne schieben = Sprinten). Rechter Daumen: wischen zum Umsehen.
+          Roter Knopf: schießen, beim Halten weiter wischen und zielen. Kreis-Knopf: Zielen an/aus.
+          Pfeile: springen und ducken. Unten tippst du die Waffe an. Flugzeug: Luftschlag, wenn der Ring voll ist.</p>
+      </div>
+      <p class="tip">Tipp wie in CS: Im Stehen treffen die Waffen am besten. Kurz vor dem Schuss stoppen, und bei langen Salven die Maus nach unten ziehen.</p>
     </div>
-    <p class="tip">Tipp wie in CS: Im Stehen treffen die Waffen am besten. Kurz vor dem Schuss stoppen, und bei langen Salven die Maus nach unten ziehen.</p>
     <div class="buttons">
-      <button class="primary" id="btn-controls-back">Zurück</button>
-      <button id="btn-keys-reset">Standard wiederherstellen</button>
+      <button class="primary" id="btn-settings-back">Zurück</button>
+      <button id="btn-keys-reset" hidden>Standard wiederherstellen</button>
     </div>
   </div>
 

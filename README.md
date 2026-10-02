@@ -14,6 +14,8 @@ Dazu drei Karten (**Hof**, **Lagerhalle** und der große, offene **Hafen** für 
 
 Es läuft am PC (Maus und Tastatur) und auf dem Handy oder Tablet (Touch-Steuerung, quer halten).
 
+**Hauptmenü:** In der Mitte stehen **Mehrspieler**, **Gegen KI**, **Training** und **Skins & Aufgaben**, darunter die Karte. Oben rechts sind wie in anderen Spielen das Konto (abgemeldet „Anmelden“, angemeldet der Name mit dem Anfangsbuchstaben im Kreis; auf schmalen Bildschirmen nur der Kreis) und das Zahnrad für die **Einstellungen**. Die haben zwei Reiter: **Allgemein** und **Steuerung** (Tastenbelegung).
+
 ## Starten
 
 ```
@@ -156,7 +158,7 @@ Unter **Skins & Aufgaben** im Hauptmenü stehen links die Waffen (Natter, Kobra,
 
 ## Konto
 
-Mit Benutzername und Passwort (ohne E-Mail) lassen sich Aufgaben-Fortschritt, getragene Skins und die Notizen vom Notizblock auf jedem Gerät nutzen. Der Knopf **Konto** im Hauptmenü erscheint erst, wenn die Datenbank eingerichtet ist.
+Mit Benutzername und Passwort (ohne E-Mail) lassen sich Aufgaben-Fortschritt, getragene Skins und die Notizen vom Notizblock auf jedem Gerät nutzen. Der Konto-Knopf oben rechts im Hauptmenü erscheint erst, wenn die Datenbank eingerichtet ist.
 
 - **Anlegen und Anmelden:** Name mit 3 bis 20 Zeichen (Buchstaben auch mit Umlauten, Ziffern, Punkt, Strich, Unterstrich; Groß- und Kleinschreibung zählt nicht, grobe Namen filtert `rude()` aus `src/names.js`), Passwort mit 6 bis 72 Zeichen. Was schon auf dem Gerät ist, kommt beim Anlegen ins Konto. Ein vergessenes Passwort lässt sich nicht zurücksetzen (es gibt keine E-Mail).
 - **Abgleich:** Notizen werden 2 Sekunden nach dem letzten Tippen gespeichert, Skins sofort, der Fortschritt gesammelt höchstens alle 10 Sekunden; beim Verlassen der Seite geht Ausstehendes noch mit. Geholt wird beim Start, beim Öffnen von Konto und Notizblock und wenn der Tab wieder sichtbar wird (höchstens alle 10 Sekunden). Der Server führt beide Stände zusammen: Zähler jeweils der größere Wert, geschaffte Aufgaben alle, Skins und Notizen die neuere Fassung. Eigene Änderungen zählen immer als neuer als alles, was das Gerät schon gesehen hat (auch wenn die Uhr eines anderen Geräts vorgeht), und eine Antwort vom Server überschreibt nie, was gerade getippt wurde.
@@ -225,9 +227,9 @@ Technik:
 
 ## Steuerung
 
-Die Tabelle zeigt die Standardbelegung. **Eigene Tastenbelegung:** Unter *Steuerung* (im Hauptmenü und in der Pause) auf eine Taste klicken und die neue drücken. Das geht auch mit den Maustasten 3 bis 5 (Mitte und Seitentasten). Jede Aktion kann zwei Tasten haben (mit **+** kommt die zweite dazu). `Entf` löscht eine Belegung, `Esc` bricht ab. Ist eine Taste schon woanders belegt, wird sie dort frei (mit Hinweis). **Standard wiederherstellen** setzt alles zurück. Fest sind nur Schießen (Linksklick), Zielen (Rechtsklick), Waffenwechsel (Mausrad) und Pause (`Esc`). Die Belegung wird im Browser gespeichert, und alle Hinweise im Spiel (Kaufmenü, Bombe, Luftschlag, Schnellnachrichten) zeigen die eigenen Tasten.
+Die Tabelle zeigt die Standardbelegung. **Eigene Tastenbelegung:** In den Einstellungen im Reiter *Steuerung* (Zahnrad oben rechts im Hauptmenü; in der Pause führt **Steuerung** direkt dorthin) auf eine Taste klicken und die neue drücken. Das geht auch mit den Maustasten 3 bis 5 (Mitte und Seitentasten). Jede Aktion kann zwei Tasten haben (mit **+** kommt die zweite dazu). `Entf` löscht eine Belegung, `Esc` bricht ab. Ist eine Taste schon woanders belegt, wird sie dort frei (mit Hinweis). **Standard wiederherstellen** setzt alles zurück. Fest sind nur Schießen (Linksklick), Zielen (Rechtsklick), Waffenwechsel (Mausrad) und Pause (`Esc`). Die Belegung wird im Browser gespeichert, und alle Hinweise im Spiel (Kaufmenü, Bombe, Luftschlag, Schnellnachrichten) zeigen die eigenen Tasten.
 
-**Mausempfindlichkeit** (unter *Einstellungen*): zählt wie in CS (0,022° pro Mausschritt mal Wert) und reicht von 0,2 bis 20. Der Regler ist logarithmisch: In der Mitte steht 2, nach rechts wird jeder Schritt größer. So lässt sich der übliche Bereich fein einstellen, und für Touchpads oder Mäuse mit wenig DPI reicht es trotzdem. Das Spiel liest die Maus ohne die Beschleunigung von Windows (Pointer Lock mit `unadjustedMovement`).
+**Mausempfindlichkeit** (unter *Einstellungen › Allgemein*): zählt wie in CS (0,022° pro Mausschritt mal Wert) und reicht von 0,2 bis 20. Der Regler ist logarithmisch: In der Mitte steht 2, nach rechts wird jeder Schritt größer. So lässt sich der übliche Bereich fein einstellen, und für Touchpads oder Mäuse mit wenig DPI reicht es trotzdem. Das Spiel liest die Maus ohne die Beschleunigung von Windows (Pointer Lock mit `unadjustedMovement`).
 
 | Taste | Aktion |
 |---|---|

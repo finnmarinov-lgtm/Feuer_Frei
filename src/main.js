@@ -27,7 +27,7 @@ starteUebersetzung();
 zaehleAufruf();
 
 const $ = (id) => document.getElementById(id);
-const SCREENS = ['loading', 'menu', 'lobby', 'bots', 'locker', 'konto', 'pause', 'settings', 'controls', 'results', 'click-resume'];
+const SCREENS = ['loading', 'menu', 'lobby', 'bots', 'locker', 'konto', 'pause', 'settings', 'results', 'click-resume'];
 const BOT_KEY = 'feuer-frei-ki';
 const MAP_KEY = 'feuer-frei-karte';
 const BOT_INFO = {
@@ -108,7 +108,6 @@ function setupMenus(game, input, audio) {
   // in dieser Partie freigeschaltete Skins (für die Auswertung)
   let freshSkins = [];
   let settingsBack = 'menu';
-  let controlsBack = 'menu';
   let duelOpts = null;
   let duelNet = null;
   let teamOpts = null;
@@ -450,7 +449,7 @@ function setupMenus(game, input, audio) {
   // Esc: im Spiel erst Kaufmenü bzw. Schnellnachrichten zu, sonst Pause; in den Menüs wie der
   // Knopf, der dort zurückführt (Pause: Weiter, Auswertung: Hauptmenü)
   const ESC_BACK = {
-    pause: 'btn-resume', settings: 'btn-settings-back', controls: 'btn-controls-back', lobby: 'btn-lobby-back',
+    pause: 'btn-resume', settings: 'btn-settings-back', lobby: 'btn-lobby-back',
     bots: 'btn-bot-back', locker: 'btn-locker-back', konto: 'btn-konto-back', results: 'btn-menu',
   };
   input.onEscape = () => {
@@ -501,18 +500,17 @@ function setupMenus(game, input, audio) {
     updateRematch();
   });
   $('btn-menu').addEventListener('click', toMenu);
-  $('btn-settings').addEventListener('click', () => { settingsBack = 'menu'; openSettings(); });
-  $('btn-settings2').addEventListener('click', () => { settingsBack = 'pause'; openSettings(); });
-  $('btn-settings-back').addEventListener('click', () => {
-    input.capture = null;
-    syncBossKey();
-    show(settingsBack);
+  // Zahnrad im Hauptmenü, in der Pause zwei Knöpfe: Einstellungen und gleich der Reiter Steuerung
+  $('btn-settings').addEventListener('click', () => { settingsBack = 'menu'; openSettings('allgemein'); });
+  $('btn-settings2').addEventListener('click', () => { settingsBack = 'pause'; openSettings('allgemein'); });
+  $('btn-controls2').addEventListener('click', () => { settingsBack = 'pause'; openSettings('steuerung'); });
+  $('set-tabs').addEventListener('click', (e) => {
+    const tab = e.target.closest('button')?.dataset.v;
+    if (tab) setTab(tab);
   });
-  $('btn-controls').addEventListener('click', () => { controlsBack = 'menu'; renderKeys(); show('controls'); });
-  $('btn-controls2').addEventListener('click', () => { controlsBack = 'pause'; renderKeys(); show('controls'); });
-  $('btn-controls-back').addEventListener('click', () => {
-    stopBinding();
-    show(controlsBack);
+  $('btn-settings-back').addEventListener('click', () => {
+    stopCapture();
+    show(settingsBack);
   });
 
   // ---------- Tastenbelegung (Steuerung) ----------
@@ -541,7 +539,7 @@ function setupMenus(game, input, audio) {
     }
     rows.push('<tr class="fixed"><td><kbd>Esc</kbd></td><td>Pause</td></tr>');
     rows.push(`<tr class="fixed"><td><kbd id="help-bosskey">${escapeHtml(keyLabel(settings.bossKey))}</kbd></td>`
-      + '<td>Notizblock: sofort weißes Blatt, Spiel pausiert, Ton aus (Taste in den Einstellungen)</td></tr>');
+      + '<td>Notizblock: sofort weißes Blatt, Spiel pausiert, Ton aus (Taste unter „Allgemein“)</td></tr>');
     $('keys-table').innerHTML = rows.join('');
     $('keys-note').textContent = note;
   }
@@ -549,6 +547,13 @@ function setupMenus(game, input, audio) {
   function stopBinding() {
     if (binding) input.capture = null;
     binding = null;
+  }
+
+  // wartet gerade eine Taste (Belegung oder Notizblock-Taste): abbrechen
+  function stopCapture() {
+    input.capture = null;
+    binding = null;
+    syncBossKey();
   }
 
   /** Hinweise im Spiel (Kaufmenü, Luftschlag, Schnellnachrichten …) an die Belegung anpassen */
@@ -655,9 +660,19 @@ function setupMenus(game, input, audio) {
     sprachwahl.value = sprache();
     sprachwahl.addEventListener('change', () => setSprache(sprachwahl.value));
   }
-  function openSettings() {
+  function setTab(tab) {
+    stopCapture();
+    if (tab === 'steuerung') renderKeys();
+    for (const b of $('set-tabs').children) b.classList.toggle('on', b.dataset.v === tab);
+    $('set-allgemein').hidden = tab !== 'allgemein';
+    $('set-steuerung').hidden = tab !== 'steuerung';
+    $('btn-keys-reset').hidden = tab !== 'steuerung';
+    $('settings').scrollTop = 0;
+  }
+
+  function openSettings(tab) {
     for (const s of syncs) s();
-    syncBossKey();
+    setTab(tab);
     show('settings');
   }
 
@@ -956,10 +971,16 @@ function setupMenus(game, input, audio) {
   }
 
   function renderKonto() {
+    // oben rechts im Hauptmenü: abgemeldet „Anmelden“, angemeldet der Name mit dem Anfangsbuchstaben im Kreis
     const btn = $('btn-konto');
     btn.hidden = !konto.bereit && !konto.angemeldet;
-    const name = konto.angemeldet ? ` · ${konto.name}` : '';
+    const name = konto.angemeldet ? konto.name : '';
+    btn.classList.toggle('an', !!name);
+    $('btn-konto-text').hidden = !!name;
+    $('btn-konto-name').hidden = !name;
     if ($('btn-konto-name').textContent !== name) $('btn-konto-name').textContent = name;
+    const initial = name.charAt(0).toUpperCase();
+    if ($('btn-konto-initial').textContent !== initial) $('btn-konto-initial').textContent = initial;
     $('konto-aus').hidden = konto.angemeldet;
     $('konto-an').hidden = !konto.angemeldet;
     if (konto.angemeldet) {

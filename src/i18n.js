@@ -40,6 +40,7 @@ const EN = {
   'Skins & Aufgaben': 'Skins & challenges',
   'Einstellungen': 'Settings',
   'Steuerung': 'Controls',
+  'Allgemein': 'General',
   'Karte': 'Map',
   'Hof': 'Yard',
   'Lagerhalle': 'Warehouse',
@@ -382,8 +383,8 @@ const EN = {
   'Klicken zum Ändern': 'Click to change',
   'Klicken zum Belegen': 'Click to assign',
   'Zweite Taste hinzufügen': 'Add a second key',
-  'Notizblock: sofort weißes Blatt, Spiel pausiert, Ton aus (Taste in den Einstellungen)':
-    'Notepad: instant blank page, game paused, sound off (key in the settings)',
+  'Notizblock: sofort weißes Blatt, Spiel pausiert, Ton aus (Taste unter „Allgemein“)':
+    'Notepad: instant blank page, game paused, sound off (key under “General”)',
   'Alle Tasten sind wieder wie am Anfang.': 'All keys are back to their defaults.',
 
   // Nach der Partie

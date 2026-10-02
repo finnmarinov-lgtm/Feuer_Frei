@@ -252,7 +252,8 @@ body.radar #tasks-hud { top: 328px; }
 
 /* Beschreibung im Hauptmenue: fuer Besucher und fuer Suchmaschinen */
 .about { max-width: 640px; margin: 4px 16px 12px; color: var(--muted); font-size: 15px; line-height: 1.45; text-align: left; }
-.about h1 { font-size: 19px; margin: 0 0 6px; color: var(--text); text-align: center; }
+/* .screen davor: sonst gewinnt die Überschrift der Bildschirme (44 px) */
+.screen .about h1 { font-size: 19px; margin: 0 0 6px; color: var(--text); text-align: center; }
 .about p { margin: 0 0 8px; }
 .about ul { margin: 0 0 8px; padding-left: 18px; }
 .about li { margin-bottom: 3px; }
@@ -260,6 +261,35 @@ body.radar #tasks-hud { top: 328px; }
 .about .tech { font-size: 13px; opacity: 0.75; }
 .legal a { color: var(--accent); }
 .about .legal { text-align: center; opacity: 1; }
+
+/* oben rechts im Hauptmenü wie in anderen Spielen: Konto und Einstellungen (Zahnrad) */
+.menu-top { position: absolute; top: 16px; right: 18px; display: flex; align-items: center; gap: 10px; }
+.top-btn { display: flex; align-items: center; gap: 10px; height: 48px; padding: 0; border-radius: 24px; border: 1px solid rgba(255,255,255,0.2); background: rgba(12,14,17,0.6); color: var(--text); font: 700 19px var(--font); letter-spacing: 0.5px; cursor: pointer; transition: background 0.15s, border-color 0.15s; }
+.top-btn:hover { background: rgba(30,33,38,0.85); border-color: var(--accent); }
+.top-btn svg { display: block; fill: currentColor; }
+/* höchstens so breit, dass der Schriftzug FEUER FREI frei bleibt (längere Namen mit …) */
+.konto-chip { max-width: min(280px, calc(50vw - 320px)); padding: 0 20px 0 5px; }
+.konto-chip > span:not(.avatar) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.konto-chip .avatar { display: grid; place-items: center; flex-shrink: 0; width: 38px; height: 38px; border-radius: 50%; background: rgba(255,255,255,0.14); }
+.konto-chip .avatar svg { width: 22px; height: 22px; }
+.konto-chip .avatar b { font-size: 21px; line-height: 1; }
+/* angemeldet: Anfangsbuchstabe im farbigen Kreis statt der Figur */
+.konto-chip.an .avatar { background: var(--accent); color: #1a1407; }
+.konto-chip.an .avatar svg, .konto-chip:not(.an) .avatar b { display: none; }
+.gear { justify-content: center; width: 48px; }
+.gear svg { width: 26px; height: 26px; transition: transform 0.45s; }
+.gear:hover svg { transform: rotate(90deg); }
+/* zu schmal für Name oder „Anmelden“: nur der Kreis (der Titel „Konto“ bleibt) */
+@media (max-width: 960px) and (min-height: 541px) {
+  .konto-chip { padding: 0 4px; }
+  .konto-chip > span:not(.avatar) { display: none; }
+}
+
+/* Einstellungen: oben ausgerichtet, damit beim Wechsel der Reiter nichts springt */
+#settings { padding-top: max(24px, 5vh); }
+#settings::before { display: none; }
+.set-tabs button { font-size: 20px; padding: 7px 28px; }
+.set-steuerung { display: flex; flex-direction: column; align-items: center; gap: 18px; }
 .bar { width: 320px; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; }
 .bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width 0.2s; }
 .hint { color: var(--muted); font-size: 16px; }
@@ -492,6 +522,17 @@ body.touch .buy-foot { display: none; }
   .res-grid b { font-size: 22px; }
   .keys { font-size: 15px; }
   .buy-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .menu-top { top: 10px; right: 12px; gap: 8px; }
+  .top-btn { height: 40px; font-size: 17px; }
+  .konto-chip { padding-right: 16px; max-width: min(280px, calc(50vw - 215px)); }
+  .konto-chip .avatar { width: 32px; height: 32px; }
+  .gear { width: 40px; }
+  .gear svg { width: 22px; height: 22px; }
+  .set-steuerung { gap: 10px; }
+}
+@media (max-height: 540px) and (max-width: 720px) {
+  .konto-chip { padding: 0 3px; }
+  .konto-chip > span:not(.avatar) { display: none; }
 }
 
 /* ---------- Notizblock ---------- */
