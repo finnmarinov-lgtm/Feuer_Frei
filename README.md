@@ -211,11 +211,16 @@ Beim Start geht das Spiel in den Vollbildmodus und sperrt das Querformat, soweit
 
 Technik:
 
-- **Verbindung:** direkt von Rechner zu Rechner per WebRTC ([Trystero](https://github.com/dmotz/trystero), Vermittlung über öffentliche Nostr-Server). Parallel läuft ein Kanal über **Supabase Realtime**. Klappt die Direktverbindung nicht, geht alles über den Server (im Team-Spiel pro Mitspieler: jeder bekommt jede Nachricht genau einmal, direkt oder über den Server). Oben links im Spiel steht, welcher Weg gerade genutzt wird, dazu der Ping.
+- **Verbindung:** direkt von Rechner zu Rechner per WebRTC ([Trystero](https://github.com/dmotz/trystero), Vermittlung über das eigene Supabase-Projekt). Parallel läuft ein Kanal über **Supabase Realtime**. Klappt die Direktverbindung nicht, geht alles über den Server (im Team-Spiel pro Mitspieler: jeder bekommt jede Nachricht genau einmal, direkt oder über den Server). Oben links im Spiel steht, welcher Weg gerade genutzt wird, dazu der Ping.
+- **Vermittlung:** Die Verbindungsangebote laufen seit Protokoll 13 über das eigene Supabase-Projekt (Realtime Broadcast, `src/net/signal.js`, nachgebaut nach `@trystero-p2p/supabase`, aber mit dem `RealtimeClient` statt des ganzen supabase-js).
+  - Vorher nahm Trystero bis zu 28 öffentliche Nostr-Relais fremder Betreiber. Bei Finn warnte deshalb der Virenscanner beim ersten Mehrspieler-Spiel, und in der Konsole standen laufend Fehler von Relais, die nicht erreichbar waren.
+  - Jetzt geht im Mehrspieler keine Verbindung mehr an fremde Server außer den STUN-Servern.
+  - Getestet mit zwei Tabs: direkt verbunden nach etwa 1–2 Sekunden, auch über die Liste der offenen Lobbys.
+  - Ältere Fassungen fänden sich nur noch über den Server, deshalb die neue Protokollnummer.
 - **Schnelle Spur:** Der Kanal von Trystero ist zuverlässig und hält die Reihenfolge ein. Geht im WLAN ein Paket verloren, warten alle folgenden, bis es nachgeschickt ist (Ruckler von 100 bis 200 ms).
   - Deshalb legt `src/net/net.js` auf jeder Direktverbindung einen zweiten Kanal ohne Nachschicken und ohne Reihenfolge an (wie UDP). Beide Seiten legen ihn mit derselben Nummer an (`negotiated`, Nummer aus dem Raum).
   - Darüber laufen Zustände ohne Ereignisse (eigene Position, KI-Zustände des Hosts, Weiterleitung an Zuschauer) und der Herzschlag. Zustände mit Schüssen, Treffern oder Käufen nehmen den sicheren Weg. Ihre Position geht zusätzlich ohne Ereignisse über die schnelle Spur, sonst hinge sie im Gefecht (fast jeder Zustand trägt dann einen Schuss) wieder hinter verlorenen Paketen.
-  - Benutzt wird die Spur erst, wenn über sie etwas angekommen ist (Anklopfen mit `fp`). Eine ältere Fassung des Spiels hat sie nicht und bekommt alles wie bisher, deshalb blieb die Protokollversion gleich.
+  - Benutzt wird die Spur erst, wenn über sie etwas angekommen ist (Anklopfen mit `fp`). Hat die Gegenseite sie nicht (etwa weil das Anlegen scheiterte), geht alles wie bisher über den sicheren Kanal.
   - Weil ein Zustand ohne Ereignisse einen mit Ereignissen überholen kann, zählt im Team-Spiel ein überholter Zustand nicht mehr als Position, seine Ereignisse aber genau einmal (`_firstEvents`).
   - Getestet mit 30 % absichtlich verworfenen Paketen: Der Gegner lief in jedem Bild weiter. Treffer und andere Ereignisse zählten im 1 gegen 1 und im Team-Spiel mit KI genau einmal, auch wenn ein Zustand doppelt ankam.
 - **Ping:** Herzschlag einmal pro Sekunde, angezeigt wird der Median der letzten 5 Messungen. Vorher war es ein gleitender Mittelwert, bei dem ein einzelner Hänger (etwa 550 ms beim Laden der Partie) die Zahl etwa 8 Sekunden zu hoch stehen ließ. Zwischen zwei Tabs auf einem Rechner misst das Spiel 1 bis 7 ms, es gibt also selbst kaum Verzögerung dazu.
@@ -401,7 +406,7 @@ Die Erklärung beschreibt alle Datenflüsse. Ändert sich daran etwas, muss sie 
 - **GitHub Pages:** speichert die IP-Adresse der Besucher zur Sicherheit.
 - **Browser-Speicher:** Einstellungen, Fortschritt, Notizen, Name, Konto-Schlüssel; keine Cookies.
 - **Zähler:** nur Datum, Spiel und Herkunfts-Domain.
-- **Mehrspieler:** Direktverbindung über Trystero. Die Mitspieler sehen die IP-Adresse; die Verbindungsangebote laufen AES-GCM-verschlüsselt über öffentliche Nostr-Relais; die STUN-Server von Google und Cloudflare sehen die IP-Adresse. Rückfall und Lobby-Liste laufen über Supabase Realtime und werden nur weitergeleitet.
+- **Mehrspieler:** Direktverbindung über Trystero. Die Mitspieler sehen die IP-Adresse; die Verbindungsangebote laufen AES-GCM-verschlüsselt über Supabase Realtime (bis Protokoll 12 über öffentliche Nostr-Relais); die STUN-Server von Google und Cloudflare sehen die IP-Adresse. Rückfall und Lobby-Liste laufen über Supabase Realtime und werden nur weitergeleitet.
 - **Konto:** liegt bei Supabase Pte. Ltd., mit Auftragsverarbeitung und Standardvertragsklauseln.
 
 **Schrift:** Rajdhani kommt nicht mehr von Google Fonts, sondern aus dem Paket `@fontsource/rajdhani`. Vite bündelt die Dateien mit, die Lizenz (SIL Open Font License) liegt unter `public/lizenzen/`. Vorher ging beim Laden die IP-Adresse jedes Besuchers an Google.

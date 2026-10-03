@@ -59,7 +59,7 @@
     <p>Wenn du eine Lobby erstellst oder einer beitrittst, verbinden sich die Browser der Mitspieler direkt miteinander (WebRTC, über die Bibliothek Trystero). Dabei gilt:</p>
     <ul>
       <li><b>Mitspieler</b> erfahren deine IP-Adresse. Ohne sie geht eine direkte Verbindung nicht.</li>
-      <li><b>Verbindungsaufbau:</b> Die Angebote für die Verbindung laufen verschlüsselt über öffentliche Nostr-Relais-Server verschiedener Betreiber. Diese Betreiber sehen deine IP-Adresse. Die Server stehen weltweit, auch außerhalb der EU, und es gibt mit ihnen keinen Vertrag.</li>
+      <li><b>Verbindungsaufbau:</b> Die Angebote für die Verbindung laufen verschlüsselt über Supabase Realtime, denselben Dienst wie der Rückfall unten (Anbieter siehe Abschnitt 7). Sie werden nur weitergeleitet, nicht gespeichert.</li>
       <li><b>STUN-Server:</b> Damit die Verbindung durch Router hindurch klappt, fragt dein Browser Server von Google (stun.l.google.com) und Cloudflare (stun.cloudflare.com) nach seiner öffentlichen Adresse. Dabei sehen sie deine IP-Adresse.</li>
       <li><b>Über den Server:</b> Als Rückfall, falls die direkte Verbindung nicht klappt, und für die Liste offener Lobbys laufen Nachrichten über Supabase Realtime: Lobby-Code, eine zufällige Kennung deines Tabs, Spielername, Team, Skins, Bewegungen, Treffer und Schnellnachrichten. Sie werden nur weitergeleitet, nicht gespeichert. Öffentliche Lobbys stehen mit Host-Name, Karte, Modus und Spielerzahl in der Liste, solange sie offen sind.</li>
     </ul>
@@ -113,7 +113,7 @@
     <p>When you create or join a lobby, the players’ browsers connect directly to each other (WebRTC, using the Trystero library). This means:</p>
     <ul>
       <li><b>Other players</b> learn your IP address. A direct connection does not work without it.</li>
-      <li><b>Connection setup:</b> The connection offers are sent encrypted through public Nostr relay servers run by various operators. These operators see your IP address. The servers are located worldwide, including outside the EU, and there is no contract with them.</li>
+      <li><b>Connection setup:</b> The connection offers are sent encrypted through Supabase Realtime, the same service as the fallback below (provider: see section 7). They are only forwarded, not stored.</li>
       <li><b>STUN servers:</b> So that the connection works through routers, your browser asks servers run by Google (stun.l.google.com) and Cloudflare (stun.cloudflare.com) for its public address. They see your IP address.</li>
       <li><b>Through the server:</b> As a fallback if the direct connection fails, and for the list of open lobbies, messages go through Supabase Realtime: lobby code, a random ID of your tab, player name, team, skins, movements, hits and quick messages. They are only forwarded, not stored. Public lobbies are listed with the host name, map, mode and player count while they are open.</li>
     </ul>

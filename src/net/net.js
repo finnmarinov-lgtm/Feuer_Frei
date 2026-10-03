@@ -1,19 +1,21 @@
-import { joinRoom, selfId } from 'trystero';
+import { selfId } from '@trystero-p2p/core';
 import { RealtimeClient } from '@supabase/realtime-js';
+import { joinRoom } from './signal.js';
 
 // Verbindung zwischen den Browsern einer Lobby. Beide Wege werden gleichzeitig aufgebaut:
-// direkt von Rechner zu Rechner (WebRTC über Trystero) und als Rückfall über den
-// Supabase-Server (Realtime Broadcast). Gesendet wird pro Mitspieler über den besten
-// verfügbaren Weg, empfangen über beide. Im 1 gegen 1 gibt es einen Partner, im Team-Spiel
-// eine Gruppe (group), an die alles geht.
+// direkt von Rechner zu Rechner (WebRTC über Trystero, vermittelt über das eigene Supabase-Projekt,
+// siehe signal.js) und als Rückfall über den Supabase-Server (Realtime Broadcast). Gesendet wird
+// pro Mitspieler über den besten verfügbaren Weg, empfangen über beide. Im 1 gegen 1 gibt es einen
+// Partner, im Team-Spiel eine Gruppe (group), an die alles geht.
 
 const APP_ID = 'feuer-frei-duell-v1';
 // Version des Netzprotokolls: beide Spieler brauchen denselben Stand des Spiels
 // (6: Mehrspieler-Lobby mit Teams bis 4 gegen 4, 7: Karte Hafen, 8: Hafen mit weniger Durchgängen,
 // 9: Luftschlag als Abschussserie, Entschärfen dauert 10 s, 10: offene Lobbys, Host kann rauswerfen,
 // 11: nach der Partie zurück in die Lobby, Zuschauer bei laufenden Partien, 12: Adler tötet nur mit
-// Kopftreffer sofort (den Schaden rechnet der Schütze aus), Weste 50 Punkte)
-export const PROTOCOL = 12;
+// Kopftreffer sofort (den Schaden rechnet der Schütze aus), Weste 50 Punkte, 13: Verbindungsaufbau
+// über das eigene Supabase statt Nostr, ältere Fassungen fänden sich nur noch über den Server)
+export const PROTOCOL = 13;
 export const SUPABASE_WS = 'wss://yzzipjtounvktdhhvrnt.supabase.co/realtime/v1';
 const SUPABASE_REST = 'https://yzzipjtounvktdhhvrnt.supabase.co/realtime/v1/api/broadcast';
 // "publishable" Schlüssel: darf öffentlich im Code stehen
@@ -24,8 +26,8 @@ const LOST_AFTER = 4000;
 // Folgende auf, im WLAN gibt das Ruckler von 100 bis 200 ms. Über die schnelle Spur laufen nur
 // Zustände, die der nächste ohnehin ablöst (Positionen, Herzschlag). Beide Seiten legen den Kanal
 // mit derselben Nummer an (negotiated), sonst landete er bei Trystero (ondatachannel). Benutzt wird
-// er erst, wenn darüber etwas angekommen ist: Dann hat ihn die Gegenseite auch (eine ältere Fassung
-// des Spiels hat ihn nicht und bekommt alles wie bisher).
+// er erst, wenn darüber etwas angekommen ist: Dann hat ihn die Gegenseite auch (sonst bekommt sie
+// alles wie bisher über den sicheren Kanal).
 const FAST_LABEL = 'ff-schnell';
 const FAST_PROBE = '{"t":"fp"}';
 // staut sich mehr als das, lieber einen Zustand auslassen als die Verzögerung erhöhen
@@ -174,7 +176,7 @@ export class Net {
 
   _startDirect(roomId) {
     try {
-      this.room = joinRoom({ appId: APP_ID }, roomId, {
+      this.room = joinRoom({ appId: APP_ID, relayConfig: { url: SUPABASE_WS, key: SUPABASE_KEY } }, roomId, {
         onJoinError: (e) => console.warn('Direktverbindung:', e.error),
       });
     } catch (err) {
