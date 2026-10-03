@@ -19,6 +19,30 @@ const SUPABASE_REST = 'https://yzzipjtounvktdhhvrnt.supabase.co/realtime/v1/api/
 // "publishable" Schlüssel: darf öffentlich im Code stehen
 export const SUPABASE_KEY = 'sb_publishable_OCNFFT4wa4CMaHyhcLAY4A_u2flZF1s';
 const LOST_AFTER = 4000;
+// Schnelle Spur: zweiter WebRTC-Kanal auf derselben Verbindung, ohne Nachschicken und ohne
+// Reihenfolge (wie UDP). Der Kanal von Trystero schickt Verlorenes nach und hält bis dahin alles
+// Folgende auf, im WLAN gibt das Ruckler von 100 bis 200 ms. Über die schnelle Spur laufen nur
+// Zustände, die der nächste ohnehin ablöst (Positionen, Herzschlag). Beide Seiten legen den Kanal
+// mit derselben Nummer an (negotiated), sonst landete er bei Trystero (ondatachannel). Benutzt wird
+// er erst, wenn darüber etwas angekommen ist: Dann hat ihn die Gegenseite auch (eine ältere Fassung
+// des Spiels hat ihn nicht und bekommt alles wie bisher).
+const FAST_LABEL = 'ff-schnell';
+const FAST_PROBE = '{"t":"fp"}';
+// staut sich mehr als das, lieber einen Zustand auslassen als die Verzögerung erhöhen
+const FAST_MAX_BUFFER = 16 * 1024;
+// Ping: Median der letzten Messungen (ein einzelner Hänger, etwa beim Laden, verfälscht ihn nicht)
+const PING_SAMPLES = 5;
+
+/**
+ * Nummer der schnellen Spur aus dem Raum (beide Seiten rechnen dasselbe). Trystero nutzt die
+ * Verbindung zum selben Mitspieler auch im nächsten Raum weiter, so kommen sich alte und neue Spur
+ * nicht in die Quere. Trysteros eigener Kanal hat 0 oder 1.
+ */
+function fastChannelId(roomId) {
+  let h = 0;
+  for (const c of roomId) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return 10 + (h % 240);
+}
 
 export const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
@@ -56,9 +80,15 @@ export class Net {
     this.serverReady = false;
     this.lastRecv = 0;
     this.ping = 0;
-    // pro Mitspieler: letzte Nachricht (ms) und Ping
+    // pro Mitspieler: letzte Nachricht (ms), letzte Pingmessungen und Ping
     this.recvAt = new Map();
+    this.rtts = new Map();
     this.pings = new Map();
+    // schnelle Spur pro direkt verbundenem Mitspieler: { pc, ch, ok } (ok: Gegenseite hat sie auch);
+    // fastFail: Anlegen ging nicht, nicht jede Sekunde neu versuchen
+    this.fast = new Map();
+    this.fastFail = new Set();
+    this.fastId = 0;
     this.closed = false;
     const room = (this.roomId = 'ff-' + code);
     if (only !== 'server') this._startDirect(room);
@@ -151,17 +181,79 @@ export class Net {
       console.warn('Direktverbindung nicht möglich:', err);
       return;
     }
+    this.fastId = fastChannelId(roomId);
     this.action = this.room.makeAction('m');
     this.action.onMessage = (data, ctx) => this._recv(data, ctx.peerId);
     this.room.onPeerJoin = (id) => {
       this.directPeers.add(id);
+      this.fastFail.delete(id);
+      this._openFast(id);
       this._seen(id);
       this._changed();
     };
     this.room.onPeerLeave = (id) => {
       this.directPeers.delete(id);
+      this._closeFast(id);
       this._changed();
     };
+  }
+
+  /** schnelle Spur zu einem direkt verbundenen Mitspieler anlegen (pc: seine WebRTC-Verbindung) */
+  _openFast(id, pc = this.room?.getPeers?.()[id]) {
+    if (!pc || pc.connectionState === 'closed') return;
+    const old = this.fast.get(id);
+    if (old?.pc === pc && (old.ch.readyState === 'connecting' || old.ch.readyState === 'open')) return;
+    this._closeFast(id);
+    let ch;
+    try {
+      ch = pc.createDataChannel(FAST_LABEL, { negotiated: true, id: this.fastId, ordered: false, maxRetransmits: 0 });
+    } catch (err) {
+      this.fastFail.add(id);
+      console.warn('Schnelle Spur nicht möglich:', err);
+      return;
+    }
+    const f = { pc, ch, ok: false };
+    ch.onopen = () => this._probe(f);
+    ch.onclose = () => {
+      if (this.fast.get(id) === f) this.fast.delete(id);
+    };
+    ch.onmessage = (e) => {
+      if (this.closed || typeof e.data !== 'string' || e.data.length > 65536) return;
+      let data;
+      try {
+        data = JSON.parse(e.data);
+      } catch {
+        return;
+      }
+      // die Gegenseite hat die Spur auch: ab jetzt darüber senden (und ihr das gleich zeigen)
+      if (!f.ok) {
+        f.ok = true;
+        this._probe(f);
+      }
+      if (data?.t !== 'fp') this._recv(data, id);
+    };
+    this.fast.set(id, f);
+  }
+
+  /** bei der Gegenseite anklopfen, damit sie die Spur benutzt */
+  _probe(f) {
+    if (f.ch.readyState !== 'open') return;
+    try {
+      f.ch.send(FAST_PROBE);
+    } catch {
+      // dann beim nächsten Herzschlag
+    }
+  }
+
+  _closeFast(id) {
+    const f = this.fast.get(id);
+    if (!f) return;
+    this.fast.delete(id);
+    try {
+      f.ch.close();
+    } catch {
+      // schon zu
+    }
   }
 
   _startServer(roomId) {
@@ -225,6 +317,37 @@ export class Net {
     if (server.length) this._sendServer(data, server.length === 1 ? server[0] : server);
   }
 
+  /**
+   * Wie send, nur bekommen es Mitspieler mit schneller Spur darüber: Es kann verloren gehen oder
+   * andere Nachrichten überholen. Nur für Zustände, die der nächste ohnehin ablöst.
+   * onlyFast: Mitspieler ohne schnelle Spur bekommen es gar nicht (Zusatz zu einer sicheren Nachricht)
+   */
+  sendFast(data, to = this.partner, onlyFast = false) {
+    if (this.closed) return;
+    if (!to && this.group) to = [...this.group];
+    if (!to) {
+      if (!onlyFast) this.send(data);
+      return;
+    }
+    let text = null;
+    const rest = [];
+    for (const id of Array.isArray(to) ? to : [to]) {
+      const f = this.directPeers.has(id) ? this.fast.get(id) : null;
+      if (!f?.ok || f.ch.readyState !== 'open') {
+        rest.push(id);
+        continue;
+      }
+      // staut es sich gerade, diesen Zustand auslassen: der nächste ist ohnehin aktueller
+      if (f.ch.bufferedAmount > FAST_MAX_BUFFER) continue;
+      try {
+        f.ch.send((text ??= JSON.stringify(data)));
+      } catch {
+        rest.push(id);
+      }
+    }
+    if (rest.length && !onlyFast) this.send(data, rest.length === 1 ? rest[0] : rest);
+  }
+
   _sendServer(data, to) {
     if (!this.serverReady) return;
     this.channel.send({ type: 'broadcast', event: 'm', payload: { f: this.id, to, d: data } }).catch(() => {});
@@ -236,14 +359,18 @@ export class Net {
     if (from === this.partner) this.lastRecv = now;
     this.recvAt.set(from, now);
     if (data.t === 'hb') {
-      this.send({ t: 'hb2', c: data.c }, from);
+      this.sendFast({ t: 'hb2', c: data.c }, from);
       return;
     }
     if (data.t === 'hb2') {
       const rtt = now - data.c;
       if (rtt >= 0 && rtt < 10000) {
-        const old = this.pings.get(from);
-        const v = old ? old * 0.7 + rtt * 0.3 : rtt;
+        const l = this.rtts.get(from) || [];
+        l.push(rtt);
+        if (l.length > PING_SAMPLES) l.shift();
+        this.rtts.set(from, l);
+        // bei gerader Anzahl der kleinere der beiden mittleren Werte
+        const v = [...l].sort((a, b) => a - b)[(l.length - 1) >> 1];
         this.pings.set(from, v);
         if (from === this.partner || !this.partner) this.ping = v;
       }
@@ -260,7 +387,16 @@ export class Net {
 
   // läuft per Timer, also auch in einem Hintergrund-Tab (dort höchstens einmal pro Sekunde)
   _heartbeat() {
-    if (this.partner || this.group?.size) this.send({ t: 'hb', c: performance.now() });
+    if (this.partner || this.group?.size) this.sendFast({ t: 'hb', c: performance.now() });
+    // schnelle Spur: fehlende anlegen (Trystero kann die Verbindung austauschen), unbestätigte anklopfen
+    if (this.directPeers.size) {
+      const peers = this.room?.getPeers?.() || {};
+      for (const id of this.directPeers) {
+        const f = this.fast.get(id);
+        if (peers[id] && f?.pc !== peers[id] && !this.fastFail.has(id)) this._openFast(id, peers[id]);
+        else if (f && !f.ok) this._probe(f);
+      }
+    }
     this._changed();
   }
 
@@ -274,6 +410,7 @@ export class Net {
     clearInterval(this._hb);
     window.removeEventListener('pagehide', this._onHide);
     this.onMessage = this.onPeer = this.onChange = null;
+    for (const id of [...this.fast.keys()]) this._closeFast(id);
     try {
       this.room?.leave();
     } catch {

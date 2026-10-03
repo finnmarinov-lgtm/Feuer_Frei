@@ -790,7 +790,16 @@ export class Duel extends Match {
     this.urgent = false;
     this.sinceSend = 0;
     this._outgoing(msg);
-    this.net.send(msg);
+    if (msg.ev) {
+      // Ereignisse (Schüsse, Treffer, Käufe …) über den Weg, auf dem nichts verloren geht. Die
+      // Position zusätzlich ohne sie über die schnelle Spur, damit sie im Gefecht nicht hinter einem
+      // verlorenen Paket hängt (der Empfänger nimmt von beiden nur, was neu ist)
+      this.net.send(msg);
+      this.net.sendFast({ ...msg, ev: undefined }, undefined, true);
+    } else {
+      // ohne Ereignisse nur über die schnelle Spur: geht einer verloren, löst ihn 33 ms später der nächste ab
+      this.net.sendFast(msg);
+    }
     // im Team-Spiel bekommen Zuschauer die eigenen Zustände mit allen anderen (siehe teams.js)
     if (this.spectators.size && !this.teamMode) this._toWatchers(this.me, msg);
   }
@@ -1052,7 +1061,9 @@ export class Duel extends Match {
     let m = msg;
     if (msg.t === 'ph') m = this._teamPhase(msg);
     else if (msg.ev) m = { ...msg, ev: msg.ev.map((ev) => (ev.t === 'dead' && k[ev.by] ? { ...ev, by: k[ev.by] } : ev)) };
-    this.net.send({ t: 'fw', k: k[role], m }, [...this.spectators.keys()]);
+    const fw = { t: 'fw', k: k[role], m };
+    if (m.t === 's' && !m.ev) this.net.sendFast(fw, [...this.spectators.keys()]);
+    else this.net.send(fw, [...this.spectators.keys()]);
   }
 
   /** Rundenmeldung im Format des Team-Spiels: Leben pro Kennung, Sieger als Team */

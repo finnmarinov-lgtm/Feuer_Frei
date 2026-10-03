@@ -47,6 +47,11 @@ export class BotNet {
     if (data.t === 'ph' && data.ph !== 'over') this.saidGg = false;
   }
 
+  /** schnelle Spur gibt es hier nicht (alles läuft im eigenen Browser): Zusätze dafür entfallen */
+  sendFast(data, to, onlyFast = false) {
+    if (!onlyFast) this.send(data);
+  }
+
   _later(fn, ms) {
     this.timers.push(setTimeout(fn, ms));
   }

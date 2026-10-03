@@ -59,6 +59,8 @@ export class TeamMatch extends Duel {
     for (const k of this.roster.keys()) this.board.set(k, { kills: 0, deaths: 0 });
     this.seq = 0;
     this.lastSeq = new Map();
+    // pro Spieler die Nummern der letzten Zustände mit Ereignissen (die zählen genau einmal)
+    this.evSeq = new Map();
     this.awayT = new Map();
     this.awayKeys = new Set();
     this.goneT = { rot: 0, blau: 0 };
@@ -137,7 +139,9 @@ export class TeamMatch extends Duel {
 
   /** Zustände der Spieler reicht der Host an die Zuschauer weiter (seine eigenen kommen über die Gruppe) */
   _toWatchers(key, msg) {
-    this.net.send({ t: 'fw', k: key, m: msg }, [...this.spectators.keys()]);
+    const fw = { t: 'fw', k: key, m: msg };
+    if (msg.t === 's' && !msg.ev) this.net.sendFast(fw, [...this.spectators.keys()]);
+    else this.net.send(fw, [...this.spectators.keys()]);
   }
 
   _specMsg() {
@@ -477,7 +481,15 @@ export class TeamMatch extends Duel {
     if (this.sendBotsT > 0) return;
     this.sendBotsT = nextSend(this.sendBotsT, 1 / rate);
     const l = this.squad.takeNet();
-    if (l.length && this.net.group?.size) this.net.send({ t: 'sb', l });
+    if (!l.length || !this.net.group?.size) return;
+    // wie die eigenen Zustände (Duel._sendState): mit Ereignissen über den sicheren Weg und die
+    // Positionen zusätzlich über die schnelle Spur, sonst nur über die schnelle Spur
+    if (l.some((s) => s.ev)) {
+      this.net.send({ t: 'sb', l });
+      this.net.sendFast({ t: 'sb', l: l.map((s) => ({ ...s, ev: undefined })) }, undefined, true);
+    } else {
+      this.net.sendFast({ t: 'sb', l });
+    }
   }
 
   // ---------- Nachrichten ----------
@@ -552,15 +564,19 @@ export class TeamMatch extends Duel {
 
   /** Zustand eines Spielers (auch der KI-Spieler, beim Host direkt aus dem eigenen Browser) */
   _onState(msg, key) {
-    // doppelt angekommene Zustände nur einmal (Nummer q steigt)
+    // Nummer q steigt: ältere und doppelte Zustände zählen nicht mehr als Position. Ihre Ereignisse
+    // (Treffer, Tode …) aber schon, solange sie neu sind: Zustände ohne Ereignisse kommen über die
+    // schnelle Spur und können einen mit Ereignissen überholen, der den sicheren Weg nimmt
+    let late = false;
     if (msg.q !== undefined) {
       const last = this.lastSeq.get(key);
-      if (last !== undefined && msg.q <= last) return;
-      this.lastSeq.set(key, msg.q);
+      late = last !== undefined && msg.q <= last;
+      if (msg.ev ? !this._firstEvents(key, msg.q) : late) return;
+      if (!late) this.lastSeq.set(key, msg.q);
     }
     this.awayKeys.delete(key);
     const g = this.g;
-    this.remoteOf(key)?.push(msg);
+    if (!late) this.remoteOf(key)?.push(msg);
     if (msg.ev) {
       for (const ev of msg.ev) {
         g.killcam.noteEvent(msg.k, ev, key);
@@ -568,6 +584,17 @@ export class TeamMatch extends Duel {
       }
     }
     this.squad?.receive(msg, key);
+  }
+
+  /** Ereignisse des Zustands mit Nummer q zum ersten Mal da? */
+  _firstEvents(key, q) {
+    let seen = this.evSeq.get(key);
+    if (!seen) this.evSeq.set(key, (seen = new Set()));
+    if (seen.has(q)) return false;
+    seen.add(q);
+    // ein Set zählt in Einfügereihenfolge: die älteste Nummer fliegt raus
+    if (seen.size > 64) seen.delete(seen.values().next().value);
+    return true;
   }
 
   _onEvent(ev, from) {
@@ -748,6 +775,7 @@ export class TeamMatch extends Duel {
     e.left = false;
     this.peerKey.set(peer, e.key);
     this.lastSeq.delete(e.key);
+    this.evSeq.delete(e.key);
     this.awayKeys.delete(e.key);
     this.awayT.set(e.key, 0);
     const r = this.remoteOf(e.key);
@@ -761,6 +789,7 @@ export class TeamMatch extends Duel {
       for (const x of this.roster.values()) {
         if (!x.bot) continue;
         this.lastSeq.delete(x.key);
+        this.evSeq.delete(x.key);
         const rb = this.remoteOf(x.key);
         if (rb) {
           rb.peer = peer;
