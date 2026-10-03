@@ -22,8 +22,10 @@ import { MAP, MAPS, setMap } from './world/map.js';
 import { TEAM_NAMES, otherTeam } from './game/sides.js';
 import { zaehleAufruf } from './net/zaehler.js';
 import { geld, locale, setSprache, sprache, starteUebersetzung, t } from './i18n.js';
+import { starteFehleranzeige, zeigeFehler, zeigeGrafikAusfall } from './ui/fehler.js';
 
 starteUebersetzung();
+starteFehleranzeige();
 zaehleAufruf();
 
 const $ = (id) => document.getElementById(id);
@@ -74,19 +76,34 @@ async function boot() {
   const game = new Game({ renderer, physics, assets, input, audio, settings });
   text.textContent = 'Bereite Grafik vor …';
   await nextFrame();
-  await game.warmup();
+  // meldet ein Grafiktreiber nie "fertig übersetzt", nach 10 s trotzdem weiter (dann ruckelt höchstens
+  // das erste Bild)
+  await Promise.race([game.warmup(), new Promise((r) => setTimeout(r, 10000))]);
   window.addEventListener('resize', () => game.onResize());
+  // Grafik vom Gerät zurückgesetzt (Treiberproblem, zu wenig Speicher): Three.js baut sie wieder auf,
+  // wenn sie zurückkommt; bis dahin steht das Bild, also Bescheid sagen
+  renderer.canvas.addEventListener('webglcontextlost', () => zeigeGrafikAusfall(true));
+  renderer.canvas.addEventListener('webglcontextrestored', () => {
+    renderer.needsShadowBake = !!renderer.quality?.staticShadows;
+    zeigeGrafikAusfall(false);
+  });
 
   const { lobby, touch, konto } = setupMenus(game, input, audio);
 
   let last = performance.now();
   const loop = (now) => {
+    // das nächste Bild zuerst anfordern: Sonst hielte ein einziger Fehler das ganze Spiel an (das Bild
+    // stünde, nichts reagierte mehr), und niemand sähe, warum
+    requestAnimationFrame(loop);
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
-    // now: Zeitstempel des Bilds vom Browser, passt genau zu dt (Zeitstempel fürs Netz)
-    game.frame(dt, now);
-    touch.update();
-    requestAnimationFrame(loop);
+    try {
+      // now: Zeitstempel des Bilds vom Browser, passt genau zu dt (Zeitstempel fürs Netz)
+      game.frame(dt, now);
+      touch.update();
+    } catch (err) {
+      zeigeFehler(err);
+    }
   };
   requestAnimationFrame(loop);
 

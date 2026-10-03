@@ -71,10 +71,13 @@ export class Renderer {
     // Achtung: Die Leinwand kann dabei schon angezeigt werden, während noch gezeichnet wird.
     // Deshalb nie mehrere Durchgänge direkt ins Bild, sondern immer über den Composer,
     // der das fertige Bild am Ende in einem Zug ausgibt (sonst flackert es).
+    // Auf Handys und Tablets nicht: Mit dem Finger bringt es kaum etwas, und der Sonderweg ist dort
+    // weniger erprobt (Verdacht, als das Spiel auf Finns Handy einfror, 03.10.2026).
+    const touchFirst = matchMedia('(hover: none) and (pointer: coarse)').matches;
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('webgl2', {
       alpha: false, antialias: false, depth: true, stencil: false,
-      powerPreference: 'high-performance', desynchronized: true,
+      powerPreference: 'high-performance', desynchronized: !touchFirst,
     });
     this.renderer = new THREE.WebGLRenderer({ canvas, context, antialias: false, powerPreference: 'high-performance', stencil: false });
     const r = this.renderer;

@@ -109,6 +109,15 @@ kbd { display: inline-block; min-width: 1.6em; padding: 0 0.35em; border: 1px so
 #name-tags .tag { position: absolute; left: 0; top: 0; font-size: 14px; font-weight: 700; white-space: nowrap; text-shadow: 0 1px 2px #000, 0 0 4px #000; will-change: transform; }
 #name-tags .tag.t-rot { color: #ffb09c; }
 #name-tags .tag.t-blau { color: #a9c8ff; }
+/* Markierungen der Mitspieler: Punkt mit Puls, darunter Name (oder "Gegner") und Entfernung */
+#pings { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+#pings .ping { position: absolute; left: 0; top: 0; width: 160px; margin: -8px 0 0 -80px; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 14px; font-weight: 700; color: var(--accent); --pc: 242, 179, 61; will-change: transform; }
+#pings .ping i { width: 14px; height: 14px; border-radius: 50%; background: rgb(var(--pc)); box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.5); }
+#pings .ping.pulse i { animation: pingPulse 0.9s ease-out 3; }
+#pings .ping span { background: var(--panel); padding: 1px 8px; border-radius: 4px; white-space: nowrap; text-shadow: 0 1px 2px #000; }
+#pings .ping.foe { color: #ff9a8a; --pc: 255, 80, 60; }
+#pings .ping.foe i { border-radius: 2px; transform: rotate(45deg); }
+@keyframes pingPulse { from { box-shadow: 0 0 0 0 rgba(var(--pc), 0.85), 0 0 0 2px rgba(0, 0, 0, 0.5); } to { box-shadow: 0 0 0 16px rgba(var(--pc), 0), 0 0 0 2px rgba(0, 0, 0, 0.5); } }
 #net-status { position: absolute; left: 22px; top: 106px; font-size: 14px; font-weight: 600; color: var(--money); background: var(--panel); padding: 2px 10px; border-radius: 5px; }
 #net-status.server { color: var(--accent); }
 #net-status.bad { color: var(--danger); }
@@ -471,6 +480,7 @@ body.touch { touch-action: none; -webkit-touch-callout: none; -webkit-user-selec
 .t-chat { left: 14px; top: 148px; width: 42px; height: 42px; }
 .t-pause { right: 10px; top: 8px; width: 42px; height: 42px; }
 .t-scores { right: 60px; top: 8px; width: 42px; height: 42px; }
+.t-ping { right: 110px; top: 8px; width: 42px; height: 42px; }
 #t-slots { position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%); display: flex; gap: 6px; }
 #t-slots button { display: flex; flex-direction: column; align-items: center; min-width: 64px; padding: 3px 8px 4px; border-radius: 7px; border: 1px solid rgba(255, 255, 255, 0.22); background: rgba(12, 14, 17, 0.5); color: var(--text); font: 700 14px var(--font); line-height: 1.1; touch-action: none; }
 #t-slots button small { font-size: 10px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
@@ -479,6 +489,14 @@ body.touch { touch-action: none; -webkit-touch-callout: none; -webkit-user-selec
 #rotate-hint b { font-size: 26px; }
 #rotate-hint span { color: var(--muted); font-size: 16px; }
 #rotate-hint .phone { width: 44px; height: 72px; border: 3px solid var(--text); border-radius: 8px; animation: turn 1.6s ease-in-out infinite; }
+/* Fehleranzeige: oben in der Mitte, über allem außer dem Notizblock */
+#fehler { position: fixed; left: 50%; top: 12px; transform: translateX(-50%); z-index: 90; width: min(560px, calc(100vw - 24px)); box-sizing: border-box; display: flex; flex-direction: column; gap: 6px; padding: 12px 16px; border-radius: 9px; background: var(--panel-strong); box-shadow: inset 0 0 0 2px var(--danger), 0 6px 24px rgba(0,0,0,0.5); font-size: 15px; }
+#fehler b { color: var(--danger); font-size: 18px; }
+#fehler code { font: 600 13px/1.35 Consolas, 'Courier New', monospace; color: var(--text); overflow-wrap: anywhere; user-select: text; }
+#fehler small { color: var(--muted); font-size: 14px; }
+.fehler-knoepfe { display: flex; gap: 8px; margin-top: 2px; }
+.fehler-knoepfe button { font: 700 16px var(--font); padding: 6px 14px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); color: var(--text); cursor: pointer; }
+.fehler-knoepfe button:first-child { background: var(--accent); color: #1a1407; border-color: var(--accent); }
 @keyframes turn { 0%, 30% { transform: rotate(0deg); } 60%, 100% { transform: rotate(-90deg); } }
 .touch-help { max-width: 600px; text-align: center; }
 .touch-help h3 { margin: 0 0 4px; font-size: 20px; color: var(--accent); }

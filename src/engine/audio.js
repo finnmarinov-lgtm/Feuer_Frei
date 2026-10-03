@@ -478,6 +478,21 @@ export class Audio {
         this._tone(o, t + 0.07, { type: 'sine', freq: 1397, gain: 0.6, decay: 0.12 });
         break;
       }
+      // Markierung eines Mitspielers: helles Klingen nach oben; Gegner: zweimal kurz und drängender
+      case 'ping': {
+        const o = this._out(null, 0.22 * vol, 0.05);
+        this._tone(o, t, { type: 'triangle', freq: 1568, gain: 0.7, decay: 0.08 });
+        this._tone(o, t + 0.06, { type: 'triangle', freq: 2093, gain: 0.6, decay: 0.18 });
+        break;
+      }
+      case 'pingFoe': {
+        const o = this._out(null, 0.22 * vol, 0.05);
+        for (const d of [0, 0.11]) {
+          this._tone(o, t + d, { type: 'square', freq: 1319, gain: 0.3, decay: 0.07 });
+          this._tone(o, t + d, { type: 'sine', freq: 2637, gain: 0.25, decay: 0.08 });
+        }
+        break;
+      }
       // Treffer auf einen Gegner mit Spawn-Schutz: heller, abprallender Klang
       case 'shield': {
         const o = this._out(null, 0.3 * vol, 0.1);

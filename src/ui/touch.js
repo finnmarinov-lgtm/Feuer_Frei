@@ -36,7 +36,7 @@ export class TouchControls {
 
     this.el = {
       move: $('t-move'), look: $('t-look'), base: $('t-stick'), knob: $('t-knob'),
-      use: $('t-use'), special: $('t-special'), buy: $('t-buy'), chat: $('t-chat'),
+      use: $('t-use'), special: $('t-special'), buy: $('t-buy'), chat: $('t-chat'), ping: $('t-ping'),
       crouch: $('t-crouch'), slots: $('t-slots'), rotate: $('rotate-hint'),
     };
     this._bind();
@@ -276,6 +276,8 @@ export class TouchControls {
     }
     this._toggle(this.el.buy, m.canBuy);
     this._toggle(this.el.chat, g.mode === 'duel');
+    // Markieren gibt es nur im Team-Spiel (Stelle in der Bildmitte, wie mit der Taste)
+    this._toggle(this.el.ping, !!m.teamMode && !m.spectator);
     // Luftschlag: Ring füllt sich mit der Abschussserie
     const k = Math.min(1, (m.special || 0) / SPECIAL.streak);
     const sp = this.el.special;

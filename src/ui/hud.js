@@ -6,7 +6,7 @@ import { FINISHES } from '../weapons/finishes.js';
 import { MAP } from '../world/map.js';
 import { TEAM_NAMES, otherTeam } from '../game/sides.js';
 import { Radar } from './radar.js';
-import { geld } from '../i18n.js';
+import { geld, t } from '../i18n.js';
 
 const TARGET_NAME = Object.fromEntries(LOCKER.map((l) => [l.id, l.name]));
 const skinName = (t) => `${TARGET_NAME[t.reward[0]]} · ${FINISHES[t.reward[1]].name}`;
@@ -44,6 +44,9 @@ const fmtTime = (s) => {
 const SLOT_LABEL = { primary: '1', secondary: '2', knife: '3', util1: '4', util2: '5' };
 
 const _p = new THREE.Vector3();
+// so lange (Sekunden) steht eine Markierung; ein Gegner ist schneller woanders
+const PING_TIME = 6;
+const PING_FOE_TIME = 4;
 
 export class Hud {
   constructor(game) {
@@ -65,10 +68,11 @@ export class Hud {
       special: $('special'), specialPips: $('special-pips'), specialHint: $('special-hint'),
       spectate: $('spectate'), specTag: $('spec-tag'), specWho: $('spec-who'), specHint: $('spec-hint'),
       specLeft: $('spec-left'), specInfo: $('spec-info'), killbars: $('killbars'),
-      tasks: $('tasks-hud'), toast: $('task-toast'), tags: $('name-tags'),
+      tasks: $('tasks-hud'), toast: $('task-toast'), tags: $('name-tags'), pings: $('pings'),
     };
-    // Team-Spiel: Namensschild pro Mitspieler (Kennung -> Element)
+    // Team-Spiel: Namensschild pro Mitspieler (Kennung -> Element), Markierungen pro Spieler
     this.tags = new Map();
+    this.pings = new Map();
     this.spectating = false;
     // Aufgaben: Fortschritt live mitzählen, neue Skins kurz einblenden
     this.recent = null;
@@ -297,6 +301,62 @@ export class Hud {
     this.toggleChat(false);
     this.el.tags.innerHTML = '';
     this.tags.clear();
+    this.el.pings.innerHTML = '';
+    this.pings.clear();
+  }
+
+  /**
+   * Markierung eines Mitspielers (oder die eigene): Zeichen an der Stelle, auch durch Wände, mit
+   * Entfernung, dazu eine Zeile im Verlauf. Pro Spieler eine, eine neue ersetzt die alte.
+   */
+  ping(key, name, pos, foe, mine) {
+    let mk = this.pings.get(key);
+    if (!mk) {
+      const el = document.createElement('div');
+      el.className = 'ping';
+      // der Text ändert sich mit jedem Meter: schon übersetzt hineinschreiben (data-roh), Namen bleiben
+      el.dataset.roh = '';
+      el.innerHTML = '<i></i><span></span>';
+      this.el.pings.appendChild(el);
+      mk = { el, text: el.lastChild, pos: new THREE.Vector3() };
+      this.pings.set(key, mk);
+    }
+    mk.pos.copy(pos);
+    mk.foe = foe;
+    mk.t = foe ? PING_FOE_TIME : PING_TIME;
+    mk.label = foe ? t('Gegner') : mine ? t(name) : name;
+    mk.el.classList.toggle('foe', foe);
+    // Puls neu starten
+    mk.el.classList.remove('pulse');
+    void mk.el.offsetWidth;
+    mk.el.classList.add('pulse');
+    this.chatLine(name, foe ? 'Gegner gesichtet!' : 'Hier hin!', mine);
+  }
+
+  // Markierungen auf dem Bildschirm (am Rand, wenn sie außerhalb liegen), zum Schluss verblassend
+  _pings(dt, camera) {
+    const w = window.innerWidth, h = window.innerHeight;
+    for (const [key, mk] of this.pings) {
+      mk.t -= dt;
+      if (mk.t <= 0) {
+        mk.el.remove();
+        this.pings.delete(key);
+        continue;
+      }
+      const d = camera.position.distanceTo(mk.pos);
+      _p.copy(mk.pos).y += 0.25;
+      _p.project(camera);
+      // hinter der Kamera: an den unteren Rand, auf die richtige Seite
+      if (_p.z > 1) {
+        _p.x = -_p.x;
+        _p.y = -1;
+      }
+      const x = Math.min(w - 40, Math.max(40, (_p.x * 0.5 + 0.5) * w));
+      const y = Math.min(h - 70, Math.max(50, (-_p.y * 0.5 + 0.5) * h));
+      this._set(mk.el.style, 'transform', `translate(${Math.round(x)}px, ${Math.round(y)}px)`);
+      this._set(mk.el.style, 'opacity', String(Math.min(1, mk.t / 0.6)));
+      this._text(mk.text, `${mk.label} · ${Math.round(d)} m`);
+    }
   }
 
   setCrosshairColor(c) {
@@ -636,6 +696,7 @@ export class Hud {
     this._tasks(dt);
     if (m.duel) this._duel(m);
     this._nameTags(m, camera);
+    this._pings(dt, camera);
     this.radar.update(dt);
     this._bomb(m, camera);
     this._special(m);

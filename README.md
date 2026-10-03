@@ -68,6 +68,12 @@ Alles wie im 1 gegen 1 (Geld, Kaufen, Leben pro Runde, Kill-Cam, Bombenmodus, Lu
 - **Runde gewonnen** hat das Team, das alle Gegner ausschaltet (jeder hat so viele Leben wie eingestellt). Läuft die Zeit ab, gewinnt das Team mit mehr Leben übrig, danach mit mehr Lebenspunkten.
 - **Bombenmodus:** In ungeraden Runden greift Rot an, in geraden Blau. Jeder Angreifer kann die Bombe legen, jeder Verteidiger sie entschärfen (Geld und Aufgabe bekommt, wer es getan hat). Liegt die Bombe, tickt sie weiter, auch wenn alle Angreifer draußen sind.
 - **Anzeige:** Oben stehen die Teams mit den Rundensiegen und darunter ein Punkt pro Spieler (voll = lebt). Über den Mitspielern schweben ihre Namen, auch durch Wände. `Tab` zeigt die Tabelle mit allen Spielern (Abschüsse, Tode, Ping).
+- **Markieren** (Mausrad drücken oder `V`, am Handy die Stecknadel): markiert die Stelle im Fadenkreuz für das eigene Team.
+  - Trifft der Strahl vor der Wand einen Gegner, heißt es „Gegner gesichtet!“ (rote Raute), sonst „Hier hin!“ (gelber Punkt).
+  - Die Mitspieler sehen das Zeichen auch durch Wände, mit Name und Entfernung: eine Stelle 6 s lang, einen Gegner 4 s. Liegt es außerhalb des Bilds, steht es am Rand.
+  - Dazu gibt es einen Ton, eine Zeile im Verlauf und einen pulsierenden Punkt auf dem Radar.
+  - Pro Spieler steht eine Markierung, höchstens alle 0,5 s eine neue.
+  - Die Markierung geht nur an Menschen im eigenen Team (Nachricht `pg`). Ältere Fassungen übergehen sie, deshalb blieb die Protokollnummer gleich.
 - **Nach dem Tod:** Erst die Kill-Cam aus Sicht des Schützen (auch wenn es ein KI-Spieler war), danach schaut man den eigenen Mitspielern zu. `Leertaste` oder Klick wechselt zum nächsten Mitspieler und zurück zur Kill-Cam.
 - **Nach dem letzten Leben** (keine Leben mehr in dieser Runde) läuft die Kill-Cam nur noch 2 Sekunden (bis zum Abschuss und dem Fallen) und ist danach weg: Man schaut nur noch den Mitspielern zu, `Leertaste` oder Klick wechselt reihum zwischen ihnen. Wer sie überspringt, kommt auch nicht mehr zurück.
 - **KI-Spieler** spielen wie im Modus „Gegen KI“ (kaufen, hören Schritte, legen und entschärfen die Bombe, fordern Luftschläge an), nur mit mehreren Gegnern und Mitspielern. Sie laufen im Browser des Hosts mit.
@@ -206,6 +212,7 @@ Auf Handy und Tablet schaltet sich die Touch-Steuerung von selbst ein (in den Ei
 - **Waffenleiste unten:** Waffe antippen. **Kaufen** (oben links) in der Kaufzeit, **Sprechblase** für Schnellnachrichten, oben rechts Statistik und Pause.
 - **Flugzeug:** Luftschlag. Der Ring füllt sich mit der Abschussserie, der rote Knopf bestätigt das Ziel.
 - **Bombe legen / Entschärfen:** Der Knopf erscheint auf dem Bombenplatz bzw. an der Bombe und wird gehalten.
+- **Stecknadel** (oben rechts, nur im Team-Spiel): markiert die Stelle in der Bildmitte fürs Team.
 
 Beim Start geht das Spiel in den Vollbildmodus und sperrt das Querformat, soweit der Browser das erlaubt (Android ja, iPhone nicht). Wechselt man die App, pausiert das Spiel.
 
@@ -223,6 +230,12 @@ Technik:
   - Benutzt wird die Spur erst, wenn über sie etwas angekommen ist (Anklopfen mit `fp`). Hat die Gegenseite sie nicht (etwa weil das Anlegen scheiterte), geht alles wie bisher über den sicheren Kanal.
   - Weil ein Zustand ohne Ereignisse einen mit Ereignissen überholen kann, zählt im Team-Spiel ein überholter Zustand nicht mehr als Position, seine Ereignisse aber genau einmal (`_firstEvents`).
   - Getestet mit 30 % absichtlich verworfenen Paketen: Der Gegner lief in jedem Bild weiter. Treffer und andere Ereignisse zählten im 1 gegen 1 und im Team-Spiel mit KI genau einmal, auch wenn ein Zustand doppelt ankam.
+- **Fehler und Ausfälle:** Die Bild-Schleife fordert das nächste Bild an, bevor sie rechnet, und fängt Fehler ab.
+  - Vorher hielt ein einziger Fehler das ganze Spiel an (Bild steht, nichts reagiert). Das ist ein Verdacht, warum das Spiel am 03.10.2026 auf Finns Handy einfror, auf anderen Handys aber nicht (Ursache noch nicht bestätigt).
+  - Fehler aus den eigenen Dateien zeigt `src/ui/fehler.js` oben als Kasten (am Handy gibt es keine Konsole); ein Bildschirmfoto davon zeigt Datei und Zeile.
+  - Setzt das Gerät die Grafik zurück (WebGL-Kontext verloren), sagt der Kasten Bescheid. Kommt sie zurück, baut Three.js alles wieder auf, die festen Schatten werden neu gezeichnet.
+  - Auf Handys und Tablets läuft die Leinwand ohne `desynchronized` (weniger erprobter Sonderweg).
+  - Meldet ein Grafiktreiber nie, dass die Shader fertig sind, geht das Laden nach 10 s trotzdem weiter.
 - **Ping:** Herzschlag einmal pro Sekunde, angezeigt wird der Median der letzten 5 Messungen. Vorher war es ein gleitender Mittelwert, bei dem ein einzelner Hänger (etwa 550 ms beim Laden der Partie) die Zahl etwa 8 Sekunden zu hoch stehen ließ. Zwischen zwei Tabs auf einem Rechner misst das Spiel 1 bis 7 ms, es gibt also selbst kaum Verzögerung dazu.
 - **Treffer:** Der Schütze prüft den Treffer und meldet ihn, der Getroffene zieht sich die Lebenspunkte selbst ab (Weste und Helm zählen dabei). Granaten rechnet jeder für sich aus. Im Team-Spiel geht jede Treffermeldung an einen bestimmten Spieler (`to`), Treffer von Mitspielern werden ignoriert.
 - **Host:** bestimmt Rundenstart und Rundenende, Leben (im Team-Spiel pro Spieler) und Rundensiege, prüft Legen und Entschärfen und rechnet die KI-Spieler. Ihre Zustände schickt er gesammelt an die anderen.
@@ -260,6 +273,7 @@ Die Tabelle zeigt die Standardbelegung. **Eigene Tastenbelegung:** In den Einste
 | `F` | Waffe begutachten |
 | `Tab` | Statistik |
 | `T`, dann `1` – `6` | Schnellnachricht (im Mehrspieler) |
+| Mausrad drücken (`Maus 3`) oder `V` | Markieren fürs Team (Stelle oder Gegner im Fadenkreuz, im Team-Spiel) |
 | `E` halten | Bombe legen bzw. entschärfen (Bombenmodus) |
 | `X` | Luftschlag, nach 3 Abschüssen hintereinander |
 | `Esc` | Pause; in den Menüs zurück (wie der Zurück-Knopf, in der Auswertung zum Hauptmenü); schließt auch Kaufmenü und Schnellnachrichten |

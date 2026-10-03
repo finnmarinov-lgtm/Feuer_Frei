@@ -25,6 +25,7 @@ export const ACTIONS = [
   { id: 'inspect', label: 'Waffe begutachten', keys: ['KeyF'] },
   { id: 'scores', label: 'Statistik (halten)', keys: ['Tab'] },
   { id: 'chat', label: 'Schnellnachrichten öffnen (1 gegen 1)', keys: ['KeyT'] },
+  { id: 'ping', label: 'Markieren fürs Team (Stelle oder Gegner im Fadenkreuz)', keys: ['Mouse3', 'KeyV'] },
   { id: 'slot6', label: '6. Schnellnachricht (bei offener Liste)', keys: ['Digit6'] },
 ];
 
@@ -195,9 +196,12 @@ export class Input {
   /** Belegung setzen (Aktion -> bis zu zwei Tasten); fehlende Aktionen bekommen ihre Standardtasten */
   setKeys(keys) {
     this.keys = {};
+    // neue Aktion (gespeicherte Belegung kennt sie noch nicht): ihre Standardtasten nur, wenn sie frei sind
+    const used = new Set();
+    for (const a of ACTIONS) if (Array.isArray(keys?.[a.id])) for (const c of keys[a.id]) used.add(c);
     for (const a of ACTIONS) {
       const k = keys?.[a.id];
-      this.keys[a.id] = Array.isArray(k) ? k.filter((c) => typeof c === 'string').slice(0, 2) : [...a.keys];
+      this.keys[a.id] = Array.isArray(k) ? k.filter((c) => typeof c === 'string').slice(0, 2) : a.keys.filter((c) => !used.has(c));
     }
     this.bindings = {};
     for (const [action, codes] of Object.entries(this.keys)) for (const c of codes) this.bindings[c] = action;

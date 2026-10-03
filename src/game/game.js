@@ -24,6 +24,9 @@ import { AutoScale } from '../engine/renderer.js';
 
 const DEG = Math.PI / 180;
 const MAX_TICKS = 10;
+// Markieren: so weit reicht der Strahl, so oft darf man (Sekunden)
+const PING_RANGE = 150;
+const PING_EVERY = 0.5;
 const _eye = new THREE.Vector3();
 const _fwd = new THREE.Vector3();
 
@@ -585,6 +588,7 @@ export class Game {
         else this.openBuyMenu();
       }
       this._quickChat(input);
+      this._ping(input);
       this._special(input);
       if (duel) this.killcam.handleInput(input);
       this.hud.showStats(input.isDown('scores'));
@@ -719,6 +723,38 @@ export class Game {
       hud.toggleChat(false);
       break;
     }
+  }
+
+  /**
+   * Markieren fürs Team: die Stelle im Fadenkreuz, oder "Gegner gesichtet", wenn der Strahl vor der
+   * Wand einen Gegner trifft. Die Mitspieler sehen das Zeichen ein paar Sekunden lang (hud.ping).
+   */
+  _ping(input) {
+    if (!input.consume('ping')) return;
+    const m = this.match;
+    if (m.spectator) return;
+    if (!m.teamMode) {
+      this.hud.message('Markieren', 'Geht im Team-Spiel', 1.5);
+      return;
+    }
+    const now = performance.now() / 1000;
+    if (!this.player.alive || now - (this.pingAt || 0) < PING_EVERY) return;
+    this.camera.getWorldPosition(_eye);
+    this.camera.getWorldDirection(_fwd);
+    const world = this.physics.raycast(_eye, _fwd, PING_RANGE);
+    let dist = world ? world.distance : PING_RANGE;
+    let foe = null;
+    for (const r of this.foes) {
+      const h = r.raycast(_eye, _fwd, dist);
+      if (h) {
+        dist = h.distance;
+        foe = h;
+      }
+    }
+    // in den Himmel gezeigt: nichts zu markieren
+    if (!world && !foe) return;
+    this.pingAt = now;
+    m.sendPing(foe ? foe.point : _eye.clone().addScaledVector(_fwd, dist), foe ? 'gegner' : 'ort');
   }
 
   /**

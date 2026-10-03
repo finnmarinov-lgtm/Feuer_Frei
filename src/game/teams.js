@@ -9,6 +9,7 @@ import { SIDE, TEAM_IDS, TEAM_NAMES, otherTeam, slotSpawn, teamAttacker } from '
 import { Squad } from '../ai/squad.js';
 import { cleanName } from '../names.js';
 
+const pack = (v) => [Math.round(v.x * 100), Math.round(v.y * 100), Math.round(v.z * 100)];
 const unpack = (a, out = new THREE.Vector3()) => out.set(a[0] / 100, a[1] / 100, a[2] / 100);
 // so lange (s) darf ein Mitspieler ohne Verbindung sein, dann zählt er in der Runde als ausgeschieden
 const AWAY_OUT = 20;
@@ -61,6 +62,8 @@ export class TeamMatch extends Duel {
     this.lastSeq = new Map();
     // pro Spieler die Nummern der letzten Zustände mit Ereignissen (die zählen genau einmal)
     this.evSeq = new Map();
+    // Markierungen: wann zuletzt von wem (gegen Dauerfeuer)
+    this.pingFrom = new Map();
     this.awayT = new Map();
     this.awayKeys = new Set();
     this.goneT = { rot: 0, blau: 0 };
@@ -443,6 +446,31 @@ export class TeamMatch extends Duel {
     this.squad?.receive({ t: 'chat', i }, this.me);
   }
 
+  /**
+   * Markierung (game._ping): Stelle oder Gegner, an die Menschen im eigenen Team. Selbst sieht man sie
+   * auch. Ältere Fassungen des Spiels kennen 'pg' nicht und übergehen es.
+   */
+  sendPing(pos, kind) {
+    const msg = { t: 'pg', p: pack(pos), k: kind };
+    const to = [];
+    for (const e of this.roster.values()) {
+      if (!e.bot && !e.left && e.key !== this.me && e.team === this.team && e.peer) to.push(e.peer);
+    }
+    if (to.length) this.net.send(msg, to);
+    this._onPing(msg, this.me);
+  }
+
+  _onPing(msg, key) {
+    const p = msg.p;
+    if (!Array.isArray(p) || p.length !== 3 || !p.every((v) => Number.isFinite(v) && Math.abs(v) < 100000)) return;
+    const now = performance.now();
+    if (key !== this.me && now - (this.pingFrom.get(key) || 0) < 300) return;
+    this.pingFrom.set(key, now);
+    const foe = msg.k === 'gegner';
+    this.g.hud.ping(key, this.name(key), unpack(p), foe, key === this.me);
+    this.g.audio.play(foe ? 'pingFoe' : 'ping');
+  }
+
   /** Schnellnachricht eines KI-Spielers (beim Host) */
   botChat(key, i) {
     this.net.send({ t: 'chat', i, b: key });
@@ -556,6 +584,10 @@ export class TeamMatch extends Duel {
         break;
       case 'chat':
         this._chatFrom(msg.b && key === this.hostKey ? msg.b : key, msg.i);
+        break;
+      case 'pg':
+        // Markierung: nur von Mitspielern im eigenen Team
+        if (!this.spectator && this.teamOf(key) === this.team) this._onPing(msg, key);
         break;
       default:
         break;

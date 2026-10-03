@@ -149,8 +149,8 @@ const EN = {
   'bricht ab. Mit': 'cancels. With',
   'kommt eine zweite Taste dazu.': 'you add a second key.',
   'Auf dem Handy': 'On a phone',
-  'Linker Daumen: Stick zum Laufen (ganz nach vorne schieben = Sprinten). Rechter Daumen: wischen zum Umsehen. Roter Knopf: schießen, beim Halten weiter wischen und zielen. Kreis-Knopf: Zielen an/aus. Pfeile: springen und ducken. Unten tippst du die Waffe an. Flugzeug: Luftschlag, wenn der Ring voll ist.':
-    'Left thumb: stick to move (push it all the way forward to sprint). Right thumb: swipe to look around. Red button: shoot, keep swiping while holding to aim. Circle button: aiming on/off. Arrows: jump and crouch. Tap a weapon at the bottom. Plane: air strike once the ring is full.',
+  'Linker Daumen: Stick zum Laufen (ganz nach vorne schieben = Sprinten). Rechter Daumen: wischen zum Umsehen. Roter Knopf: schießen, beim Halten weiter wischen und zielen. Kreis-Knopf: Zielen an/aus. Pfeile: springen und ducken. Unten tippst du die Waffe an. Flugzeug: Luftschlag, wenn der Ring voll ist. Stecknadel oben rechts: die Stelle in der Bildmitte fürs Team markieren (Team-Spiel).':
+    'Left thumb: stick to move (push it all the way forward to sprint). Right thumb: swipe to look around. Red button: shoot, keep swiping while holding to aim. Circle button: aiming on/off. Arrows: jump and crouch. Tap a weapon at the bottom. Plane: air strike once the ring is full. Pin at the top right: mark the spot in the middle of the screen for your team (team match).',
   'Tipp wie in CS: Im Stehen treffen die Waffen am besten. Kurz vor dem Schuss stoppen, und bei langen Salven die Maus nach unten ziehen.':
     'Tip, same as in CS: weapons are most accurate standing still. Stop just before you shoot, and pull the mouse down during long bursts.',
   'Standard wiederherstellen': 'Reset to default',
@@ -639,6 +639,22 @@ const EN = {
   'Datenschutz': 'Privacy',
   'Nutzungsbedingungen': 'Terms of use',
   'Mit dem Anlegen eines Kontos stimmst du den Nutzungsbedingungen zu.': 'By creating an account you agree to the terms of use.',
+
+  // Markieren fürs Team
+  'Markieren fürs Team (Stelle oder Gegner im Fadenkreuz)': 'Mark for your team (spot or opponent in the crosshair)',
+  'Markieren': 'Mark',
+  'Geht im Team-Spiel': 'Works in team matches',
+  'Gegner gesichtet!': 'Opponent spotted!',
+  'Hier hin!': 'Over here!',
+
+  // Fehleranzeige
+  'Da ist etwas schiefgelaufen': 'Something went wrong',
+  'Ein Bildschirmfoto hiervon hilft beim Beheben.': 'A screenshot of this helps to fix it.',
+  'Die Grafik ist ausgefallen': 'The graphics stopped working',
+  'Das Gerät hat den Grafikchip zurückgesetzt. Gleich geht es weiter …': 'The device reset its graphics chip. It will continue in a moment …',
+  'Sie kommt nicht von selbst zurück. Bitte die Seite neu laden.': 'It is not coming back on its own. Please reload the page.',
+  'Neu laden': 'Reload',
+  'Schließen': 'Close',
 };
 
 // Trennzeichen, über die ein Platzhalter nur greifen darf, wenn die Vorlage sie selbst enthält

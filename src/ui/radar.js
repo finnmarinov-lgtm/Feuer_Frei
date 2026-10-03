@@ -189,6 +189,7 @@ export class Radar {
       this._zones(c, m);
       this._bomb(c, m);
       this._players(c, m);
+      this._pings(c);
     } else {
       // Training: die stehenden Ziele
       c.fillStyle = '#ff9a3d';
@@ -257,6 +258,24 @@ export class Radar {
       const x = now ? f.root.position.x : s.x;
       const z = now ? f.root.position.z : s.z;
       this._dot(c, x, z, TEAM_COLOR[f.team], 'rgba(0, 0, 0, 0.8)', now ? 1 : Math.max(0.15, 1 - age / FADE));
+    }
+  }
+
+  // Markierungen der Mitspieler (hud.ping): Punkt mit Ring, der sich immer wieder ausbreitet
+  _pings(c) {
+    for (const mk of this.g.hud.pings.values()) {
+      const sx = this._sx(mk.pos.x), sy = this._sy(mk.pos.z);
+      const color = mk.foe ? '255, 80, 60' : '242, 179, 61';
+      const k = (this.time * 1.4) % 1;
+      c.beginPath();
+      c.arc(sx, sy, 3 + k * 9, 0, Math.PI * 2);
+      c.lineWidth = 1.5;
+      c.strokeStyle = `rgba(${color}, ${(1 - k).toFixed(2)})`;
+      c.stroke();
+      c.beginPath();
+      c.arc(sx, sy, 3, 0, Math.PI * 2);
+      c.fillStyle = `rgb(${color})`;
+      c.fill();
     }
   }
 
