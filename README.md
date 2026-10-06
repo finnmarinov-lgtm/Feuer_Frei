@@ -2,7 +2,7 @@
 
 3D-Shooter im Browser im Stil von CS: Hauptwaffe, Pistole, Messer und zwei Extra-Slots für Granaten, dazu ein Kaufmenü mit Budget zu Beginn jeder Runde. Gebaut mit Three.js, Physik mit Rapier.
 
-**Spielen:** https://finnmarinov-lgtm.github.io/Feuer_Frei/ · auch auf itch.io: https://fm323.itch.io/feuer-frei
+**Spielen:** https://feuerfrei.fmcode.de/ (Übersicht aller Spiele: https://fmcode.de/) · auch auf itch.io: https://fm323.itch.io/feuer-frei
 
 Drei Spielarten:
 
@@ -466,7 +466,7 @@ select quelle, sum(anzahl) as aufrufe from aufrufe group by quelle order by aufr
 
 ## Veröffentlichen (GitHub Pages)
 
-Repository: `Feuer_Frei` von `finnmarinov-lgtm`, spielbar unter https://finnmarinov-lgtm.github.io/Feuer_Frei/
+Repository: `Feuer_Frei` von `finnmarinov-lgtm`, spielbar unter https://feuerfrei.fmcode.de/
 
 Zweiter Ort: die itch.io-Seite https://fm323.itch.io/feuer-frei mit demselben Build zum Mitspielen. Sie wird nicht automatisch aktualisiert – nach größeren Änderungen dort ein neues Zip aus `dist` hochladen. Wichtig: Das Zip nicht mit `Compress-Archive` packen (schreibt Backslashes in die Pfade, itch entpackt es dann falsch und das Spiel bleibt im Ladebildschirm hängen), sondern zum Beispiel mit Python `zipfile` und Schrägstrichen.
 
