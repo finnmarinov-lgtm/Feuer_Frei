@@ -32,6 +32,9 @@ export const ACTIONS = [
 // Tasten, mit denen der Browser zusammen mit Strg zoomt (deutsche Tastatur: + ist BracketRight, - ist Slash)
 const ZOOM_KEYS = new Set(['Equal', 'Minus', 'BracketRight', 'Slash', 'Digit0', 'NumpadAdd', 'NumpadSubtract', 'Numpad0']);
 
+// Felder, in die man tippt (Notizblock, Name, Lobby-Code, Konto): dort gehören die Tasten dem Text
+const TEXT_FIELD = 'textarea, input:not([type]), input[type=text], input[type=password]';
+
 // Maustasten, die man belegen kann (0 = links und 2 = rechts sind Schießen und Zielen)
 const MOUSE_CODES = { 1: 'Mouse3', 3: 'Mouse4', 4: 'Mouse5' };
 
@@ -174,6 +177,12 @@ export class Input {
     if (e.code === 'Escape' && isDown) {
       // gehalten zählt nur einmal (sonst ginge es gleich durch mehrere Menüs zurück)
       if (!e.repeat) this.onEscape?.();
+      return;
+    }
+    // beim Tippen (Notizblock mitten in der Partie) die belegten Tasten weder schlucken noch als Aktion
+    // werten: sonst fehlen Leertaste, W, A, S, D … im Text, und ein getipptes B öffnet danach das Kaufmenü
+    if (e.target?.matches?.(TEXT_FIELD)) {
+      if (!isDown) this._press(e.code, false);
       return;
     }
     if (this.bindings[e.code] && this.enabled) e.preventDefault();
