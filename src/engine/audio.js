@@ -14,14 +14,17 @@ export class Audio {
   constructor() {
     this.ctx = null;
     this.volume = 0.7;
+    this.muted = false;
   }
 
   init() {
     if (this.ctx) {
-      if (this.ctx.state === 'suspended') this.ctx.resume();
+      // stumm geschaltet (Notizblock offen, dahinter startet die Partie): stumm bleiben
+      if (this.ctx.state === 'suspended' && !this.muted) this.ctx.resume();
       return;
     }
     const ctx = (this.ctx = new AudioContext());
+    if (this.muted) ctx.suspend();
     this.master = ctx.createGain();
     this.master.gain.value = this.volume;
     const comp = ctx.createDynamicsCompressor();
@@ -51,6 +54,7 @@ export class Audio {
 
   /** Sofort stumm (z. B. für den Notizblock) und wieder an */
   mute(on) {
+    this.muted = on;
     if (!this.ctx) return;
     if (on) this.ctx.suspend();
     else this.ctx.resume();

@@ -695,7 +695,6 @@ function setupMenus(game, input, audio) {
 
   // ---------- Notizblock-Taste ----------
   let notesOpen = false;
-  let screenBeforeNotes = null;
   const NOTES_KEY = 'feuer-frei-notizen';
   const bossBtn = $('set-bosskey');
 
@@ -776,12 +775,10 @@ function setupMenus(game, input, audio) {
   function toggleNotes() {
     if (!notesOpen) {
       notesOpen = true;
-      screenBeforeNotes = SCREENS.find((s) => !$(s).hidden) || null;
-      if (game.state === 'playing') {
-        game.state = 'paused';
-        screenBeforeNotes = 'pause';
-        syncPauseTexts();
-      }
+      // läuft die Partie: gleich in die Pause (das Blatt liegt darüber). Die Bildschirme dahinter bleiben,
+      // wie sie sind: startet inzwischen die Partie aus der Lobby oder endet sie, stimmt beim Schließen,
+      // was dann zu sehen ist (ein gemerkter Bildschirm lag sonst als Hauptmenü über der laufenden Runde)
+      pause();
       game.buyMenu.hide();
       game.renderPaused = true;
       input.releaseAll();
@@ -805,7 +802,6 @@ function setupMenus(game, input, audio) {
       game.renderPaused = false;
       audio.mute(false);
       document.activeElement?.blur?.();
-      show(screenBeforeNotes || 'menu');
     }
   }
   input.bossKey = settings.bossKey;
