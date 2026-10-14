@@ -57,8 +57,15 @@ function gradientTexture(radial) {
   c.width = c.height = 64;
   const x = c.getContext('2d');
   const g = radial ? x.createRadialGradient(32, 32, 0, 32, 32, 32) : x.createLinearGradient(0, 64, 0, 0);
-  g.addColorStop(0, 'rgba(255,255,255,1)');
-  g.addColorStop(radial ? 0.35 : 0.15, 'rgba(255,255,255,0.55)');
+  if (radial) {
+    g.addColorStop(0, 'rgba(255,255,255,1)');
+    g.addColorStop(0.35, 'rgba(255,255,255,0.55)');
+  } else {
+    // Säule: unten weich einblenden (keine harte Kante über der Banane), nach oben auslaufen
+    g.addColorStop(0, 'rgba(255,255,255,0)');
+    g.addColorStop(0.1, 'rgba(255,255,255,1)');
+    g.addColorStop(0.3, 'rgba(255,255,255,0.5)');
+  }
   g.addColorStop(1, 'rgba(255,255,255,0)');
   x.fillStyle = g;
   x.fillRect(0, 0, 64, 64);
@@ -82,8 +89,8 @@ export class Banana {
       color: 0x8a5a14, metalness: 0.6, roughness: 0.5,
     }));
     // Stiel am oberen Ende des Bogens
-    stem.position.set(-0.24, 0.17, 0);
-    stem.rotation.z = 0.9;
+    stem.position.set(-0.24, 0.046, 0);
+    stem.rotation.z = 0.82;
     this.fruit.add(body, stem);
     this.fruit.scale.setScalar(1.25);
     this.root.add(this.fruit);
@@ -100,7 +107,8 @@ export class Banana {
       blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
     });
     this.beam = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.2, 14, 16, 1, true), beamMat);
-    this.beam.position.y = 7 - 0.9;
+    // die Säule beginnt über der Banane: aus der Nähe stünde sie sonst wie eine trübe Röhre davor
+    this.beam.position.y = 1.5 + 7;
     this.root.add(this.beam);
     this.root.traverse((o) => {
       o.castShadow = false;
@@ -139,8 +147,8 @@ export class Banana {
     this.fruit.rotation.z = Math.sin(t * 1.3) * 0.15;
     this.glow.position.y = this.fruit.position.y;
     const pulse = 0.5 + 0.5 * Math.sin(t * 4);
-    this.glow.material.opacity = 0.6 + 0.3 * pulse;
-    this.glow.scale.setScalar(1.15 + 0.25 * pulse);
+    this.glow.material.opacity = 0.45 + 0.25 * pulse;
+    this.glow.scale.setScalar(1.0 + 0.2 * pulse);
     this.beam.material.opacity = 0.3 + 0.15 * pulse;
   }
 
