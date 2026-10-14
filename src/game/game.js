@@ -12,6 +12,7 @@ import { TeamMatch } from './teams.js';
 import { RemotePlayer } from './remote.js';
 import { KillCam } from './killcam.js';
 import { Airstrikes } from './airstrike.js';
+import { Banana } from './banana.js';
 import { Player } from '../player/player.js';
 import { Viewmodel } from '../weapons/viewmodel.js';
 import { WeaponSystem } from '../weapons/weapons.js';
@@ -73,6 +74,8 @@ export class Game {
     this.grenades = new Grenades(this);
     this.bombSites = new BombSites(this.scene);
     this.airstrikes = new Airstrikes(this);
+    // goldene Banane: taucht selten mitten in einer Runde auf (gesteuert von duel.js)
+    this.banana = new Banana(this.scene);
     // Training oder 1 gegen 1: match ist die gerade laufende Partie
     this.mode = 'training';
     this.training = new Training(this);
@@ -148,6 +151,8 @@ export class Game {
     for (const t of Object.values(this.grenades.templates)) moved.push([t, extra]);
     const parents = moved.map(([o]) => o.parent);
     for (const [o, to] of moved) to.add(o);
+    const bananaShown = this.banana.root.visible;
+    this.banana.root.visible = true;
     this.scene.add(extra);
     const prev = r.getRenderTarget();
     r.setRenderTarget(this.renderer.composer.readBuffer);
@@ -155,6 +160,7 @@ export class Game {
     // die Objekte können also gleich wieder an ihren alten Platz
     const ready = Promise.all([r.compileAsync(this.scene, this.camera), r.compileAsync(this.viewScene, this.viewCamera)]);
     r.setRenderTarget(prev);
+    this.banana.root.visible = bananaShown;
     this.scene.remove(extra);
     moved.forEach(([o], i) => {
       if (parents[i]) parents[i].add(o);
@@ -225,6 +231,7 @@ export class Game {
     this.killcam.stop();
     this.grenades.clear();
     this.airstrikes.clear();
+    this.banana.hide();
     this.targets.clear();
     this.effects.clearMarks();
     this.arena.clear();
@@ -272,6 +279,7 @@ export class Game {
     this.viewmodel.looks = this.looks;
     this.grenades.clear();
     this.airstrikes.clear();
+    this.banana.hide();
     this.hud.reset();
     this.match.start();
     this.hud.onMoney(0);
@@ -304,6 +312,7 @@ export class Game {
     this.match = new Duel(this, net, opts);
     this.grenades.clear();
     this.airstrikes.clear();
+    this.banana.hide();
     this.targets.clear();
     this.hud.reset();
     this.hud.show(true);
@@ -351,6 +360,7 @@ export class Game {
     this.match = new TeamMatch(this, net, opts);
     this.grenades.clear();
     this.airstrikes.clear();
+    this.banana.hide();
     this.targets.clear();
     this.hud.reset();
     this.hud.show(true);
@@ -412,6 +422,7 @@ export class Game {
     this.hud.show(false);
     this.grenades.clear();
     this.airstrikes.clear();
+    this.banana.hide();
     this.bombSites.show(null);
     this.bombSites.remove();
     this.targets.clear();
@@ -639,6 +650,7 @@ export class Game {
     this._updateCamera(dt, alpha);
     this.grenades.update(dt);
     this.airstrikes.update(dt);
+    this.banana.update(dt);
     this.effects.update(dt);
 
     // Kill-Cam und Gegner-Sicht: seine Waffe in der Hand statt der eigenen

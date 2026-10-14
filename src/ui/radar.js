@@ -188,6 +188,7 @@ export class Radar {
       }
       this._zones(c, m);
       this._bomb(c, m);
+      this._banana(c, m);
       this._players(c, m);
       this._pings(c);
     } else {
@@ -235,6 +236,20 @@ export class Radar {
       c.strokeStyle = '#fff';
       c.stroke();
     }
+  }
+
+  // goldene Banane: pulsierender goldener Punkt, solange sie niemand hat
+  _banana(c, m) {
+    const bn = m.banana;
+    if (!bn || bn.by != null || !this.g.banana.shown) return;
+    const r = 3.5 + 1.5 * Math.sin(this.time * 6);
+    c.beginPath();
+    c.arc(this._sx(bn.pos.x), this._sy(bn.pos.z), r, 0, Math.PI * 2);
+    c.fillStyle = '#ffd23a';
+    c.fill();
+    c.lineWidth = 1.2;
+    c.strokeStyle = '#7a4d00';
+    c.stroke();
   }
 
   // Mitspieler (mit Blickrichtung) und entdeckte Gegner

@@ -1,10 +1,11 @@
 import * as THREE from 'three';
-import { ARMS, BOMB, DUEL, ECONOMY, KILLERS, KNIFE_SKINS, QUICK_CHAT, SLOT_KEYS, SPECIAL, TEAM_KNIFE, WEAPONS, WEAPON_IDS } from '../config.js';
+import { ARMS, BANANA, BOMB, DUEL, ECONOMY, KILLERS, KNIFE_SKINS, QUICK_CHAT, SLOT_KEYS, SPECIAL, TEAM_KNIFE, WEAPONS, WEAPON_IDS } from '../config.js';
 import { BOMB_SITES, MAPS, SPAWNS } from '../world/map.js';
 import { PROTOCOL } from '../net/net.js';
 import { session } from '../net/session.js';
 import { Match } from './match.js';
-import { cleanLooks, count } from './cosmetics.js';
+import { cleanLooks, count, isDone, taskFor } from './cosmetics.js';
+import { bananaNav, findBananaSpot } from './banana.js';
 import { FLAG } from './remote.js';
 import { cleanName } from '../names.js';
 
@@ -105,6 +106,10 @@ export class Duel extends Match {
     this.defuseT = 0;
     this.keyT = 0;
     this.remoteKeyT = 0;
+    // goldene Banane dieser Runde: null oder { id, pos, by (wer sie hat, sonst null) }
+    this.banana = null;
+    this.bananaT = 0;
+    this.bananaSent = false;
   }
 
   /** gegen einen Menschen übers Netz (sonst gegen die KI im eigenen Browser) */
@@ -256,6 +261,7 @@ export class Duel extends Match {
     // gelegte Bombe: Ort, Restzeit und Drehung
     const b = this.bomb;
     if (b && !b.done) msg.bm = [...pack(b.pos), Math.round(b.t * 100) / 100, Math.round(b.yaw * 100)];
+    this._bananaField(msg);
     return Object.assign(msg, patch);
   }
 
@@ -281,13 +287,17 @@ export class Duel extends Match {
     const lat = this.isHost ? 0 : Math.min(0.3, this.net.ping / 2000);
     this.timer = Math.max(0, msg.tm - lat);
     if (!changed || this.phase === 'over') {
-      if (!newRound && msg.ph === 'live') this._syncBomb(msg.bm, lat);
+      if (!newRound && msg.ph === 'live') {
+        this._syncBomb(msg.bm, lat);
+        this._syncBanana(msg.bn);
+      }
       return;
     }
     if (newRound) this._beginRound(msg.r);
     if (msg.ph === 'live') {
       this._goLive();
       this._syncBomb(msg.bm, lat);
+      this._syncBanana(msg.bn);
     } else if (msg.ph === 'end') this._roundOver(msg);
     else if (msg.ph === 'over') this._finish();
   }
@@ -329,6 +339,13 @@ export class Duel extends Match {
     this.plantT = this.defuseT = 0;
     g.bombSites.remove();
     g.bombSites.show(this.bombMode ? this.siteSide : null);
+    this.banana = null;
+    this.bananaSent = false;
+    this.bananaT = BANANA.every;
+    g.banana.hide();
+    // der Host braucht das Wegenetz, um eine Stelle für die Banane zu finden: jetzt bauen (in der
+    // Kaufzeit fällt das nicht auf), nicht erst, wenn sie mitten in der Runde auftaucht
+    if (this.isHost) bananaNav(g);
     if (this.bombMode) {
       g.hud.message(
         this.attacking ? `Runde ${r} · Du greifst an` : `Runde ${r} · Du verteidigst`,
@@ -479,6 +496,94 @@ export class Duel extends Match {
     }
   }
 
+  // ---------- Goldene Banane (Host würfelt und entscheidet, wer sie bekommt) ----------
+  /** Banane in die Rundenmeldung: Ort, Kennung und (falls schon eingesammelt) wer sie hat */
+  _bananaField(msg) {
+    const bn = this.banana;
+    if (!bn) return;
+    msg.bn = [...pack(bn.pos), bn.id];
+    if (bn.by != null) msg.bn.push(bn.by);
+  }
+
+  /** pro Schritt in der Runde: Host würfelt, jeder prüft, ob er sie berührt */
+  _tickBanana(dt) {
+    const g = this.g;
+    if (this.isHost && !this.banana) {
+      this.bananaT -= dt;
+      if (this.bananaT <= 0) {
+        this.bananaT = BANANA.every;
+        if (this.timer > BANANA.minLeft && Math.random() < BANANA.chance) this.spawnBanana();
+      }
+    }
+    const bn = this.banana;
+    if (!bn || bn.by != null || this.bananaSent || this.spectator) return;
+    if (!g.player.alive || !g.banana.touches(g.player.feet)) return;
+    if (this.isHost) {
+      this._hostBanana(bn.id, this.me);
+    } else {
+      // sofort wegnehmen, der Host bestätigt (oder meldet, dass jemand schneller war)
+      this.bananaSent = true;
+      g.banana.hide();
+      g.audio.play('banana');
+      this._queue({ t: 'ban', id: bn.id }, true);
+    }
+  }
+
+  /** Host: Banane jetzt auftauchen lassen (auch zum Ausprobieren von Hand) */
+  spawnBanana() {
+    if (!this.isHost || this.phase !== 'live' || this.banana) return false;
+    const pos = findBananaSpot(this.g);
+    if (!pos) return false;
+    this._hostPhase({ bn: [...pack(pos), 1 + Math.floor(Math.random() * 1e9)] });
+    return true;
+  }
+
+  _hostBanana(id, who) {
+    const bn = this.banana;
+    if (this.phase !== 'live' || !bn || bn.id !== id || bn.by != null) return;
+    this._hostPhase({ bn: [...pack(bn.pos), bn.id, who] });
+  }
+
+  /** Banane aus der Rundenmeldung übernehmen: neu aufgetaucht oder gerade eingesammelt */
+  _syncBanana(bn) {
+    if (!Array.isArray(bn)) return;
+    const g = this.g;
+    const id = bn[3];
+    const by = bn[4] ?? null;
+    if (!this.banana || this.banana.id !== id) {
+      this.banana = { id, pos: unpack(bn), by };
+      this.bananaSent = false;
+      // erst jetzt dazugekommen und schon weg: nichts mehr zeigen
+      if (by != null) return;
+      g.banana.show(this.banana.pos);
+      g.audio.play('bananaSpawn');
+      g.hud.message('Eine goldene Banane ist aufgetaucht!', 'Wer sie zuerst berührt, bekommt den goldenen Spieler-Skin', 3.5);
+      g.hud.notice('Eine goldene Banane ist aufgetaucht!');
+      return;
+    }
+    if (by == null || this.banana.by != null) return;
+    this.banana.by = by;
+    this._bananaTaken(by);
+  }
+
+  _bananaTaken(by) {
+    const g = this.g;
+    const mine = by === this.me;
+    if (g.banana.shown || mine) g.effects.goldBurst(_p.copy(this.banana.pos).setY(this.banana.pos.y + 0.95));
+    g.banana.hide();
+    if (mine) {
+      const had = isDone(taskFor('spieler', 'gold'));
+      count('banane');
+      if (!this.bananaSent) g.audio.play('banana');
+      g.hud.message('Goldene Banane!', had ? 'Den goldenen Spieler-Skin hast du schon' : 'Goldener Spieler-Skin freigeschaltet', 3.5);
+      g.hud.notice('Du hast die goldene Banane!');
+    } else {
+      const who = this.name(by);
+      g.hud.message(`${who} hat die goldene Banane!`, 'Sie taucht nur ganz selten auf', 2.5);
+      g.hud.notice(`${who} hat die goldene Banane!`);
+    }
+  }
+
   /** eigener Angriff (Schuss, Messer, Wurf) beendet den Spawn-Schutz sofort */
   onAttack() {
     this.protectT = 0;
@@ -488,6 +593,8 @@ export class Duel extends Match {
     const g = this.g;
     this.phase = 'end';
     this.plantT = this.defuseT = 0;
+    // eine nicht eingesammelte Banane verschwindet mit dem Rundenende
+    g.banana.hide();
     const draw = msg.win === 'draw';
     const won = msg.win === this.myTeam;
     if (msg.why === 'bomb') this._explodeBomb();
@@ -574,6 +681,7 @@ export class Duel extends Match {
       this.buyTimer -= dt;
       this._tickRespawn(dt);
       if (this.bombMode) this._tickBomb(dt);
+      this._tickBanana(dt);
       // liegt die Bombe, zählt nur noch ihre Zeit
       if (this.isHost && this.phase === 'live' && !this.bomb && this.timer <= 0) this._hostTimeUp();
     } else if (this.phase === 'end') {
@@ -878,6 +986,9 @@ export class Duel extends Match {
         break;
       case 'defused':
         if (this.isHost && this.bombMode && this.defender === this.them) this._hostDefuse(this.them);
+        break;
+      case 'ban':
+        if (this.isHost && g.remote.alive) this._hostBanana(ev.id, this.them);
         break;
       // Luftschlag des Gegners: gleicher Ablauf wie beim eigenen, Schaden rechnet jeder für sich
       case 'air':

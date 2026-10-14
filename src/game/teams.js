@@ -194,6 +194,7 @@ export class TeamMatch extends Duel {
     if (b && !b.done) {
       msg.bm = [Math.round(b.pos.x * 100), Math.round(b.pos.y * 100), Math.round(b.pos.z * 100), Math.round(b.t * 100) / 100, Math.round(b.yaw * 100)];
     }
+    this._bananaField(msg);
     return Object.assign(msg, patch);
   }
 
@@ -650,6 +651,10 @@ export class TeamMatch extends Duel {
         break;
       case 'defused':
         if (this.isHost && this.bombMode && this.teamOf(from) === this.defender) this._hostDefuse(from);
+        break;
+      // goldene Banane: wer zuerst meldet, bekommt sie (der Host entscheidet)
+      case 'ban':
+        if (this.isHost && this.isAlive(from)) this._hostBanana(ev.id, from);
         break;
       case 'air':
         g.airstrikes.start(unpack(ev.p), ev.s, (ev.y || 0) / 1000, from);

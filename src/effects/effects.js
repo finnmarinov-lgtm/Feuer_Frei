@@ -373,6 +373,16 @@ export class Effects {
     this.sparks.spawn(pos, _v, { color: [6, 6, 6], life: 0.12, size0: 2.5, size1: 4 });
   }
 
+  /** goldene Banane eingesammelt: goldene Funken nach allen Seiten und ein kurzer Schein */
+  goldBurst(pos) {
+    for (let i = 0; i < 40; i++) {
+      _v.set(Math.random() - 0.5, Math.random() * 0.9 - 0.2, Math.random() - 0.5).normalize().multiplyScalar(2 + Math.random() * 4);
+      this.sparks.spawn(pos, _v, { color: [4, 2.9, 0.8], life: 0.4 + Math.random() * 0.5, size0: 0.05, size1: 0.01, gravity: 5, drag: 1.6 });
+    }
+    _v.set(0, 0, 0);
+    this.sparks.spawn(pos, _v, { color: [4, 3, 1], life: 0.25, size0: 0.8, size1: 2.2 });
+  }
+
   /** scale: Größe der Explosion (1 = Splittergranate, Bombe und Luftschlag größer) */
   explosion(pos, ground, scale = 1) {
     this.boomLight.position.copy(pos).add(_v.set(0, 0.6 * scale, 0));

@@ -81,6 +81,16 @@ export const BOMB = {
   blastDamage: 400,
 };
 
+// Goldene Banane (Wunsch aus den YouTube-Kommentaren): In jeder Runde würfelt der Host alle every
+// Sekunden mit der Chance chance, ob sie auftaucht (höchstens eine pro Runde, nicht mehr kurz vor
+// Schluss). Wer sie zuerst berührt (Abstand reach), bekommt den goldenen Spieler-Skin.
+export const BANANA = {
+  chance: 1 / 350,
+  every: 5,
+  minLeft: 20,
+  reach: 1.1,
+};
+
 // Luftschlag als Abschussserie: nach streak Abschüssen hintereinander, ohne selbst zu sterben (auch
 // Klappziele im Training), gibt es einen Luftschlag (X): Ziel wählen, nach kurzer Warnung feuert ein
 // Jet mit der Bordkanone in den roten Kreis. In der Mitte tödlich, am Rand kaum noch Schaden.

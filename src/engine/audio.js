@@ -536,6 +536,21 @@ export class Audio {
         this._noise(o, t + 0.04, { type: 'bandpass', freq: 1900, q: 4, gain: 0.4, decay: 0.03 });
         break;
       }
+      // goldene Banane taucht auf: aufsteigendes Glitzern mit hellem Glockenton
+      case 'bananaSpawn': {
+        const o = this._out(null, 0.28 * vol, 0.35);
+        [784, 988, 1175, 1568, 1976].forEach((f, i) => this._tone(o, t + i * 0.07, { type: 'triangle', freq: f, gain: 0.6, decay: 0.35 }));
+        this._tone(o, t + 0.38, { type: 'sine', freq: 2637, gain: 0.5, attack: 0.01, decay: 1.1 });
+        break;
+      }
+      // goldene Banane eingesammelt: Münz-Klang, zwei Töne nach oben
+      case 'banana': {
+        const o = this._out(null, 0.32 * vol, 0.25);
+        this._tone(o, t, { type: 'square', freq: 988, gain: 0.35, decay: 0.08 });
+        this._tone(o, t + 0.08, { type: 'square', freq: 1319, gain: 0.35, decay: 0.5 });
+        this._tone(o, t + 0.08, { type: 'triangle', freq: 2637, gain: 0.3, decay: 0.6 });
+        break;
+      }
       case 'bombDefused': {
         const o = this._out(pos, 0.5 * vol, 0.3, 8);
         this._tone(o, t, { type: 'sine', freq: 1500, freqEnd: 260, gain: 0.6, attack: 0.01, decay: 0.7 });

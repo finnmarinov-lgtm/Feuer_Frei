@@ -35,12 +35,13 @@ export const LOCKER = [
   { id: 'luchs', name: 'Luchs', skins: ['nacht', 'chrom', 'neon'] },
   { id: 'adler', name: 'Adler', skins: ['arktis', 'kupfer', 'galaxie'] },
   { id: 'messer', name: 'Messer', skins: ['gold', 'galaxie', 'regenbogen'] },
-  { id: 'spieler', name: 'Spieler', skins: ['wueste', 'wald', 'nacht', 'arktis', 'gold', 'galaxie'] },
+  { id: 'spieler', name: 'Spieler', skins: ['wueste', 'wald', 'nacht', 'arktis', 'kupfer', 'galaxie', 'gold'] },
 ];
 const LOCKER_BY_ID = Object.fromEntries(LOCKER.map((l) => [l.id, l]));
 
 // Aufgaben: stat = Zähler, goal = Ziel, reward = [Waffe/'messer'/'spieler', Skin]
-// Zähler: kill:<waffe>, head:<waffe>, kill:luftschlag, plant, defuse, wins, win:<modus>, win:schwer, targets
+// Zähler: kill:<waffe>, head:<waffe>, kill:luftschlag, plant, defuse, wins, win:<modus>, win:schwer, targets,
+// banane (goldene Banane eingesammelt, siehe banana.js)
 const k = (w, goal, skin, name) => ({ id: `${w}-${skin}`, stat: `kill:${w}`, goal, reward: [w, skin], text: `${goal} Abschüsse mit ${name}` });
 const h = (w, goal, skin, name) => ({ id: `${w}-${skin}`, stat: `head:${w}`, goal, reward: [w, skin], text: `${goal} Kopfschüsse (Abschüsse) mit ${name}` });
 export const TASKS = [
@@ -59,8 +60,11 @@ export const TASKS = [
   { id: 'spieler-wald', stat: 'plant', goal: 5, reward: ['spieler', 'wald'], text: 'Lege 5 Bomben' },
   { id: 'spieler-nacht', stat: 'defuse', goal: 3, reward: ['spieler', 'nacht'], text: 'Entschärfe 3 Bomben' },
   { id: 'spieler-arktis', stat: 'targets', goal: 100, reward: ['spieler', 'arktis'], text: 'Lege im Training 100 Klappziele um' },
-  { id: 'spieler-gold', stat: 'kill:luftschlag', goal: 3, reward: ['spieler', 'gold'], text: 'Schalte 3 Gegner mit dem Luftschlag aus' },
+  { id: 'spieler-kupfer', stat: 'kill:luftschlag', goal: 3, reward: ['spieler', 'kupfer'], text: 'Schalte 3 Gegner mit dem Luftschlag aus' },
   { id: 'spieler-galaxie', stat: 'win:online', goal: 3, reward: ['spieler', 'galaxie'], text: 'Gewinne 3 Partien online gegen einen Freund' },
+  // Gold gibt es nur über die goldene Banane, die selten mitten in einer Runde auftaucht (bis
+  // 14.10.2026 gab es Gold für 3 Luftschlag-Abschüsse; wer es so bekommen hat, behält es)
+  { id: 'spieler-gold', stat: 'banane', goal: 1, reward: ['spieler', 'gold'], text: 'Schnapp dir die goldene Banane (taucht ganz selten mitten in einer Runde auf)' },
 ];
 const TASK_BY_REWARD = Object.fromEntries(TASKS.map((t) => [t.reward.join(':'), t]));
 
@@ -85,6 +89,9 @@ function load() {
       s.done.push('messer-regenbogen');
       s.stats['win:schwer'] = Math.max(1, s.stats['win:schwer'] || 0);
     }
+    // Aufgaben, deren Ziel der Zähler schon erreicht hat (neu dazugekommen oder umgestellt, z. B.
+    // Kupfer für 3 Luftschlag-Abschüsse): gleich als geschafft zählen
+    for (const t of TASKS) if (!s.done.includes(t.id) && (s.stats[t.stat] || 0) >= t.goal) s.done.push(t.id);
   } catch {
     // ohne Speicher gilt der Fortschritt nur bis zum Neuladen
   }

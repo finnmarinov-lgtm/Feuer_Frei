@@ -15,7 +15,7 @@ const APP_ID = 'feuer-frei-duell-v1';
 // 11: nach der Partie zurück in die Lobby, Zuschauer bei laufenden Partien, 12: Adler tötet nur mit
 // Kopftreffer sofort (den Schaden rechnet der Schütze aus), Weste 50 Punkte, 13: Verbindungsaufbau
 // über das eigene Supabase statt Nostr, ältere Fassungen fänden sich nur noch über den Server)
-export const PROTOCOL = 13;
+export const PROTOCOL = 14;
 export const SUPABASE_WS = 'wss://yzzipjtounvktdhhvrnt.supabase.co/realtime/v1';
 const SUPABASE_REST = 'https://yzzipjtounvktdhhvrnt.supabase.co/realtime/v1/api/broadcast';
 // "publishable" Schlüssel: darf öffentlich im Code stehen

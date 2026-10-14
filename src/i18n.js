@@ -286,6 +286,15 @@ const EN = {
   'Entschärfe 3 Bomben': 'Defuse 3 bombs',
   'Lege im Training 100 Klappziele um': 'Knock down 100 flip targets in training',
   'Schalte 3 Gegner mit dem Luftschlag aus': 'Take out 3 opponents with the air strike',
+  'Schnapp dir die goldene Banane (taucht ganz selten mitten in einer Runde auf)': 'Grab the golden banana (it very rarely shows up mid-round)',
+  // goldene Banane
+  'Eine goldene Banane ist aufgetaucht!': 'A golden banana has spawned!',
+  'Wer sie zuerst berührt, bekommt den goldenen Spieler-Skin': 'Whoever touches it first gets the golden player skin',
+  'Goldene Banane!': 'Golden banana!',
+  'Goldener Spieler-Skin freigeschaltet': 'Golden player skin unlocked',
+  'Den goldenen Spieler-Skin hast du schon': 'You already have the golden player skin',
+  'Du hast die goldene Banane!': 'You got the golden banana!',
+  'Sie taucht nur ganz selten auf': 'It only shows up very rarely',
   'Gewinne 3 Partien online gegen einen Freund': 'Win 3 online matches against a friend',
 
   // Tastenbelegung
@@ -714,6 +723,7 @@ const VORLAGEN = [
   ['{} möchten nochmal spielen!', '{1} want to play again!'],
   ['Warte auf {} (Host) …', 'Waiting for {1} (host) …'],
   ['{} (Host) startet die nächste Partie.', '{1} (host) starts the next match.'],
+  ['{} hat die goldene Banane!', '{1} got the golden banana!'],
   ['{} hat das Spiel verlassen.', '{1} left the match.'],
   ['{} hat das Spiel verlassen', '{1} left the match'],
   ['Warte auf {} …', 'Waiting for {1} …'],
