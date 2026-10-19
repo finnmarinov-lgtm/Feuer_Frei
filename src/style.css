@@ -483,8 +483,10 @@ body.touch { touch-action: none; -webkit-touch-callout: none; -webkit-user-selec
 .t-ping { right: 110px; top: 8px; width: 42px; height: 42px; }
 #t-slots { position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%); display: flex; gap: 6px; }
 #t-slots button { display: flex; flex-direction: column; align-items: center; min-width: 64px; padding: 3px 8px 4px; border-radius: 7px; border: 1px solid rgba(255, 255, 255, 0.22); background: rgba(12, 14, 17, 0.5); color: var(--text); font: 700 14px var(--font); line-height: 1.1; touch-action: none; }
-#t-slots button small { font-size: 10px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+#t-slots button small { font-size: 11px; color: rgba(255, 255, 255, 0.78); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85); }
 #t-slots button.on { background: rgba(242, 179, 61, 0.3); border-color: var(--accent); }
+/* auf dem goldenen Grund des aktiven Fachs war das graue Wort kaum zu lesen */
+#t-slots button.on small { color: #fff; }
 #rotate-hint { position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; background: rgba(8, 10, 12, 0.94); text-align: center; padding: 20px; }
 #rotate-hint b { font-size: 26px; }
 #rotate-hint span { color: var(--muted); font-size: 16px; }

@@ -1295,6 +1295,7 @@ export class Duel extends Match {
       inv: SLOT_KEYS.filter((k) => inv.slots[k]).map((k) => [k, inv.slots[k].id, inv.slots[k].mag, inv.slots[k].reserve]),
       current: inv.current,
       phase: this._currentPhase(),
+      opponent: this.names[this.them],
     });
   }
 

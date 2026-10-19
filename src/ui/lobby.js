@@ -706,7 +706,7 @@ export class Lobby {
         this.hostPeer = from;
         if (msg.kind === 'duel') {
           const host = this.roster.find((e) => e.key === msg.host);
-          this.partnerName = host?.name || 'Mitspieler';
+          this.partnerName = host?.name || 'Gegner';
           this.partnerLooks = host?.looks || null;
           net.setPartner(from);
           this._launchDuel(msg.cfg || this.opts);
@@ -718,7 +718,7 @@ export class Lobby {
         // der Host spielt schon ein 1 gegen 1 mit einem (die Startmeldung ging verloren)
         if (from === this.hostPeer && this._duelRoster()) {
           const host = this.roster.find((e) => e.key === this.hostKey);
-          this.partnerName = host?.name || 'Mitspieler';
+          this.partnerName = host?.name || 'Gegner';
           this.partnerLooks = host?.looks || null;
           net.setPartner(from);
           this._launchDuel(this.opts);
@@ -797,6 +797,8 @@ export class Lobby {
   /** 1 gegen 1 starten; resume: Stand einer laufenden Partie (Wiedereinstieg) */
   _launchDuel(cfg, resume = null) {
     const saved = resume && this.rejoin?.kind === 'duel' ? this.rejoin : null;
+    // nach dem Neuladen kommt die Rundenmeldung des Hosts oft vor seinem Namen: den gemerkten nehmen
+    const gemerkt = this.rejoin?.kind === 'duel' ? this.rejoin.opponent : '';
     this.rejoin = null;
     session.setLobby(this.code, this.role, 'duel');
     // feste Kennungen beider Spieler: damit schickt der Host Zuschauern die Partie
@@ -805,7 +807,7 @@ export class Lobby {
     const net = this._detach();
     this.onStart(net, {
       kind: 'duel', role: this.role, lives: cfg.lives, wins: cfg.wins, mode: cfg.mode, map: cfg.map, arms: cfg.arms,
-      myName: this.name, theirName: this.partnerName || 'Mitspieler', theirLooks: this.partnerLooks,
+      myName: this.name, theirName: this.partnerName || cleanName(gemerkt || '') || 'Gegner', theirLooks: this.partnerLooks,
       keys, banned: [...this.banned], resume, saved,
     });
   }
