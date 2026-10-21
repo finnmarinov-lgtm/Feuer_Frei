@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { BOMB, GRENADES } from '../config.js';
+import { BOMB, GRENADES, SPECIAL } from '../config.js';
 import { BUY_ZONES, MAP } from '../world/map.js';
 import { otherTeam } from '../game/sides.js';
 
@@ -8,10 +8,14 @@ import { otherTeam } from '../game/sides.js';
 // Gegner nur, solange jemand aus dem eigenen Team sie sieht (Rauch versteckt sie). Danach verblasst
 // der Punkt an der Stelle, an der der Gegner zuletzt zu sehen war. Dazu die Startbereiche in den
 // Teamfarben, im Bombenmodus der Bombenplatz der Runde und die gelegte Bombe, im Training die Ziele.
+// Beim Zielen für den Luftschlag wird die Karte groß: darauf schiebt man das Zielkreuz (Maus) oder
+// tippt das Ziel an (Handy). Laufende Luftschläge stehen als roter Kreis darauf.
 
-// Größe in CSS-Pixeln (Seitenverhältnis wie die Karten, 3 : 2) und Rand um die Karte in Metern
+// Größe in CSS-Pixeln (Seitenverhältnis wie die Karten, 3 : 2) und Rand um die Karte in Metern;
+// beim Luftschlag bis zu BIG-mal so groß (höchstens ein Teil des Fensters)
 const W = 216;
 const H = 150;
+const BIG = 2.8;
 const PAD = 1.5;
 const FLOOR = 'rgba(190, 185, 172, 0.78)';
 const LOW = 'rgba(96, 98, 104, 0.92)';
@@ -52,6 +56,11 @@ export class Radar {
     this.seen = new Map();
     this.spotT = 0;
     this.time = 0;
+    // aktuelle Größe (CSS-Pixel) und Maßstab der Zeichen darauf
+    this.w = W;
+    this.h = H;
+    this.u = 1;
+    this.big = false;
   }
 
   /** neue Partie: nichts mehr als gesehen merken */
@@ -64,9 +73,33 @@ export class Radar {
   _layout() {
     const b = MAP.bounds;
     const x0 = b.x0 - PAD, x1 = b.x1 + PAD, z0 = b.z0 - PAD, z1 = b.z1 + PAD;
-    this.k = Math.min(W / (x1 - x0), H / (z1 - z0));
-    this.ox = (W - (x1 - x0) * this.k) / 2 - x0 * this.k;
-    this.oz = (H - (z1 - z0) * this.k) / 2 - z0 * this.k;
+    this.k = Math.min(this.w / (x1 - x0), this.h / (z1 - z0));
+    this.ox = (this.w - (x1 - x0) * this.k) / 2 - x0 * this.k;
+    this.oz = (this.h - (z1 - z0) * this.k) / 2 - z0 * this.k;
+  }
+
+  /** Bildschirm-Punkt (z. B. Finger) -> Weltkoordinaten x, z; null außerhalb der Karte */
+  toWorld(clientX, clientY) {
+    const r = this.el.getBoundingClientRect();
+    if (clientX < r.left || clientX > r.right || clientY < r.top || clientY > r.bottom || !r.width) return null;
+    const px = ((clientX - r.left) * this.w) / r.width;
+    const py = ((clientY - r.top) * this.h) / r.height;
+    return { x: (px - this.ox) / this.k, z: (py - this.oz) / this.k };
+  }
+
+  // groß beim Zielen für den Luftschlag, sonst klein; liefert true, wenn sich etwas geändert hat
+  _resize(big) {
+    const s = big ? Math.max(1, Math.min(BIG, (window.innerWidth * 0.62) / W, (window.innerHeight * 0.66) / H)) : 1;
+    const w = Math.round(W * s), h = Math.round(H * s);
+    if (big === this.big && w === this.w && h === this.h) return false;
+    this.big = big;
+    this.w = w;
+    this.h = h;
+    this.u = big ? Math.min(1.6, Math.sqrt(s)) : 1;
+    this.el.classList.toggle('big', big);
+    this.el.style.width = big ? `${w}px` : '';
+    this.el.style.height = big ? `${h}px` : '';
+    return true;
   }
 
   _sx(x) {
@@ -81,11 +114,11 @@ export class Radar {
   _paintMap() {
     const a = this.g.arena;
     const dpr = this.dpr;
-    this.bg.width = this.el.width = Math.round(W * dpr);
-    this.bg.height = this.el.height = Math.round(H * dpr);
+    this.bg.width = this.el.width = Math.round(this.w * dpr);
+    this.bg.height = this.el.height = Math.round(this.h * dpr);
     const c = this.bg.getContext('2d');
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
-    c.clearRect(0, 0, W, H);
+    c.clearRect(0, 0, this.w, this.h);
     this._layout();
     const k = this.k;
     const rect = (x0, z0, x1, z1) => c.fillRect(this._sx(x0), this._sy(z0), (x1 - x0) * k, (z1 - z0) * k);
@@ -162,15 +195,17 @@ export class Radar {
 
   update(dt) {
     const g = this.g;
+    const as = g.airstrikes;
+    // beim Luftschlag gibt es die Karte auch, wenn das Radar abgeschaltet ist
+    const big = as.targeting;
     const on = g.settings.radar !== false;
-    if (this.el.hidden !== !on) {
-      this.el.hidden = !on;
-      document.body.classList.toggle('radar', on);
-    }
-    if (!on) return;
+    if (this.el.hidden !== !(on || big)) this.el.hidden = !(on || big);
+    if (document.body.classList.contains('radar') !== on) document.body.classList.toggle('radar', on);
+    const resized = this._resize(big);
+    if (!on && !big) return;
     this.time += dt;
     const dpr = Math.min(2, window.devicePixelRatio || 1);
-    if (g.arena.mapId !== this.mapId || dpr !== this.dpr) {
+    if (g.arena.mapId !== this.mapId || dpr !== this.dpr || resized) {
       this.dpr = dpr;
       this.mapId = g.arena.mapId;
       this._paintMap();
@@ -178,8 +213,9 @@ export class Radar {
     const m = g.match;
     const c = this.ctx;
     c.setTransform(dpr, 0, 0, dpr, 0, 0);
-    c.clearRect(0, 0, W, H);
-    c.drawImage(this.bg, 0, 0, W, H);
+    c.clearRect(0, 0, this.w, this.h);
+    c.drawImage(this.bg, 0, 0, this.w, this.h);
+    this._strikes(c, as);
     if (m.duel) {
       this.spotT -= dt;
       if (this.spotT <= 0) {
@@ -196,7 +232,51 @@ export class Radar {
       c.fillStyle = '#ff9a3d';
       for (const t of g.targets.standing()) c.fillRect(this._sx(t.root.position.x) - 2, this._sy(t.root.position.z) - 2, 4, 4);
     }
-    if (g.player.alive) this._arrow(c, g.player.feet.x, g.player.feet.z, g.player.yaw, ME, 6.5);
+    if (g.player.alive) this._arrow(c, g.player.feet.x, g.player.feet.z, g.player.yaw, ME, 6.5 * this.u);
+    if (big) this._cursor(c, as);
+  }
+
+  // laufende Luftschläge: roter Kreis, solange er auch in der Welt zu sehen ist
+  _strikes(c, as) {
+    for (const s of as.list) {
+      if (!s.marker.visible) continue;
+      c.beginPath();
+      c.arc(this._sx(s.point.x), this._sy(s.point.z), Math.max(4, SPECIAL.radius * this.k), 0, Math.PI * 2);
+      c.fillStyle = `rgba(255, 42, 26, ${(0.22 + 0.1 * Math.sin(this.time * 9)).toFixed(2)})`;
+      c.fill();
+      c.lineWidth = 1.5;
+      c.strokeStyle = 'rgba(255, 60, 40, 0.95)';
+      c.stroke();
+    }
+  }
+
+  // Zielkreuz für den Luftschlag: Kreis so groß wie der Einschlagbereich, grau gestrichelt ohne Ziel
+  _cursor(c, as) {
+    const sx = this._sx(as.cursor.x), sy = this._sy(as.cursor.y);
+    const r = Math.max(6, SPECIAL.radius * this.k);
+    const ok = as.aimValid;
+    const color = ok ? '255, 178, 61' : '230, 230, 230';
+    c.beginPath();
+    c.arc(sx, sy, r, 0, Math.PI * 2);
+    c.fillStyle = `rgba(${color}, ${ok ? 0.28 : 0.12})`;
+    c.fill();
+    c.setLineDash(ok ? [] : [5, 4]);
+    c.lineWidth = 2;
+    c.strokeStyle = `rgb(${color})`;
+    c.stroke();
+    c.setLineDash([]);
+    // Fadenkreuz: Striche außen am Kreis und ein Punkt in der Mitte
+    c.beginPath();
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      c.moveTo(sx + dx * (r + 3), sy + dy * (r + 3));
+      c.lineTo(sx + dx * (r + 12), sy + dy * (r + 12));
+    }
+    c.lineWidth = 2;
+    c.stroke();
+    c.beginPath();
+    c.arc(sx, sy, 2.2, 0, Math.PI * 2);
+    c.fillStyle = `rgb(${color})`;
+    c.fill();
   }
 
   // Startbereiche: der eigene in der eigenen Teamfarbe, der andere in der des Gegners
@@ -307,7 +387,7 @@ export class Radar {
       c.stroke();
     }
     c.beginPath();
-    c.arc(sx, sy, 3.6, 0, Math.PI * 2);
+    c.arc(sx, sy, 3.6 * this.u, 0, Math.PI * 2);
     c.fillStyle = fill;
     c.fill();
     c.lineWidth = 1.2;

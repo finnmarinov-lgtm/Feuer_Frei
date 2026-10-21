@@ -78,6 +78,21 @@ export class TouchControls {
     // alles wieder los, wenn das Spiel den Fokus verliert (Anruf, App gewechselt)
     this.input.onRelease = () => this._releaseAll(true);
 
+    // Luftschlag: auf der großen Karte das Ziel antippen und mit dem Finger verschieben (vor allen
+    // anderen Fingern, die Karte liegt über Stick und Blickfläche)
+    this.root.addEventListener('pointerdown', (e) => {
+      const as = this.g.airstrikes;
+      if (!as.targeting) return;
+      const radar = this.g.hud.radar;
+      const at = (ev) => radar.toWorld(ev.clientX, ev.clientY);
+      if (!at(e)) return;
+      e.stopPropagation();
+      this._own(e, {
+        down: (ev) => { const p = at(ev); if (p) as.setCursor(p.x, p.z); },
+        move: (ev) => { const p = at(ev); if (p) as.setCursor(p.x, p.z); },
+      });
+    }, { passive: false, capture: true });
+
     // Stick: erscheint unter dem Daumen
     this.el.move.addEventListener('pointerdown', (e) => {
       if (this.stick.id !== null) return;

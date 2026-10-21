@@ -7,6 +7,19 @@ import { MAP } from '../world/map.js';
 
 const DOWN = { x: 0, y: -1, z: 0 };
 const PUFFS = 38;
+
+/**
+ * Wie stark blendet eine Blendgranate (0 bis 1)? d: Abstand in Metern, dot: Blickrichtung mal
+ * Richtung zur Granate (1 = genau hingesehen). Gilt für einen selbst und für die KI. Weggedreht
+ * blendet sie immer noch ein wenig, aus der Nähe auch dann noch spürbar.
+ */
+export function flashAmount(d, dot) {
+  const cfg = GRENADES.flash;
+  if (d > cfg.radius) return 0;
+  const angle = dot > 0.8 ? 1 : dot > 0.3 ? 0.85 : dot > -0.3 ? 0.55 : 0.25;
+  const dist = d <= cfg.full ? 1 : Math.pow(1 - (d - cfg.full) / (cfg.radius - cfg.full), 0.6);
+  return angle * dist;
+}
 const _v = new THREE.Vector3();
 const _a = new THREE.Vector3();
 const _b = new THREE.Vector3();
@@ -294,11 +307,7 @@ export class Grenades {
     const d = to.length();
     if (d > cfg.radius || !g.physics.lineOfSight(eye, pos)) return;
     to.divideScalar(d);
-    const view = g.player.forward(_v);
-    const dot = view.dot(to);
-    const angle = dot > 0.8 ? 1 : dot > 0.3 ? 0.75 : dot > -0.3 ? 0.4 : 0.12;
-    const dist = Math.min(1, Math.max(0, 1 - (d - 2) / (cfg.radius - 2)));
-    const amount = angle * dist;
+    const amount = flashAmount(d, g.player.forward(_v).dot(to));
     if (amount < 0.03) return;
     const duration = cfg.maxBlind * amount;
     g.hud.flashbang(duration, amount);

@@ -51,6 +51,7 @@ export class WeaponSystem {
     this.holdFire = false;
     // ausgeworfenes Magazin schlägt kurz darauf am Boden auf
     game.viewmodel.onMagDrop = () => game.audio.play('magDrop', { delay: 0.35 });
+    game.viewmodel.onToss = (k) => game.audio.play(k === 'up' ? 'swing' : 'knifeCatch', { volume: k === 'up' ? 0.45 : 1 });
   }
 
   get active() {
@@ -478,6 +479,7 @@ export class WeaponSystem {
     for (const h of hits.values()) {
       const res = this.g.targets.damage(h.target, Math.round(h.damage));
       this.g.audio.play(h.head ? 'dingHead' : 'ding', { position: h.point });
+      if (h.head) this._headSound(res.killed);
       this.g.hud.hitmarker(h.head, res.killed);
       this.g.hud.damageNumber(h.point, res.damage, h.head);
       this.g.match.onHit(res.damage, h.head);
@@ -521,11 +523,18 @@ export class WeaponSystem {
     this.g.match.sendHit?.(raw, hit.zone, def, hit.point, hit.who);
   }
 
+  // Kopftreffer auf ein Klappziel klingt wie einer am Gegner, umgelegt dazu der Abschuss-Klang
+  _headSound(killed) {
+    this.g.audio.play('hitHead');
+    if (killed) this.g.audio.play('headshotKill', { delay: 0.05 });
+  }
+
   _damageTarget(hit, def, raw) {
     const head = hit.zone === 'head';
     const res = this.g.targets.damage(hit.target, Math.round(raw));
     this.g.effects.targetHit(hit.point, hit.normal, head);
     this.g.audio.play(head ? 'dingHead' : 'ding', { position: hit.point });
+    if (head) this._headSound(res.killed);
     this.g.hud.hitmarker(head, res.killed);
     this.g.hud.damageNumber(hit.point, res.damage, head);
     this.g.match.onHit(res.damage, head);
@@ -568,7 +577,7 @@ export class WeaponSystem {
     }
     if (!best) return;
     if (best.t?.remote) {
-      // Messer: fester Schaden, egal wo (zwei Treffer reichen)
+      // Messer: fester Schaden, egal wo (ein Treffer reicht)
       this._hitRemote(best.t, this.def, attack.damage);
       this.g.audio.play('knifeHit', { position: best.t.point });
     } else if (best.t) {

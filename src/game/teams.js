@@ -398,7 +398,7 @@ export class TeamMatch extends Duel {
     this.remoteOf(victim)?.die();
     if (ev.by === this.me && victim !== this.me && ev.w !== 'bombe') {
       this.onKill(WEAPONS[ev.w] || KILLERS[ev.w] || WEAPONS.natter, !!ev.h);
-      g.audio.play('kill');
+      g.audio.play(ev.h ? 'headshotKill' : 'kill');
       g.hud.hitmarker(!!ev.h, true);
     }
     this._score(victim, ev.by);

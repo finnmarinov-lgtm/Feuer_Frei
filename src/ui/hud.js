@@ -438,7 +438,7 @@ export class Hud {
   specialReady() {
     this.message('Luftschlag bereit!', this.g.input.touch
       ? 'Tippe auf den Luftschlag-Knopf und wähle das Ziel'
-      : `${this.g.input.label('special')} drücken, Ziel anschauen, Linksklick`, 2.6);
+      : `${this.g.input.label('special')} drücken, Ziel auf der Karte wählen, Linksklick`, 2.6);
   }
 
   message(title, sub, duration = 2.5) {
@@ -459,9 +459,10 @@ export class Hud {
   }
 
   flashbang(duration, amount) {
+    // zweite Granate während der ersten: nichts wird schwächer oder kürzer
+    this.flashAmt = Math.max(this.flashT > 0 ? this.flashAmt : 0, Math.min(1, amount * 1.6));
     this.flashDur = Math.max(this.flashT, duration);
     this.flashT = this.flashDur;
-    this.flashAmt = Math.min(1, amount * 1.3);
   }
 
   hurt(amount) {
@@ -680,8 +681,8 @@ export class Hud {
     if (targeting && el.specialHint._touch !== touch) {
       el.specialHint._touch = touch;
       el.specialHint.innerHTML = touch
-        ? 'Luftschlag: Ziel anschauen · roter Knopf bestätigt · Flugzeug bricht ab'
-        : `Luftschlag: Ziel anschauen · <kbd>Linksklick</kbd> bestätigen · <kbd>Rechtsklick</kbd> oder <kbd>${escapeHtml(this.g.input.label('special'))}</kbd> abbrechen`;
+        ? 'Luftschlag: Ziel auf der Karte antippen · roter Knopf bestätigt · Flugzeug bricht ab'
+        : `Luftschlag: Ziel mit der Maus auf der Karte wählen · <kbd>Linksklick</kbd> bestätigen · <kbd>Rechtsklick</kbd> oder <kbd>${escapeHtml(this.g.input.label('special'))}</kbd> abbrechen`;
     }
   }
 
@@ -805,11 +806,11 @@ export class Hud {
     this.moneyT -= dt;
     if (this.moneyT <= 0) el.moneyDelta.classList.toggle('show', false);
 
-    // Blendung: erst voll weiß, dann langsam ausblenden
+    // Blendung: die erste Hälfte voll weiß, dann weich ausblenden
     if (this.flashT > 0) {
       this.flashT -= dt;
-      const k = this.flashT / this.flashDur;
-      this._set(el.flash.style, 'opacity', String(this.flashAmt * Math.min(1, k * 2.2)));
+      const k = Math.min(1, Math.max(0, this.flashT / this.flashDur) * 2);
+      this._set(el.flash.style, 'opacity', (this.flashAmt * k * k * (3 - 2 * k)).toFixed(3));
     } else {
       this._set(el.flash.style, 'opacity', '0');
     }

@@ -374,6 +374,13 @@ export class Audio {
         this._noise(o, t, { type: 'bandpass', freq: 500, freqEnd: 2200, q: 1.5, gain: 0.8, attack: 0.08, decay: 0.14 });
         break;
       }
+      // Messer nach dem Hochwerfen wieder gefangen: Klatschen in den Handschuh, leises Klicken
+      case 'knifeCatch': {
+        const o = this._out(pos, 0.4 * vol, 0.1);
+        this._noise(o, t, { type: 'lowpass', freq: 900, q: 1, gain: 0.9, decay: 0.05 });
+        this._noise(o, t + 0.01, { type: 'bandpass', freq: 3400, q: 4, gain: 0.5, decay: 0.03 });
+        break;
+      }
       case 'knifeHit': {
         const o = this._out(pos, 0.7 * vol, 0.3);
         this._noise(o, t, { type: 'lowpass', freq: 800, q: 2, gain: 1, decay: 0.08 });
@@ -469,11 +476,26 @@ export class Audio {
         this._tone(o, t, { freq: 180, freqEnd: 90, gain: 0.5, decay: 0.08 });
         break;
       }
+      // Kopftreffer: lauter, klingender "Dink" wie in CS (Metall mit unharmonischen Obertönen),
+      // klar anders als jeder Körpertreffer
       case 'hitHead': {
-        const o = this._out(null, 0.45 * vol, 0.1);
-        this._tone(o, t, { freq: 2300 + Math.random() * 200, gain: 0.5, decay: 0.16 });
-        this._tone(o, t, { freq: 5200, gain: 0.2, decay: 0.08 });
-        this._noise(o, t, { type: 'lowpass', freq: 800, q: 1, gain: 0.7, decay: 0.06 });
+        const o = this._out(null, 0.75 * vol, 0.25);
+        const f = 1900 + Math.random() * 120;
+        this._tone(o, t, { type: 'triangle', freq: f, gain: 0.7, decay: 0.34 });
+        this._tone(o, t, { freq: f * 2.76, gain: 0.35, decay: 0.22 });
+        this._tone(o, t, { freq: f * 4.1, gain: 0.16, decay: 0.12 });
+        this._noise(o, t, { type: 'highpass', freq: 5000, q: 0.8, gain: 0.7, decay: 0.025 });
+        this._noise(o, t, { type: 'lowpass', freq: 700, q: 1, gain: 0.8, decay: 0.07 });
+        break;
+      }
+      // Abschuss mit Kopftreffer: hervorgehoben, drei helle Töne nach oben und ein Glitzern
+      case 'headshotKill': {
+        const o = this._out(null, 0.34 * vol, 0.35);
+        [1175, 1568, 2349].forEach((f, i) => {
+          this._tone(o, t + i * 0.06, { type: 'triangle', freq: f, gain: 0.7, decay: i === 2 ? 0.45 : 0.14 });
+          this._tone(o, t + i * 0.06, { freq: f * 2, gain: 0.16, decay: 0.12 });
+        });
+        this._noise(o, t + 0.12, { type: 'highpass', freq: 6000, q: 0.7, gain: 0.35, attack: 0.02, decay: 0.4 });
         break;
       }
       case 'chat': {

@@ -127,6 +127,8 @@ kbd { display: inline-block; min-width: 1.6em; padding: 0 0.35em; border: 1px so
   mask: radial-gradient(circle, transparent 62%, #000 63%, #000 71%, transparent 72%); }
 
 #radar { position: absolute; left: 22px; top: 18px; width: 216px; height: 150px; background: rgba(14, 16, 20, 0.8); border-radius: 6px; }
+/* beim Zielen für den Luftschlag groß (Größe setzt ui/radar.js), über allem anderen im HUD */
+#radar.big { z-index: 5; background: rgba(14, 16, 20, 0.92); box-shadow: 0 0 0 2px rgba(242, 179, 61, 0.8), 0 12px 40px rgba(0, 0, 0, 0.6); }
 /* Zuschauer (kam während einer laufenden Partie): nichts Eigenes anzeigen */
 body.spectator #money, body.spectator #buyhint, body.spectator #vitals, body.spectator #ammo, body.spectator #slots,
 body.spectator #special, body.spectator #special-hint, body.spectator #radar, body.spectator #tasks-hud { display: none !important; }
@@ -641,6 +643,7 @@ body.touch .buy-foot { display: none; }
 body.touch #tasks-hud { left: 50%; top: 86px; transform: translateX(-50%) scale(0.68); transform-origin: top center; }
 /* Handy: Radar klein oben links, Geld und Leben rechts daneben */
 body.touch #radar { left: 14px; top: 8px; transform: scale(0.55); transform-origin: top left; }
+body.touch #radar.big { transform: none; }
 body.touch.radar #money { left: 140px; top: 8px; }
 body.touch.radar #vitals { left: 140px; top: 50px; }
 body.touch.radar #net-status { top: 196px; }

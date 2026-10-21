@@ -14,8 +14,9 @@ const APP_ID = 'feuer-frei-duell-v1';
 // 9: Luftschlag als Abschussserie, Entschärfen dauert 10 s, 10: offene Lobbys, Host kann rauswerfen,
 // 11: nach der Partie zurück in die Lobby, Zuschauer bei laufenden Partien, 12: Adler tötet nur mit
 // Kopftreffer sofort (den Schaden rechnet der Schütze aus), Weste 50 Punkte, 13: Verbindungsaufbau
-// über das eigene Supabase statt Nostr, ältere Fassungen fänden sich nur noch über den Server)
-export const PROTOCOL = 14;
+// über das eigene Supabase statt Nostr, ältere Fassungen fänden sich nur noch über den Server,
+// 14: goldene Banane, 15: Messer tötet mit einem Treffer, auch das rechnet der Schütze aus)
+export const PROTOCOL = 15;
 export const SUPABASE_WS = 'wss://yzzipjtounvktdhhvrnt.supabase.co/realtime/v1';
 const SUPABASE_REST = 'https://yzzipjtounvktdhhvrnt.supabase.co/realtime/v1/api/broadcast';
 // "publishable" Schlüssel: darf öffentlich im Code stehen

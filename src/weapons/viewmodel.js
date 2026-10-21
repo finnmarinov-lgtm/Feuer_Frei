@@ -35,6 +35,14 @@ const SWAY_STEP = 1 / 120;
 // Haltung beim Nachladen (Drehung in Radiant, Verschiebung in Metern)
 const RELOAD_TILT = { rz: -0.55, rx: 0.4, ry: 0.12, px: -0.06, py: 0.075, pz: 0.02 };
 const RELOAD_TILT_PLAIN = { rz: 0.5, rx: 0.2, ry: 0, px: -0.02, py: -0.035, pz: 0 };
+// Messer hochwerfen (Begutachten, F): Dauer, Abwurf und Fangen (Anteil der Dauer), Wurfhöhe in
+// Metern, Umdrehungen in der Luft und die Drehachse (in Blickrichtung gesehen, x rechts, y oben)
+const TOSS = { dur: 1.5, up: 0.22, catch: 0.72, height: 0.15, turns: 2, axis: new THREE.Vector3(0.3, 0.12, 1).normalize() };
+const _ta = new THREE.Vector3();
+const _tb = new THREE.Vector3();
+const _tc = new THREE.Vector3();
+const _tq = new THREE.Quaternion();
+const _tm = new THREE.Matrix4();
 
 // Anschlagshaltung aus den Visierpunkten im Modell: die Linie Kimme -> Korn liegt genau
 // auf der Blickachse, die Kimme sitzt "eye" Meter vor dem Auge.
@@ -48,6 +56,33 @@ function adsPose(model, eye) {
   const quat = new THREE.Quaternion().setFromUnitVectors(f.sub(r).normalize(), FORWARD);
   const pos = new THREE.Vector3(0, 0, -eye).sub(r.applyQuaternion(quat));
   return { pos, quat };
+}
+
+// Messer: alles außer Hand und Arm in eine eigene Gruppe "Toss" (zum Hochwerfen). Sie sitzt genau
+// dort, wo vorher die Teile hingen, an der Haltung ändert sich nichts.
+function tossGroup(model) {
+  const ARM = /^(Hand|Wrist|Sleeve)R/;
+  let root = null;
+  model.traverse((o) => { if (!root && ARM.test(o.name)) root = o.parent; });
+  if (!root) return null;
+  const toss = new THREE.Group();
+  toss.name = 'Toss';
+  for (const c of [...root.children]) if (!ARM.test(c.name)) toss.add(c);
+  root.add(toss);
+  return toss;
+}
+
+// Mitte aller Teile einer Gruppe, in ihren eigenen Koordinaten
+function centerOf(group) {
+  group.updateWorldMatrix(true, true);
+  const inv = new THREE.Matrix4().copy(group.matrixWorld).invert();
+  const box = new THREE.Box3();
+  group.traverse((o) => {
+    if (!o.isMesh) return;
+    o.geometry.computeBoundingBox();
+    box.union(o.geometry.boundingBox.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv, o.matrixWorld)));
+  });
+  return box.getCenter(new THREE.Vector3());
 }
 
 // Die Waffe in der Hand, in einer eigenen Szene und Kamera gezeichnet.
@@ -75,12 +110,13 @@ export class Viewmodel {
         // 30 bis 40 Einzelteile pro Waffe: gleiche Materialien am selben Gelenk zusammenfassen
         mergeByMaterial(model);
         model.visible = false;
+        const toss = def.slot === 'knife' ? tossGroup(model) : null;
         const find = (n) => model.getObjectByName(n) || null;
         const parts = {
           mag: find('Mag'), slide: find('Slide'), bolt: find('Bolt'), pin: find('Pin'), pump: find('Pump'),
           muzzle: find('Muzzle'), eject: find('Eject'), armL: find('ArmL'),
           // Messer: Karambit dreht um den Ring, beim Butterfly klappen Klinge und zweite Griffhälfte
-          spin: find('Spin'), blade: find('BladePivot'), bite: find('BitePivot'),
+          spin: find('Spin'), blade: find('BladePivot'), bite: find('BitePivot'), toss,
         };
         const rest = {};
         for (const [k, o] of Object.entries(parts)) {
@@ -94,7 +130,7 @@ export class Viewmodel {
         const dot = def.reddot ? this._setupRedDot(model) : null;
         const reload = parts.mag && parts.armL ? this._reloadSetup(parts) : null;
         this.root.add(model);
-        this.models[v.key] = { model, parts, rest, hip, ads, dot, reload };
+        this.models[v.key] = { model, parts, rest, hip, ads, dot, reload, tossCenter: toss ? centerOf(toss) : null };
       }
     }
     // welches Messer man hat (im Duell je Team, im Training zufällig, siehe Game)
@@ -102,7 +138,10 @@ export class Viewmodel {
     // getragene Skins (Waffen, Messer, Ärmel = Spieler-Skin), siehe game/cosmetics.js
     this.looks = emptyLooks();
     this.flipT = -1;
+    this.tossT = -1;
     this.onMagDrop = null;
+    // Messer hochwerfen: 'up' beim Abwurf, 'catch' beim Fangen (für die Klänge)
+    this.onToss = null;
     this.reloadTilt = { ...RELOAD_TILT };
 
     // Mündungsfeuer: zwei Längsflächen und eine Frontfläche
@@ -251,7 +290,7 @@ export class Viewmodel {
     this.flash.scale.setScalar(size);
     this.drawT = 0;
     this.drawDur = def.draw;
-    this.reloadT = this.knifeT = this.grenadeT = this.throwT = this.inspectT = this.boltT = -1;
+    this.reloadT = this.knifeT = this.grenadeT = this.throwT = this.inspectT = this.boltT = this.tossT = -1;
     this.pumpT = -1;
     this.pumpWait = 0;
     this.shellHold = false;
@@ -330,6 +369,15 @@ export class Viewmodel {
     this.inspectT = -1;
     // zustechen geht sofort: Kunststück abbrechen, Messer steht offen in der Hand
     this._endFlip();
+    this._endToss();
+  }
+
+  _endToss() {
+    if (this.tossT < 0 || !this.current) return;
+    this.tossT = -1;
+    const { parts } = this.current;
+    parts.toss?.position.set(0, 0, 0);
+    parts.toss?.quaternion.identity();
   }
 
   _endFlip() {
@@ -348,11 +396,17 @@ export class Viewmodel {
   }
 
   inspect() {
-    if (this.reloadT < 0 && this.knifeT < 0 && this.grenadeT < 0) {
-      this.inspectT = 0;
-      // Messer: beim Begutachten dasselbe Kunststück wie beim Ziehen
-      if (this.def?.slot === 'knife') this.flipT = 0;
+    if (this.reloadT >= 0 || this.knifeT >= 0 || this.grenadeT >= 0) return;
+    // Messer: hochwerfen und wieder fangen (wie in CS:GO); nochmal F, während es fliegt, zählt nicht
+    if (this.current?.parts.toss) {
+      if (this.tossT >= 0) return;
+      this._endFlip();
+      this.tossT = 0;
+      this.tossUp = false;
+      this.tossCaught = false;
+      return;
     }
+    this.inspectT = 0;
   }
 
   _eject(def) {
@@ -611,6 +665,7 @@ export class Viewmodel {
       }
       if (f >= 1) this._endFlip();
     }
+    if (this.tossT >= 0 && parts.toss) this._toss(dt, parts.toss, pos, rot);
 
     // Granate: Stift ziehen, ausholen, werfen
     if (this.grenadeT >= 0 && this.throwT < 0) {
@@ -675,6 +730,47 @@ export class Viewmodel {
       dot.core.opacity = k;
       dot.glow.opacity = 0.55 * k;
     }
+  }
+
+  /**
+   * Messer hochwerfen und fangen: Die Hand holt kurz nach unten aus und schnippt hoch, das Messer
+   * fliegt sich drehend nach oben (in Blickrichtung gesehen senkrecht) und fällt zurück in die
+   * Hand, die beim Fangen kurz nachgibt. Gedreht wird um die Mitte des Messers. Nur ein paar
+   * Rechnungen pro Bild, kostet auch auf schwachen Rechnern nichts.
+   */
+  _toss(dt, node, pos, rot) {
+    this.tossT = Math.min(1, this.tossT + dt / TOSS.dur);
+    const f = this.tossT;
+    // ganze Hand: ausholen, hochschnippen, zurück; beim Fangen nachgeben und wieder hoch
+    pos.y += -0.025 * seg(f, 0, 0.14) + 0.045 * seg(f, 0.14, TOSS.up + 0.02) - 0.02 * seg(f, TOSS.up + 0.02, 0.42)
+      - 0.022 * seg(f, TOSS.catch, TOSS.catch + 0.07) + 0.022 * seg(f, TOSS.catch + 0.07, 1);
+    rot.x += -0.16 * seg(f, 0, 0.14) + 0.36 * seg(f, 0.14, TOSS.up + 0.02) - 0.2 * seg(f, TOSS.up + 0.02, 0.42)
+      - 0.12 * seg(f, TOSS.catch, TOSS.catch + 0.07) + 0.12 * seg(f, TOSS.catch + 0.07, 1);
+    const u = (f - TOSS.up) / (TOSS.catch - TOSS.up);
+    if (u > 0 && !this.tossUp) {
+      this.tossUp = true;
+      this.onToss?.('up');
+    }
+    if (u >= 1 && !this.tossCaught) {
+      this.tossCaught = true;
+      this.onToss?.('catch');
+    }
+    if (u <= 0 || u >= 1) {
+      node.position.set(0, 0, 0);
+      node.quaternion.identity();
+    } else {
+      // Blickrichtung -> Koordinaten des Messers (Stand vom letzten Bild, das reicht)
+      _tm.copy(node.parent.matrixWorld).invert().multiply(this.camera.matrixWorld);
+      _ta.set(0, 0, 0).applyMatrix4(_tm);
+      // Flugbahn: hoch und etwas zur Bildmitte hin (sonst fliegt es am Rand aus dem Bild)
+      _tb.set(-0.03 * Math.sin(u * Math.PI), TOSS.height * 4 * u * (1 - u), 0).applyMatrix4(_tm).sub(_ta);
+      _tc.copy(TOSS.axis).transformDirection(_tm);
+      _tq.setFromAxisAngle(_tc, -u * TOSS.turns * Math.PI * 2);
+      const c = this.current.tossCenter;
+      node.quaternion.copy(_tq);
+      node.position.copy(c).sub(_ta.copy(c).applyQuaternion(_tq)).add(_tb);
+    }
+    if (f >= 1) this._endToss();
   }
 
   /**

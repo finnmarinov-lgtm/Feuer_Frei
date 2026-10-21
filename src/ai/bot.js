@@ -4,6 +4,7 @@ import { BOMB_SITES, MAP, SPAWNS } from '../world/map.js';
 import { Player } from '../player/player.js';
 import { FLAG } from '../game/remote.js';
 import { shotEnd } from '../game/duel.js';
+import { flashAmount } from '../weapons/grenades.js';
 
 // KI-Spieler. Er spielt wie ein Mensch: eigener Körper mit derselben Bewegung, Kaufen in der
 // Kaufzeit, Sehen (Blickfeld, Wände, Rauch) und Hören (Schritte, Schüsse), Zielen mit Reaktionszeit
@@ -474,9 +475,7 @@ export class Bot {
     to.divideScalar(d);
     const cp = Math.cos(b.pitch);
     const dot = -Math.sin(b.yaw) * cp * to.x + Math.sin(b.pitch) * to.y - Math.cos(b.yaw) * cp * to.z;
-    const angle = dot > 0.8 ? 1 : dot > 0.3 ? 0.75 : dot > -0.3 ? 0.4 : 0.12;
-    const dist = Math.min(1, Math.max(0, 1 - (d - 2) / (GRENADES.flash.radius - 2)));
-    this.blindT = Math.max(this.blindT, GRENADES.flash.maxBlind * angle * dist);
+    this.blindT = Math.max(this.blindT, GRENADES.flash.maxBlind * flashAmount(d, dot));
     this.seeing = false;
   }
 

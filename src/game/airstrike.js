@@ -3,7 +3,8 @@ import { KILLERS, SPECIAL } from '../config.js';
 import { muzzleTexture } from '../effects/textures.js';
 import { MAP } from '../world/map.js';
 
-// Luftschlag (nach einer Abschussserie, Taste X): erst Ziel wählen, dann steigt roter Rauch auf und ein
+// Luftschlag (nach einer Abschussserie, Taste X): erst Ziel auf der großen Karte oben links wählen
+// (Zielkreuz mit der Maus schieben bzw. antippen, siehe ui/radar.js), dann steigt roter Rauch auf und ein
 // roter Kreis warnt alle: in der Mitte kräftig rot, nach außen immer blasser (genau so verteilt
 // sich auch der Schaden). Nach der Warnzeit kommt ein Jet im Sturzflug und feuert mit der
 // Bordkanone ("Brrrrrt"): die Einschläge wandern in Flugrichtung durch den Kreis, in der Mitte am
@@ -24,6 +25,8 @@ const PASS_AFTER = 0.35;
 const TRACER = { width: 9, speed: 900, streak: 14 };
 // Mündung der Kanone am Jet (Nase zeigt nach -Z)
 const NOSE = new THREE.Vector3(0, -0.35, -8.6);
+// Zielen auf der Karte: von hier oben wird nach dem Boden unter dem Zielkreuz gesucht (Meter)
+const SKY = 60;
 
 const _v = new THREE.Vector3();
 const _a = new THREE.Vector3();
@@ -131,15 +134,34 @@ export class Airstrikes {
     this.targeting = false;
     this.aimPoint = new THREE.Vector3();
     this.aimValid = false;
+    // Zielkreuz auf der Karte (x, z in Metern)
+    this.cursor = new THREE.Vector2();
     this.aim = markerMesh(SPECIAL.radius, 0xffb23d);
     game.scene.add(this.aim);
     this.planeTemplate = planeModel();
   }
 
-  // ---------- Ziel wählen ----------
+  // ---------- Ziel wählen (auf der Karte) ----------
   beginTargeting() {
     this.targeting = true;
     this.aimValid = false;
+    // Zielkreuz startet dort, wo man gerade hinschaut, sonst bei einem selbst
+    const g = this.g;
+    const cam = g.camera;
+    cam.getWorldDirection(_dir);
+    const hit = g.physics.raycast(cam.position, _dir, SPECIAL.maxRange);
+    const p = hit ? _a.copy(cam.position).addScaledVector(_dir, hit.distance) : g.player.feet;
+    this.setCursor(p.x, p.z);
+  }
+
+  /** Zielkreuz verschieben (Meter auf der Karte) */
+  moveCursor(dx, dz) {
+    this.setCursor(this.cursor.x + dx, this.cursor.y + dz);
+  }
+
+  setCursor(x, z) {
+    const b = MAP.bounds;
+    this.cursor.set(Math.min(b.x1, Math.max(b.x0, x)), Math.min(b.z1, Math.max(b.z0, z)));
   }
 
   cancel() {
@@ -147,25 +169,20 @@ export class Airstrikes {
     this.aim.visible = false;
   }
 
-  /** Zielpunkt: dort, wo man hinschaut (an Wänden der Boden davor) */
+  /**
+   * Zielpunkt: das Oberste unter dem Zielkreuz. Auf Dächern, hohen Stapeln und Mauerkronen (dort
+   * steht niemand) und an steilen Flächen gibt es kein Ziel.
+   */
   updateAim() {
     if (!this.targeting) return;
     const g = this.g;
-    const cam = g.camera;
-    cam.getWorldDirection(_dir);
-    const hit = g.physics.raycast(cam.position, _dir, SPECIAL.maxRange);
+    _b.set(this.cursor.x, SKY, this.cursor.y);
+    const hit = g.physics.raycast(_b, DOWN, SKY + 20);
     this.aimValid = false;
     if (hit) {
-      _a.copy(cam.position).addScaledVector(_dir, hit.distance);
-      if (hit.normal.y < 0.6) {
-        // Wand getroffen: etwas davor senkrecht nach unten
-        _a.addScaledVector(_dir, -0.4);
-        const down = g.physics.raycast(_a, DOWN, 40);
-        if (down) _a.y -= down.distance;
-      }
+      _a.set(this.cursor.x, SKY - hit.distance, this.cursor.y);
       this.aimPoint.copy(_a);
-      // unter einem Dach (Lagerhalle) kommt der Jet nicht hin
-      this.aimValid = this.openSky(_a);
+      this.aimValid = hit.normal.y > 0.6 && _a.y < SPECIAL.maxHeight;
     }
     const m = this.aim;
     m.visible = this.aimValid;
@@ -175,13 +192,13 @@ export class Airstrikes {
     }
   }
 
-  /** über dem Punkt ist freier Himmel (kein Dach, keine Decke) */
+  /** über dem Punkt ist freier Himmel (kein Dach, keine Decke); fragt die KI */
   openSky(p) {
     _b.set(p.x, p.y + 0.5, p.z);
     return !this.g.physics.raycast(_b, UP, 60);
   }
 
-  /** Ziel bestätigen: liefert den Punkt oder null (z. B. in den Himmel gezielt) */
+  /** Ziel bestätigen: liefert den Punkt oder null (z. B. auf einem Dach) */
   confirm() {
     if (!this.aimValid) return null;
     this.cancel();

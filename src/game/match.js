@@ -82,7 +82,10 @@ export class Match {
   /** Luftschlag auf point anfordern: Flugrichtung ist die eigene Blickrichtung */
   callAirstrike(point) {
     const g = this.g;
-    const yaw = g.player.yaw;
+    // der Jet kommt von einem selbst her (das Ziel liegt jetzt irgendwo auf der Karte), ganz nah
+    // dran in Blickrichtung
+    const dx = point.x - g.player.feet.x, dz = point.z - g.player.feet.z;
+    const yaw = Math.hypot(dx, dz) > 4 ? Math.atan2(-dx, -dz) : g.player.yaw;
     const seed = Math.floor(Math.random() * 2147483647);
     this.special = 0;
     this.stats.airstrikes++;

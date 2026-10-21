@@ -973,7 +973,7 @@ export class Duel extends Match {
         // die Bombe zählt für niemanden als Abschuss
         if (ev.by === this.me && ev.w !== 'bombe') {
           this.onKill(WEAPONS[ev.w] || KILLERS[ev.w] || WEAPONS.natter, !!ev.h);
-          g.audio.play('kill');
+          g.audio.play(ev.h ? 'headshotKill' : 'kill');
           g.hud.hitmarker(!!ev.h, true);
         }
         this._feed(ev.by, this.them, ev.w, !!ev.h);

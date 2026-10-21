@@ -534,8 +534,8 @@ export class Game {
     this.wasAlive = this.player.alive;
   }
 
-  // Luftschlag (nach einer Abschussserie): X öffnet das Zielen, Linksklick bestätigt,
-  // Rechtsklick oder nochmal X bricht ab
+  // Luftschlag (nach einer Abschussserie): X öffnet die große Karte, die Maus schiebt das Zielkreuz,
+  // Linksklick bestätigt, Rechtsklick oder nochmal X bricht ab
   _special(input) {
     const as = this.airstrikes;
     const m = this.match;
@@ -564,7 +564,7 @@ export class Game {
         // gehaltene Maustaste nach dem Bestätigen nicht als Schuss werten
         this.weapons.holdFire = true;
       } else {
-        this.hud.message('Kein Ziel', 'Schau auf den Boden unter freiem Himmel, dort feuert der Jet hin', 1.6);
+        this.hud.message('Kein Ziel', 'Wähl Boden unter freiem Himmel, nicht auf einem Dach', 1.6);
       }
     } else if (input.altPressed) {
       input.altPressed = false;
@@ -604,7 +604,15 @@ export class Game {
       if (duel) this.killcam.handleInput(input);
       this.hud.showStats(input.isDown('scores'));
       mouse = input.takeMouse();
-      this._look(mouse, input.takeLook());
+      const look = input.takeLook();
+      if (this.airstrikes.targeting) {
+        // Luftschlag: Maus (oder Wischen) schiebt das Zielkreuz auf der Karte, der Blick bleibt stehen
+        const k = this.hud.radar.k || 1;
+        this.airstrikes.moveCursor((mouse.x + look.x * 4) / k, (mouse.y + look.y * 4) / k);
+        mouse = { x: 0, y: 0 };
+      } else {
+        this._look(mouse, look);
+      }
     } else {
       input.takeMouse();
       input.takeLook();

@@ -97,6 +97,9 @@ export const BANANA = {
 export const SPECIAL = {
   streak: 3,
   maxRange: 90,
+  // Ziel auf der Karte: höher als das gibt es kein Ziel (Hausdächer, Mauerkronen, Containerstapel);
+  // begehbar sind höchstens das Dach der Hafenmeisterei (3,6 m) und die Podeste im Hof (2,4 m)
+  maxHeight: 4,
   // Warnzeit bis zu den ersten Einschlägen: so lange hat man Zeit, aus dem roten Kreis zu laufen
   delay: 3.2,
   radius: 6,
@@ -257,9 +260,9 @@ export const WEAPONS = {
   messer: {
     name: 'Messer', type: 'Messer', slot: 'knife', price: 0, reward: 750, model: 'karambit',
     draw: 0.4, speed: 6.2, sprint: 8.8, sprintOut: 0, armorPen: 0.85,
-    // zwei Treffer reichen immer, auch gegen eine Schutzweste
-    slash: { damage: 60, range: 1.7, rate: 0.42 },
-    stab: { damage: 90, range: 1.45, rate: 1.0 },
+    // ein Treffer tötet immer, auch mit Weste und Helm (Finns Wunsch: sonst kommt man damit nie durch)
+    slash: { damage: 500, range: 1.7, rate: 0.42 },
+    stab: { damage: 500, range: 1.45, rate: 1.0 },
     view: { pos: [0.15, -0.13, -0.3], rot: [0.45, 0.45, -0.2] },
     anim: 'knife',
   },
@@ -296,7 +299,9 @@ export const GRENADES = {
   // Splittergranate: 130 direkt daneben (vorher 100), nimmt mit dem Abstand ab: 1 m 105, 2 m 82,
   // 3 m 60, 4 m 41; eine Weste hält die Hälfte ab
   he: { fuse: 1.6, radius: 7.5, damage: 130, armorPen: 0.5 },
-  flash: { fuse: 1.6, radius: 22, maxBlind: 4.5 },
+  // Blendgranate: bis "full" Meter blendet sie voll, danach weniger, ab "radius" gar nicht mehr;
+  // maxBlind = längste Blendung in Sekunden (die erste Hälfte davon ganz weiß)
+  flash: { fuse: 1.6, radius: 40, full: 10, maxBlind: 6.5 },
   smoke: { fuse: 1.8, radius: 3.6, duration: 16, stopSpeed: 0.25 },
   throwSpeed: 15.5,
   lobSpeed: 7.0,
