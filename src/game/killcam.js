@@ -26,7 +26,7 @@ const LAST_REPLAY = 2.0;
 const KEEP = 6000;
 const DEG = Math.PI / 180;
 // Oberflächen in den Schussmeldungen (wie in duel.js)
-const SURFACES = ['', 'stone', 'sand', 'metal', 'wood'];
+const SURFACES = ['', 'stone', 'sand', 'metal', 'wood', 'bell'];
 const NO_MOUSE = { x: 0, y: 0 };
 
 const _to = new THREE.Vector3();

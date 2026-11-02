@@ -2,10 +2,12 @@ import * as THREE from 'three';
 import { GROUP } from '../engine/physics.js';
 import { T, forklift, spawns } from './parts.js';
 import { HAFEN } from './hafen.js';
+import { clockTowerLayout, buildClockTower } from './clocktower.js';
 
 // Drei Arenen, alle punktsymmetrisch um die Mitte: der Host startet im Westen, der Gast gespiegelt
 // im Osten (im Training startet man im Westen). Alle Angaben in Metern, y = Höhe.
-// - "Hof": sandiger Innenhof mit zwei Gassen, Tunnel durch das Gebäude in der Mitte und Balkon.
+// - "Hof": sandiger Innenhof mit zwei Gassen, Tunnel durch das Gebäude in der Mitte und Balkon,
+//   darauf seit 02.11.2026 ein Uhrturm (clocktower.js).
 // - "Lagerhalle": Halle mit Hochregalen, Büro-Container in der Mitte, Laufsteg und Dach mit
 //   Lichtbändern, davor je ein Hof mit dem Startpunkt.
 // - "Hafen" (hafen.js): große, offene Mole mit Containerstapeln, Kran und Wasser zu beiden Seiten.
@@ -78,13 +80,16 @@ function hofLayout({ B, mirror, wall, cap }) {
   // niedrige Deckungsmauern
   mirror(-12, -8, 0, 1.1, 12, 12.4, 'concrete');
   mirror(-24, -20, 0, 1.1, -12.3, -11.9, 'concrete');
+
+  // Uhrturm auf dem Haus in der Mitte
+  clockTowerLayout(B);
 }
 
 const HOF = {
   id: 'hof',
   name: 'Hof',
   airstrike: true,
-  desc: 'Sandiger Innenhof: zwei Gassen, Tunnel durch das Haus in der Mitte, Balkon.',
+  desc: 'Sandiger Innenhof: zwei Gassen, Tunnel durch das Haus in der Mitte, Balkon, Uhrturm.',
   ground: 'ground',
   // Wegenetz der KI, Boden (Breite, Tiefe) und Radius, den die Schatten abdecken
   bounds: { x0: -30, x1: 30, z0: -20, z1: 20 },
@@ -107,6 +112,8 @@ const HOF = {
   // unsichtbare Rampen über den Treppen: [x unten, x oben, Höhe oben, z0, z1], gespiegelt
   ramps: [[-13.6, -18, 2.4, 16.3, 19.9]],
   layout: hofLayout,
+  // Teile, die keine Kästen sind (Zifferblätter, Zeiger, Glocke, Dach)
+  extras: (arena) => buildClockTower(arena.group, (m) => arena.materials.push(m)),
   // Requisiten: [Modell, x, z, Drehung, Höhe], jeweils gespiegelt in die andere Hälfte
   props: [
     ['Crate_L', -12, -6.2, 0, 0], ['Crate_S', -12, -6.2, 0.3, 1.3], ['Crate_S', -13.25, -6.4, 0.1, 0],
@@ -125,7 +132,7 @@ const HOF = {
     ['Crate_S', -22.85, -0.55, 0.12, 1.3], ['Crate_S', -22.95, 0.5, -0.2, 1.3],
   ],
   // Rundflug hinter dem Hauptmenü
-  menu: { rx: 24, rz: 17, y: 9, look: [0, 1.5, 0] },
+  menu: { rx: 24, rz: 17, y: 9, look: [0, 4, 0] },
   // KI: Wegpunkte für verschiedene Wege (sie ist immer der Gast im Osten) und wohin sie beim
   // Verteidigen ihres Platzes schaut ([x0, x1, z0, z1]: die Gasse nach Westen, die Öffnung zur Mitte)
   bot: {
@@ -498,6 +505,7 @@ export class Arena {
     this._addRamps();
     this._buildRails();
     this._buildWater();
+    this.map.extras?.(this);
     for (const [key, acc] of Object.entries(byMat)) {
       const g = new THREE.BufferGeometry();
       g.setAttribute('position', new THREE.Float32BufferAttribute(acc.pos, 3));

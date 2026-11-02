@@ -173,8 +173,8 @@ const EN = {
   'Kaufen': 'Buy',
 
   // Kartenbeschreibungen im Menü
-  'Sandiger Innenhof: zwei Gassen, Tunnel durch das Haus in der Mitte, Balkon.':
-    'Sandy courtyard: two alleys, a tunnel through the building in the middle, balcony.',
+  'Sandiger Innenhof: zwei Gassen, Tunnel durch das Haus in der Mitte, Balkon, Uhrturm.':
+    'Sandy courtyard: two alleys, a tunnel through the building in the middle, balcony, clock tower.',
   'Halle mit Hochregalen, Büro in der Mitte, Laufsteg und Rolltoren. Enger, mehr Nahkampf.':
     'Warehouse with tall shelves, an office in the middle, a catwalk and roller doors. Tighter, more close combat.',
   'Groß und offen: Containerhafen auf einer Mole mit Wasser zu beiden Seiten, Kran in der Mitte. Für 3 gegen 3 und 4 gegen 4.':

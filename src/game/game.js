@@ -3,6 +3,7 @@ import { KNIFE_SKINS, MOVE, SPECIAL, TEAM_KNIFE, TICK, WEAPONS } from '../config
 import { mergeByMaterial } from '../engine/merge.js';
 import { setupEnvironment } from '../world/environment.js';
 import { Arena, MAP, MAPS, SPAWN, setMap } from '../world/map.js';
+import { setClockSource } from '../world/clocktower.js';
 import { BombSites } from '../world/bombsites.js';
 import { Effects } from '../effects/effects.js';
 import { Targets } from './targets.js';
@@ -62,6 +63,8 @@ export class Game {
     fill.target.position.set(0, 0, -1);
     this.viewCamera.add(fill, fill.target);
     this.arena = new Arena(assets, physics, this.scene);
+    // Uhrturm im Hof: Zeiger und Glocke laufen in der Zeit des Spieltakts
+    setClockSource(() => this.frameTime ?? performance.now());
     this.arena.build();
     this.env.fitShadow(MAP.shadow);
     this.effects = new Effects(this.scene);

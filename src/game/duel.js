@@ -23,7 +23,7 @@ export function nextSend(t, every) {
 }
 
 // Oberflächen als Zahl (0 = kein Einschlag, z. B. Treffer am Spieler)
-const SURFACES = ['', 'stone', 'sand', 'metal', 'wood'];
+const SURFACES = ['', 'stone', 'sand', 'metal', 'wood', 'bell'];
 
 const _muzzle = new THREE.Vector3();
 const _p = new THREE.Vector3();

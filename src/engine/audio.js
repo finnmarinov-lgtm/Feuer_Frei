@@ -167,6 +167,17 @@ export class Audio {
     o.stop(t0 + attack + decay + 0.05);
   }
 
+  // Glocke im Uhrturm: Teiltöne wie bei einer Kirchenglocke (Unteroktave, Grundton, kleine Terz,
+  // Quinte, Oktave ...), die tiefen klingen am längsten nach; trägt über die ganze Karte
+  _bell(pos, vol, t) {
+    const o = this._out(pos, 1.0 * vol, 1.0, 30);
+    const f = 330 * (0.985 + Math.random() * 0.03);
+    for (const [k, gain, decay] of [[0.5, 0.32, 8], [1, 0.5, 6], [1.19, 0.3, 4.5], [1.5, 0.2, 3.4], [2, 0.24, 2.6], [2.52, 0.12, 1.6], [3.01, 0.1, 1.2], [4.1, 0.05, 0.7]]) {
+      this._tone(o, t, { freq: f * k, gain, decay });
+    }
+    this._noise(o, t, { type: 'bandpass', freq: 2600, q: 1.5, gain: 0.6, decay: 0.04 });
+  }
+
   // Rauschen, das gut 40-mal pro Sekunde aufknallt und abklingt (Sägezahn als Lautstärke, so
   // schnell wie die Einschläge), darunter ein tiefes Brummen im selben Takt: "Drrrrrt"
   _cannon(t, dur, pos, vol) {
@@ -329,6 +340,10 @@ export class Audio {
       }
       case 'impact': {
         const s = opt.surface || 'stone';
+        if (s === 'bell') {
+          this._bell(pos, vol, t);
+          break;
+        }
         const o = this._out(pos, 0.35 * vol, 0.2);
         if (s === 'metal') {
           this._tone(o, t, { freq: 2400 + Math.random() * 1200, gain: 0.25, decay: 0.18 });

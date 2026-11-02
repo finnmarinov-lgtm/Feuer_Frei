@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { sparkTexture, puffTexture, bulletHoleTexture, scorchTexture } from './textures.js';
+import { ringBell } from '../world/clocktower.js';
 
 const VERT = /* glsl */ `
 attribute float size;
@@ -154,6 +155,7 @@ const SURFACE_DUST = {
   stone: [0.64, 0.6, 0.54],
   metal: [0.35, 0.33, 0.3],
   wood: [0.5, 0.38, 0.24],
+  bell: [0.35, 0.33, 0.3],
 };
 
 export class Effects {
@@ -251,14 +253,17 @@ export class Effects {
   /** decal = false: ohne Einschussloch (Wiederholung in der Kill-Cam, das Loch gibt es schon) */
   impact(point, normal, surface, decal = true) {
     _n.set(normal.x, normal.y, normal.z);
-    if (decal) this._decal(point, _n, surface === 'metal' ? 0.05 : 0.07);
+    // die Glocke schwingt, ein Einschussloch bliebe in der Luft stehen
+    if (surface === 'bell') ringBell();
+    else if (decal) this._decal(point, _n, surface === 'metal' ? 0.05 : 0.07);
     const dust = SURFACE_DUST[surface] || SURFACE_DUST.stone;
-    const puffs = surface === 'sand' ? 6 : surface === 'metal' ? 2 : 4;
+    const metal = surface === 'metal' || surface === 'bell';
+    const puffs = surface === 'sand' ? 6 : metal ? 2 : 4;
     for (let i = 0; i < puffs; i++) {
       randomDir(_v, _n, 0.9).multiplyScalar(0.8 + Math.random() * 1.8);
       this.dust.spawn(point, _v, { color: dust, life: 0.6 + Math.random() * 0.7, size0: 0.08, size1: 0.45 + Math.random() * 0.3, alpha: 0.75, gravity: -0.3, drag: 3.5 });
     }
-    if (surface === 'metal') {
+    if (metal) {
       for (let i = 0; i < 9; i++) {
         randomDir(_v, _n, 1.2).multiplyScalar(3 + Math.random() * 5);
         this.sparks.spawn(point, _v, { color: [3.5, 2.2, 1.0], life: 0.2 + Math.random() * 0.3, size0: 0.035, size1: 0.01, gravity: 9.8, drag: 1 });
