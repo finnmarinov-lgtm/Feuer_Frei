@@ -259,6 +259,11 @@ body.radar #tasks-hud { top: 328px; }
 .logo { font-size: 84px; font-weight: 700; letter-spacing: 6px; line-height: 1; text-shadow: 0 4px 24px rgba(0,0,0,0.6); }
 .logo span { color: var(--accent); }
 .tagline { font-size: 22px; color: var(--muted); font-weight: 600; margin-top: -6px; }
+/* Spieler online: erscheint nur, wenn außer einem selbst noch jemand da ist */
+.online-pill { display: flex; align-items: center; gap: 8px; margin-top: -8px; padding: 4px 12px; border-radius: 999px; background: var(--panel); color: var(--text); font-size: 16px; font-weight: 600; }
+.online-pill i { width: 9px; height: 9px; border-radius: 50%; background: var(--money); box-shadow: 0 0 8px var(--money); animation: online-puls 2s ease-in-out infinite; }
+@keyframes online-puls { 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) { .online-pill i { animation: none; } }
 .footnote { color: var(--muted); font-size: 15px; }
 
 /* Beschreibung im Hauptmenue: fuer Besucher und fuer Suchmaschinen */

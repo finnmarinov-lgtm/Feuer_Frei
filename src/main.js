@@ -21,6 +21,7 @@ import { ARMS } from './config.js';
 import { MAP, MAPS, setMap } from './world/map.js';
 import { TEAM_NAMES, otherTeam } from './game/sides.js';
 import { zaehleAufruf } from './net/zaehler.js';
+import { Online } from './net/online.js';
 import { geld, locale, setSprache, sprache, starteUebersetzung, t } from './i18n.js';
 import { starteFehleranzeige, zeigeFehler, zeigeGrafikAusfall } from './ui/fehler.js';
 
@@ -106,6 +107,17 @@ async function boot() {
     }
   };
   requestAnimationFrame(loop);
+
+  // Spieler online: im Hauptmenü, sobald außer einem selbst noch jemand spielt
+  const online = new Online();
+  online.onChange = ({ online: n, spiel }) => {
+    $('menu-online').hidden = n < 2;
+    const de = sprache() === 'de';
+    let text = `${n} online`;
+    if (spiel) text += de ? ` · ${spiel} ${spiel === 1 ? 'spielt' : 'spielen'} gerade` : ` · ${spiel} in a match`;
+    $('menu-online-text').textContent = text;
+  };
+  setInterval(() => online.setWhere(game.state === 'menu' ? 'menu' : 'spiel'), 2000);
 
   show('menu');
   // Einladungslink (…?lobby=CODE): gleich der Lobby beitreten
