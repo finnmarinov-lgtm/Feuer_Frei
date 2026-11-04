@@ -297,7 +297,9 @@ body.radar #tasks-hud { top: 328px; }
 .gear:hover svg { transform: rotate(90deg); }
 /* zu schmal für Name oder „Anmelden“: nur der Kreis (der Titel „Konto“ bleibt) */
 @media (max-width: 960px) and (min-height: 541px) {
-  .konto-chip { padding: 0 4px; }
+  /* nur der Kreis: feste Breite (die Höchstbreite oben wird bei schmalen Fenstern negativ, also 0,
+     dann lag der Kreis über dem Zahnrad) */
+  .konto-chip { padding: 0; width: 48px; max-width: none; justify-content: center; flex-shrink: 0; }
   .konto-chip > span:not(.avatar) { display: none; }
 }
 
@@ -654,3 +656,20 @@ body.touch.radar #vitals { left: 140px; top: 50px; }
 body.touch.radar #net-status { top: 196px; }
 body.touch.radar #tasks-hud { top: 86px; }
 body.touch #task-toast { top: 22%; transform: translateX(-50%) scale(0.75); }
+
+/* Handy hochkant: Schriftzug in eine Zeile, unter den Knöpfen oben rechts, Unterzeile mit Rand */
+@media (max-width: 600px) {
+  #menu { padding-top: 76px; }
+  #menu .logo { font-size: clamp(34px, 11vw, 84px); letter-spacing: 3px; white-space: nowrap; }
+  .tagline { font-size: 17px; text-align: center; padding: 0 16px; }
+  /* Formulare (Einstellungen, Konto): Beschriftung über dem Regler bzw. Feld statt daneben */
+  .form { padding: 14px; box-sizing: border-box; }
+  .form label { grid-template-columns: minmax(0, 1fr) 48px; row-gap: 4px; }
+  .form label > span { grid-column: 1 / -1; }
+  .form label input[type=range] { width: 100%; min-width: 0; }
+  .form select { grid-column: 1 / -1; min-width: 0; }
+  .form label.key { grid-template-columns: minmax(0, 1fr) auto; }
+  .form label.key > span { grid-column: auto; }
+  .konto-form label { grid-template-columns: minmax(0, 1fr); }
+  .konto-form input { width: 100%; box-sizing: border-box; min-width: 0; }
+}
