@@ -10,7 +10,7 @@ export const ACTIONS = [
   { id: 'right', label: 'Rechts', keys: ['KeyD'] },
   { id: 'jump', label: 'Springen', keys: ['Space'] },
   { id: 'crouch', label: 'Ducken (genauer, leiser)', keys: ['ControlLeft', 'KeyC'] },
-  { id: 'sprint', label: 'Sprinten (nur vorwärts)', keys: ['ShiftLeft'] },
+  { id: 'sprint', label: 'Sprinten (nur vorwärts, dabei ducken = rutschen)', keys: ['ShiftLeft'] },
   { id: 'walk', label: 'Schleichen (lautlos, genauer)', keys: ['AltLeft'] },
   { id: 'reload', label: 'Nachladen', keys: ['KeyR'] },
   { id: 'slot1', label: 'Hauptwaffe', keys: ['Digit1'] },

@@ -109,7 +109,7 @@ function duelWorld(game) {
     // rennende Schritte hört man (Schleichen und Ducken sind leise)
     get running() {
       const p = game.player;
-      return p.alive && p.onGround && !p.ducked && p.horizontalSpeed > p.maxSpeed * 0.6 && !game.input.isDown('walk');
+      return p.alive && p.onGround && (p.sliding || (!p.ducked && p.horizontalSpeed > p.maxSpeed * 0.6 && !game.input.isDown('walk')));
     },
     get protected() {
       return game.match.protectT > 0;

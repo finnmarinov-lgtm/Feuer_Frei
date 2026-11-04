@@ -656,7 +656,7 @@ export class Game {
       }
     }
     const alpha = simulate ? this.acc / TICK : 1;
-    const sprinting = simulate && this.player.sprinting;
+    const sprinting = simulate && (this.player.sprinting || this.player.sliding);
     this.sprintFov += ((sprinting ? 1 : 0) - this.sprintFov) * Math.min(1, dt * 6);
     this._updateCamera(dt, alpha);
     this.grenades.update(dt);
@@ -719,7 +719,8 @@ export class Game {
     const sh = this.shakeAmt * this.shakeAmt;
     const pitch = p.pitch + (ws.recoil.pitch * 0.5 + ws.kick.pitch) * DEG + (Math.random() - 0.5) * sh * 0.05;
     const yaw = p.yaw + (ws.recoil.yaw * 0.5 + ws.kick.yaw) * DEG + (Math.random() - 0.5) * sh * 0.05;
-    cam.rotation.set(pitch, yaw, (Math.random() - 0.5) * sh * 0.03);
+    // beim Rutschen kippt die Kamera leicht zur Seite
+    cam.rotation.set(pitch, yaw, (Math.random() - 0.5) * sh * 0.03 - p.slideAmount * 0.06);
     const fov = this._targetFov();
     if (cam.fov !== fov) {
       cam.fov = fov;

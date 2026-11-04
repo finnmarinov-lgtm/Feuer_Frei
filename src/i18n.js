@@ -149,8 +149,8 @@ const EN = {
   'bricht ab. Mit': 'cancels. With',
   'kommt eine zweite Taste dazu.': 'you add a second key.',
   'Auf dem Handy': 'On a phone',
-  'Linker Daumen: Stick zum Laufen (ganz nach vorne schieben = Sprinten). Rechter Daumen: wischen zum Umsehen. Roter Knopf: schießen, beim Halten weiter wischen und zielen. Kreis-Knopf: Zielen an/aus. Pfeile: springen und ducken. Unten tippst du die Waffe an. Flugzeug: Luftschlag, wenn der Ring voll ist. Stecknadel oben rechts: die Stelle in der Bildmitte fürs Team markieren (Team-Spiel).':
-    'Left thumb: stick to move (push it all the way forward to sprint). Right thumb: swipe to look around. Red button: shoot, keep swiping while holding to aim. Circle button: aiming on/off. Arrows: jump and crouch. Tap a weapon at the bottom. Plane: air strike once the ring is full. Pin at the top right: mark the spot in the middle of the screen for your team (team match).',
+  'Linker Daumen: Stick zum Laufen (ganz nach vorne schieben = Sprinten). Rechter Daumen: wischen zum Umsehen. Roter Knopf: schießen, beim Halten weiter wischen und zielen. Kreis-Knopf: Zielen an/aus. Pfeile: springen und ducken (beim Sprinten ducken = rutschen). Unten tippst du die Waffe an. Flugzeug: Luftschlag, wenn der Ring voll ist. Stecknadel oben rechts: die Stelle in der Bildmitte fürs Team markieren (Team-Spiel).':
+    'Left thumb: stick to move (push it all the way forward to sprint). Right thumb: swipe to look around. Red button: shoot, keep swiping while holding to aim. Circle button: aiming on/off. Arrows: jump and crouch (crouch while sprinting = slide). Tap a weapon at the bottom. Plane: air strike once the ring is full. Pin at the top right: mark the spot in the middle of the screen for your team (team match).',
   'Tipp wie in CS: Im Stehen treffen die Waffen am besten. Kurz vor dem Schuss stoppen, und bei langen Salven die Maus nach unten ziehen.':
     'Tip, same as in CS: weapons are most accurate standing still. Stop just before you shoot, and pull the mouse down during long bursts.',
   'Standard wiederherstellen': 'Reset to default',
@@ -303,7 +303,7 @@ const EN = {
   'Links': 'Left',
   'Rechts': 'Right',
   'Ducken (genauer, leiser)': 'Crouch (more accurate, quieter)',
-  'Sprinten (nur vorwärts)': 'Sprint (forward only)',
+  'Sprinten (nur vorwärts, dabei ducken = rutschen)': 'Sprint (forward only, crouch while sprinting = slide)',
   'Schleichen (lautlos, genauer)': 'Walk (silent, more accurate)',
   'Hauptwaffe': 'Primary',
   'Pistole': 'Pistol',

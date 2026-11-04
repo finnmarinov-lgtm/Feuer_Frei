@@ -28,7 +28,7 @@ function playerActor(game, match) {
     },
     get running() {
       const p = game.player;
-      return p.alive && p.onGround && !p.ducked && p.horizontalSpeed > p.maxSpeed * 0.6 && !game.input.isDown('walk');
+      return p.alive && p.onGround && (p.sliding || (!p.ducked && p.horizontalSpeed > p.maxSpeed * 0.6 && !game.input.isDown('walk')));
     },
     get protected() {
       return match.protectT > 0 && match.phase === 'live';

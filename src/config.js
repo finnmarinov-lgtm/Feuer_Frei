@@ -23,6 +23,14 @@ export const MOVE = {
   accurateSpeed: 0.34,
   // Sprinten (Shift): Tempo je Waffe steht bei den Waffen (sprint), dazu etwas mehr Sichtfeld
   sprintFov: 6,
+  // Rutschen: beim Sprinten ducken. Schub auf slideBoost × Tempo (höchstens slideMax), dann bremst
+  // es ab; nach slideTime oder unter slideEnd ist man normal geduckt. Danach slideCooldown Pause.
+  slideBoost: 1.3,
+  slideMax: 10.5,
+  slideTime: 0.8,
+  slideDrag: 0.75,
+  slideEnd: 3.2,
+  slideCooldown: 1.0,
 };
 
 export const ECONOMY = {

@@ -58,6 +58,13 @@ export class Player {
     // nach Schuss oder Zielen im Sprint: erst Shift loslassen, dann geht es wieder
     this.sprintSuppressed = false;
     this.sprinting = false;
+    // Rutschen (beim Sprinten ducken): Restzeit, Pause bis zum nächsten, Ducken-Taste vom letzten Takt,
+    // slideAmount 0..1 weich für Kamera-Neigung
+    this.sliding = false;
+    this.slideLeft = 0;
+    this.slideCool = 0;
+    this.slideAmount = 0;
+    this.crouchWasDown = false;
     this.frozen = false;
     // beim Legen und Entschärfen der Bombe und beim Zielen für den Luftschlag: stillstehen, Waffe unten
     this.busy = false;
@@ -79,6 +86,8 @@ export class Player {
     this.onGround = true;
     this.alive = true;
     this.sprinting = false;
+    this.sliding = false;
+    this.slideLeft = this.slideCool = this.slideAmount = 0;
     this.busy = false;
     this.landImpact = 0;
     this._syncCollider();
@@ -145,6 +154,12 @@ export class Player {
     this._syncCollider();
   }
 
+  _endSlide() {
+    this.sliding = false;
+    this.slideLeft = 0;
+    this.slideCool = MOVE.slideCooldown;
+  }
+
   _friction(dt) {
     const speed = this.horizontalSpeed;
     if (speed < 0.01) {
@@ -184,6 +199,21 @@ export class Player {
     this.jumpBuffer = Math.max(0, this.jumpBuffer - dt);
 
     const wantDuck = input.isDown('crouch');
+    this.slideCool = Math.max(0, this.slideCool - dt);
+    // Rutschen: Ducken neu gedrückt, während man (im letzten Takt) am Boden sprintet
+    if (wantDuck && !this.crouchWasDown && this.sprinting && this.onGround && !still && this.slideCool <= 0
+      && this.horizontalSpeed > this.maxSpeed * 0.9) {
+      const sp = this.horizontalSpeed;
+      const k = Math.min(MOVE.slideMax, sp * MOVE.slideBoost) / sp;
+      this.vel.x *= k;
+      this.vel.z *= k;
+      this.sliding = true;
+      this.slideLeft = MOVE.slideTime;
+      this.audio.play('slide', { position: this.feet });
+    }
+    this.crouchWasDown = wantDuck;
+    // Taste los oder festgehalten (Bombe, Luftschlag): Rutschen vorbei
+    if (this.sliding && (!wantDuck || still)) this._endSlide();
     if (wantDuck && !this.ducked) this._duck();
     else if (!wantDuck && this.ducked) this._tryUnduck();
     const duckTarget = this.ducked ? 1 : 0;
@@ -213,10 +243,19 @@ export class Player {
       this.vel.y = JUMP_VEL;
       this.onGround = false;
       this.jumpBuffer = 0;
+      // Sprung aus dem Rutschen behält den Schwung
+      if (this.sliding) this._endSlide();
     }
     if (this.onGround) {
-      this._friction(dt);
-      this._accelerate(_wish, wishspeed, MOVE.accelerate, dt);
+      if (this.sliding) {
+        // beim Rutschen keine Reibung und keine Lenkung, nur gleichmäßiges Abbremsen
+        const k = Math.exp(-MOVE.slideDrag * dt);
+        this.vel.x *= k;
+        this.vel.z *= k;
+      } else {
+        this._friction(dt);
+        this._accelerate(_wish, wishspeed, MOVE.accelerate, dt);
+      }
       this.vel.y = -1.5;
     } else {
       this._accelerate(_wish, wishspeed, MOVE.airAccelerate, dt, MOVE.airWishCap);
@@ -244,6 +283,13 @@ export class Player {
         this.audio.play('land', { position: this.feet, volume: Math.min(1, fall / 10) });
       }
     }
+
+    // Rutschen endet nach slideTime, an einer Wand (Tempo weg) oder über einer Kante
+    if (this.sliding) {
+      this.slideLeft -= dt;
+      if (this.slideLeft <= 0 || !this.onGround || this.horizontalSpeed < MOVE.slideEnd) this._endSlide();
+    }
+    this.slideAmount += ((this.sliding ? 1 : 0) - this.slideAmount) * Math.min(1, dt * 10);
 
     // Schritte sind nur beim Rennen hörbar, Schleichen (Shift) und Ducken sind leise
     const speed = this.horizontalSpeed;

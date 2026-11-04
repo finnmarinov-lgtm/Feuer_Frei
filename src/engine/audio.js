@@ -332,6 +332,14 @@ export class Audio {
         }
         break;
       }
+      // Rutschen: Schleifen über den Boden, wird dunkler und leiser
+      case 'slide': {
+        const o = this._out(pos, 0.42 * vol, 0.12);
+        this._noise(o, t, { type: 'lowpass', freq: 2400, freqEnd: 380, q: 0.8, gain: 0.9, attack: 0.03, decay: 0.6 });
+        this._noise(o, t, { type: 'bandpass', freq: 3600, freqEnd: 1400, q: 1.1, gain: 0.35, attack: 0.02, decay: 0.45 });
+        this._noise(o, t, { type: 'lowpass', freq: 300, q: 1, gain: 0.5, decay: 0.1 });
+        break;
+      }
       case 'land': {
         const o = this._out(pos, 0.5 * vol, 0.15);
         this._noise(o, t, { type: 'lowpass', freq: 350, q: 1, gain: 1, decay: 0.12 });
