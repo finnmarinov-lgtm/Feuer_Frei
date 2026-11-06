@@ -279,7 +279,10 @@ body.radar #tasks-hud { top: 328px; }
 .about .legal { text-align: center; opacity: 1; }
 
 /* oben rechts im Hauptmenü wie in anderen Spielen: Konto und Einstellungen (Zahnrad) */
-.menu-top { position: absolute; top: 16px; right: 18px; display: flex; align-items: center; gap: 10px; }
+.menu-top { position: absolute; top: 16px; right: 18px; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.menu-top-row { display: flex; align-items: center; gap: 10px; }
+.rate-chip { height: 38px; padding: 0 16px; font-size: 16px; }
+.rate-chip::before { content: '★'; color: #f2b636; font-size: 18px; margin-right: -2px; }
 .top-btn { display: flex; align-items: center; gap: 10px; height: 48px; padding: 0; border-radius: 24px; border: 1px solid rgba(255,255,255,0.2); background: rgba(12,14,17,0.6); color: var(--text); font: 700 19px var(--font); letter-spacing: 0.5px; cursor: pointer; transition: background 0.15s, border-color 0.15s; }
 .top-btn:hover { background: rgba(30,33,38,0.85); border-color: var(--accent); }
 .top-btn svg { display: block; fill: currentColor; }
@@ -403,9 +406,6 @@ body.radar #tasks-hud { top: 328px; }
 .seg { display: inline-flex; gap: 4px; }
 .seg button { padding: 4px 14px; font-size: 17px; }
 .seg button.on { background: var(--accent); color: #1a1407; border-color: var(--accent); }
-.rate-btn { background: none; border: none; color: var(--muted); font-size: 16px; font-weight: 700; padding: 6px 14px; cursor: pointer; width: auto; }
-.rate-btn::before { content: '★ '; color: #f2b636; }
-.rate-btn:hover { color: var(--text); }
 .bew-form { max-width: 460px; width: 100%; display: flex; flex-direction: column; gap: 12px; }
 .bew-frage, .bew-gross { margin: 0; font-size: 20px; font-weight: 700; text-align: center; }
 .bew-gross { font-size: 26px; color: #f2b636; }
@@ -567,7 +567,8 @@ body.touch .buy-foot { display: none; }
   .res-grid b { font-size: 22px; }
   .keys { font-size: 15px; }
   .buy-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
-  .menu-top { top: 10px; right: 12px; gap: 8px; }
+  .menu-top { top: 10px; right: 12px; gap: 6px; }
+  .menu-top-row { gap: 8px; }
   .top-btn { height: 40px; font-size: 17px; }
   .konto-chip { padding-right: 16px; max-width: min(280px, calc(50vw - 215px)); }
   .konto-chip .avatar { width: 32px; height: 32px; }
@@ -688,4 +689,13 @@ body.touch #task-toast { top: 22%; transform: translateX(-50%) scale(0.75); }
   .form label.key > span { grid-column: auto; }
   .konto-form label { grid-template-columns: minmax(0, 1fr); }
   .konto-form input { width: 100%; box-sizing: border-box; min-width: 0; }
+}
+
+/* Bewerten oben rechts: auf schmalen oder niedrigen Bildschirmen nur der Stern als runder Knopf links neben
+   Konto und Zahnrad (sonst liegt er auf dem Schriftzug FEUER FREI) */
+@media (max-width: 940px), (max-height: 540px) {
+  .menu-top { flex-direction: row-reverse; align-items: center; }
+  .rate-chip { height: 40px; width: 40px; padding: 0; justify-content: center; }
+  .rate-chip::before { font-size: 20px; margin: 0; }
+  .rate-text { display: none; }
 }

@@ -1017,20 +1017,22 @@ export class Lobby {
     const rejoining = !!this.rejoin;
     $('lobby-code').textContent = this.code;
     $('lobby-link').value = this.link;
+    // im offenen Raum die festen Einstellungen gleich richtig zeigen (auch bevor der Host antwortet)
+    const shown = this.pubRoom ? { ...this.opts, ...this.pubRoom.opts } : this.opts;
     for (const seg of document.querySelectorAll('#lobby-opts .seg')) {
       const key = seg.dataset.opt;
       seg.classList.toggle('locked', !host || rejoining || (!!this.pubRoom && PUBLIC_LOCKED.includes(key)));
       const def = { mode: 'kampf', map: 'hof', arms: 'alle', level: 'mittel', pub: 0 }[key];
-      for (const b of seg.children) b.classList.toggle('on', b.dataset.v === String(this.opts[key] ?? def));
+      for (const b of seg.children) b.classList.toggle('on', b.dataset.v === String(shown[key] ?? def));
     }
-    const pub = this.opts.pub === 1;
+    const pub = shown.pub === 1;
     $('lobby-pub-info').textContent = this.pubRoom ? 'Offener Raum: steht immer in der Liste. Geht der Host, übernimmt ein anderer Spieler.'
       : !pub ? 'Nur wer den Code oder den Link hat, kommt rein.'
       : host ? 'Steht in der Liste im Mehrspieler-Menü, jeder kann beitreten. Mit ✕ wirfst du jemanden raus.'
         : 'Steht in der Liste im Mehrspieler-Menü, jeder kann beitreten.';
-    $('lobby-mode-info').textContent = (MODE_INFO[this.opts.mode] || MODE_INFO.kampf)(this.keyName('use'));
+    $('lobby-mode-info').textContent = (MODE_INFO[shown.mode] || MODE_INFO.kampf)(this.keyName('use'));
     $('lobby-map-info').textContent = (MAPS[this.opts.map] || MAPS.hof).desc;
-    $('lobby-arms-info').textContent = (ARMS[this.opts.arms] || ARMS.alle).info;
+    $('lobby-arms-info').textContent = (ARMS[shown.arms] || ARMS.alle).info;
     const bots = this.roster.some((e) => e.bot);
     $('lobby-level').hidden = !bots;
     $('lobby-teams').hidden = rejoining;
