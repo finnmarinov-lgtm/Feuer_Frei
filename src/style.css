@@ -281,7 +281,7 @@ body.radar #tasks-hud { top: 328px; }
 /* oben rechts im Hauptmenü wie in anderen Spielen: Konto und Einstellungen (Zahnrad) */
 .menu-top { position: absolute; top: 16px; right: 18px; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
 .menu-top-row { display: flex; align-items: center; gap: 10px; }
-.rate-chip { height: 38px; padding: 0 16px; font-size: 16px; }
+.top-btn.rate-chip { height: 38px; padding: 0 18px 0 14px; gap: 8px; font-size: 16px; }
 .rate-chip::before { content: '★'; color: #f2b636; font-size: 18px; margin-right: -2px; }
 .top-btn { display: flex; align-items: center; gap: 10px; height: 48px; padding: 0; border-radius: 24px; border: 1px solid rgba(255,255,255,0.2); background: rgba(12,14,17,0.6); color: var(--text); font: 700 19px var(--font); letter-spacing: 0.5px; cursor: pointer; transition: background 0.15s, border-color 0.15s; }
 .top-btn:hover { background: rgba(30,33,38,0.85); border-color: var(--accent); }
@@ -695,7 +695,7 @@ body.touch #task-toast { top: 22%; transform: translateX(-50%) scale(0.75); }
    Konto und Zahnrad (sonst liegt er auf dem Schriftzug FEUER FREI) */
 @media (max-width: 940px), (max-height: 540px) {
   .menu-top { flex-direction: row-reverse; align-items: center; }
-  .rate-chip { height: 40px; width: 40px; padding: 0; justify-content: center; }
+  .top-btn.rate-chip { height: 40px; width: 40px; padding: 0; justify-content: center; }
   .rate-chip::before { font-size: 20px; margin: 0; }
   .rate-text { display: none; }
 }
