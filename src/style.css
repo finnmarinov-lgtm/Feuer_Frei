@@ -403,6 +403,22 @@ body.radar #tasks-hud { top: 328px; }
 .seg { display: inline-flex; gap: 4px; }
 .seg button { padding: 4px 14px; font-size: 17px; }
 .seg button.on { background: var(--accent); color: #1a1407; border-color: var(--accent); }
+.rate-btn { background: none; border: none; color: var(--muted); font-size: 16px; font-weight: 700; padding: 6px 14px; cursor: pointer; width: auto; }
+.rate-btn::before { content: '★ '; color: #f2b636; }
+.rate-btn:hover { color: var(--text); }
+.bew-form { max-width: 460px; width: 100%; display: flex; flex-direction: column; gap: 12px; }
+.bew-frage, .bew-gross { margin: 0; font-size: 20px; font-weight: 700; text-align: center; }
+.bew-gross { font-size: 26px; color: #f2b636; }
+.bew-sterne { display: flex; justify-content: center; gap: 6px; }
+.bew-sterne button { width: auto; background: none; border: none; font-size: 44px; line-height: 1; padding: 2px 4px; color: rgba(255,255,255,0.22); cursor: pointer; transition: transform .1s; }
+.bew-sterne button.on { color: #f2b636; text-shadow: 0 0 12px rgba(242,182,54,.5); }
+.bew-sterne button:hover { transform: scale(1.12); }
+.bew-form .bew-feld { display: flex; flex-direction: column; grid-template-columns: none; gap: 6px; font-size: 15px; color: var(--muted); }
+.bew-feld textarea, .bew-feld input { width: 100%; box-sizing: border-box; font: 600 17px var(--font); background: #1d2126; color: var(--text); border: 1px solid rgba(255,255,255,0.22); border-radius: 6px; padding: 8px 10px; user-select: text; resize: vertical; }
+.bew-feld textarea:focus, .bew-feld input:focus { outline: none; border-color: var(--accent); }
+.bew-hinweis { margin: 0; font-size: 14px; color: var(--muted); text-align: center; line-height: 1.45; }
+.bew-form .buttons { width: auto; }
+.open-list li.fixed { border-left: 3px solid #f2b636; }
 .menu-map { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 17px; font-weight: 700; color: var(--muted); }
 .menu-map small { font-size: 15px; font-weight: 600; max-width: 420px; text-align: center; }
 .seg.locked button { cursor: default; opacity: 0.6; }

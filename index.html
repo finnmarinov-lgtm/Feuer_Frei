@@ -175,6 +175,7 @@
     </div>
     <div class="menu-map">Karte <div class="seg" id="menu-map"><button data-v="hof">Hof</button><button data-v="halle">Lagerhalle</button><button data-v="hafen">Hafen</button></div>
       <small id="menu-map-info"></small></div>
+    <button id="btn-bewerten" class="rate-btn">Spiel bewerten</button>
 
     <section class="about">
       <h1>Feuer Frei – 3D-Shooter im Browser</h1>
@@ -315,6 +316,27 @@
       </details>
     </div>
     <div class="buttons"><button id="btn-konto-back">Zurück</button></div>
+  </div>
+
+  <!-- Bewertung: Sterne und Kommentar an Finn (bewertung.js, supabase/bewertungen.sql) -->
+  <div id="bewerten" class="screen dim" hidden data-tippen>
+    <h1>Spiel bewerten</h1>
+    <div class="form bew-form" id="bew-form">
+      <p class="bew-frage">Wie gefällt dir Feuer Frei?</p>
+      <div class="bew-sterne" id="bew-sterne" role="group" aria-label="Sterne">
+        <button type="button" aria-label="1 Stern">★</button><button type="button" aria-label="2 Sterne">★</button><button type="button" aria-label="3 Sterne">★</button><button type="button" aria-label="4 Sterne">★</button><button type="button" aria-label="5 Sterne">★</button>
+      </div>
+      <label class="bew-feld"><span>Was gefällt dir, was fehlt dir? (freiwillig)</span><textarea id="bew-text" maxlength="1000" rows="4"></textarea></label>
+      <label class="bew-feld"><span>Dein Name (freiwillig)</span><input id="bew-name" maxlength="16" spellcheck="false" autocomplete="off"></label>
+      <p class="bew-hinweis">Dein Kommentar kann in einem meiner Videos vorkommen. Gib keinen echten Namen an, wenn du das nicht möchtest.</p>
+      <div class="hint" id="bew-fehler"></div>
+      <div class="buttons"><button class="primary" id="btn-bew-senden">Absenden</button><button id="btn-bew-zurueck">Zurück</button></div>
+    </div>
+    <div class="form bew-form bew-danke" id="bew-danke" hidden>
+      <p class="bew-gross">Danke für deine Bewertung!</p>
+      <p class="bew-hinweis">Ich lese jede Bewertung. Vielleicht baue ich deine Idee als Nächstes ein.</p>
+      <div class="buttons"><button class="primary" id="btn-bew-fertig">Zurück zum Menü</button></div>
+    </div>
   </div>
 
   <!-- Einstellungen mit zwei Reitern: Allgemein und Steuerung (Tastenbelegung) -->

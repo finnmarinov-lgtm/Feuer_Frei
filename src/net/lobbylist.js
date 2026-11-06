@@ -9,7 +9,9 @@ import { ARMS } from '../config.js';
 // Liste. Schließt der Host den Tab oder bricht seine Verbindung ab, streicht der Server den Eintrag
 // von selbst. Der Kanal trägt die Protokoll-Version: Lobbys einer anderen Version tauchen gar nicht
 // erst auf (beitreten ginge ohnehin nicht).
-const CHANNEL = `ff-offen-v${PROTOCOL}`;
+// auf dem eigenen PC (Entwickeln) ein eigener Kanal, damit Test-Lobbys nicht in der echten Liste stehen
+const LOKAL = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+const CHANNEL = `ff-offen-v${PROTOCOL}${LOKAL ? '-test' : ''}`;
 // so lange (ms) werden Änderungen gesammelt, bevor sie rausgehen (z. B. beim Tippen des Namens)
 const DELAY = 500;
 const MODES = ['kampf', 'bombe'];

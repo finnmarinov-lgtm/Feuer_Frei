@@ -24,13 +24,14 @@ import { zaehleAufruf } from './net/zaehler.js';
 import { Online } from './net/online.js';
 import { geld, locale, setSprache, sprache, starteUebersetzung, t } from './i18n.js';
 import { starteFehleranzeige, zeigeFehler, zeigeGrafikAusfall } from './ui/fehler.js';
+import { initBewertung } from './ui/bewertung.js';
 
 starteUebersetzung();
 starteFehleranzeige();
 zaehleAufruf();
 
 const $ = (id) => document.getElementById(id);
-const SCREENS = ['loading', 'menu', 'lobby', 'bots', 'locker', 'konto', 'pause', 'settings', 'results', 'click-resume'];
+const SCREENS = ['loading', 'menu', 'lobby', 'bots', 'locker', 'konto', 'bewerten', 'pause', 'settings', 'results', 'click-resume'];
 const BOT_KEY = 'feuer-frei-ki';
 const MAP_KEY = 'feuer-frei-karte';
 const BOT_INFO = {
@@ -1105,6 +1106,7 @@ function setupMenus(game, input, audio) {
     syncKonto();
   });
   $('btn-konto-back').addEventListener('click', () => show('menu'));
+  initBewertung({ show });
 
   // abgleichen (höchstens alle 10 s): beim Start, wenn der Tab wieder sichtbar wird, beim Öffnen von
   // Notizblock und Konto; dazwischen speichert das Konto selbst nach jeder Änderung

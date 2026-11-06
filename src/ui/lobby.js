@@ -21,6 +21,22 @@ const MODE_INFO = {
   kampf: () => 'Eine Runde gewinnt, wer alle Gegner ausschaltet (mit 3 Leben muss jeder dreimal fallen).',
   bombe: (use) => `Die Seiten wechseln jede Runde: Wer angreift, legt die Bombe auf dem Platz der anderen (${use} halten), wer verteidigt, entschärft sie.`,
 };
+// Zwei feste offene Räume, die immer in der Liste stehen (Wunsch aus den Kommentaren, 06.11.2026):
+// Wer als Erster beitritt, wird Host. Geht der Host, übernimmt der Mitspieler mit der kleinsten
+// Kennung. Ab zwei Spielern startet die Partie von selbst. Modus, Waffen und Sichtbarkeit sind fest.
+// Auf dem eigenen PC (Entwickeln) eigene Codes, damit Tests nie mit echten Spielern zusammenkommen
+const LOKAL = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+export const PUBLIC_ROOMS = [
+  { code: LOKAL ? 'TESTR2' : 'ALLE22', name: 'Offener Raum 1', opts: { mode: 'kampf', arms: 'alle', pub: 1 } },
+  { code: LOKAL ? 'TESTR3' : 'ALLE33', name: 'Offener Raum 2', opts: { mode: 'bombe', arms: 'alle', pub: 1 } },
+];
+const publicRoom = (code) => PUBLIC_ROOMS.find((r) => r.code === code) || null;
+// in offenen Räumen nicht änderbar
+const PUBLIC_LOCKED = ['pub', 'mode', 'arms'];
+// so lange (ms) ohne Host, dann übernimmt jemand den offenen Raum
+const HOST_WAIT = 4000;
+// so viele Sekunden nach dem zweiten Spieler startet ein offener Raum von selbst
+const AUTO_START = 20;
 const $ = (id) => document.getElementById(id);
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 // Text nur schreiben, wenn er sich ändert (im Dokument steht nach der Übersetzung ein anderer)
@@ -72,6 +88,11 @@ export class Lobby {
     // Host: rausgeworfene Mitspieler (feste Kennung); Gast: Lobbys, aus denen man geflogen ist
     this.banned = new Set();
     this.kickedFrom = new Set();
+    // offene Räume: seit wann kein Host da ist, wer gerade "Hallo" ruft (Kennung -> Zeit), Autostart
+    this.hostless = 0;
+    this.heard = new Map();
+    this.autoAt = 0;
+    this.autoLeft = 0;
 
     const nameInput = $('lobby-name');
     let saved = '';
@@ -117,12 +138,18 @@ export class Lobby {
       seg.addEventListener('click', (e) => {
         const raw = e.target.dataset?.v;
         if (!raw || this.role !== 'host' || this.rejoin) return;
+        if (this.pubRoom && PUBLIC_LOCKED.includes(seg.dataset.opt)) return;
         const v = ['mode', 'map', 'arms', 'level'].includes(seg.dataset.opt) ? raw : Number(raw);
         this.opts = { ...this.opts, [seg.dataset.opt]: v };
         this._stopCountdown();
         this._changed();
       });
     }
+  }
+
+  /** fester offener Raum, in dem man gerade ist (oder null) */
+  get pubRoom() {
+    return this.net ? publicRoom(this.code) : null;
   }
 
   /** eigener Name, so wie ihn die anderen sehen (grobe Wörter werden zu "Spieler NN") */
@@ -216,6 +243,11 @@ export class Lobby {
     this.lastTeams = new Map(prev.map((e) => [e.key, e.team]));
     this.rejoin = null;
     this._enterRoom(this.code || net.code, net);
+    // offener Raum: nach jeder Partie die nächste Karte
+    if (this.role === 'host' && this.pubRoom) {
+      const order = Object.keys(MAPS);
+      this.opts = { ...this.opts, map: order[(order.indexOf(this.opts.map) + 1) % order.length] };
+    }
     if (this.role === 'host') {
       const now = performance.now();
       for (const e of prev) {
@@ -241,6 +273,9 @@ export class Lobby {
     this.partnerName = '';
     this.partnerLooks = null;
     this.enteredAt = performance.now();
+    this.hostless = 0;
+    this.heard.clear();
+    this.autoAt = this.autoLeft = 0;
     this.list.listen(false);
     this._note('');
     // nach der Partie: dieselbe Verbindung weiter (alle sind schon verbunden), sonst eine neue
@@ -303,7 +338,12 @@ export class Lobby {
         // falls die Anmeldung in der Liste nicht geklappt hat
         this._announce();
       }
+      if (this.pubRoom) this._autoStart();
     } else {
+      if (this.pubRoom && !this.rejoin && this._hostGone()) {
+        this._takeOver();
+        return;
+      }
       // Gast: "Hallo" an alle, bis der Host einen aufgenommen hat (auch nach seinem Neuladen). Steht
       // man bei ihm als "weg" (zurück aus der Partie), muss er erst hören, dass man wieder da ist.
       const mine = this.roster.find((e) => e.key === this.key);
@@ -317,6 +357,66 @@ export class Lobby {
       }
     }
     this._render();
+  }
+
+  // ---------- offene Räume ----------
+  /**
+   * Gast im offenen Raum: Ist seit HOST_WAIT kein Host zu hören und hat man die kleinste Kennung unter
+   * denen, die gerade "Hallo" rufen, ist man dran. So wird (fast) immer genau einer Host.
+   */
+  _hostGone() {
+    const now = performance.now();
+    if (this.hostPeer && !this.net.lostPeer(this.hostPeer)) {
+      this.hostless = 0;
+      return false;
+    }
+    if (!this.hostless) this.hostless = now;
+    if (now - this.hostless < HOST_WAIT) return false;
+    return [...this.heard].every(([k, at]) => now - at > 6000 || k > this.key);
+  }
+
+  _takeOver() {
+    const room = this.pubRoom;
+    this.role = 'host';
+    this.opts = { ...this.opts, ...room.opts, map: MAPS[this.opts.map] ? this.opts.map : 'hof' };
+    this.since = Date.now();
+    this.hostKey = this.key;
+    this.hostPeer = null;
+    this.roster = [{ key: this.key, peer: this.net.id, name: this.name, looks: this.looks(), team: 'rot', host: true }];
+    this.problem = '';
+    this.heard.clear();
+    this.autoAt = this.autoLeft = 0;
+    this._changed();
+    this._sendLobby([...this.net.known]);
+  }
+
+  /** zwei Hosts im selben offenen Raum (gleichzeitig übernommen): der mit der größeren Kennung tritt ab */
+  _stepDown(msg, from) {
+    const net = this.net;
+    this._stopCountdown();
+    net.send({ t: 'bye' }, [...net.known]);
+    this.role = 'guest';
+    this.roster = [];
+    this.hostPeer = this.hostKey = null;
+    this.autoAt = 0;
+    this.list.announce(null);
+    session.setLobby(this.code, 'guest');
+    this._guestMsg(msg, from);
+  }
+
+  /** Host im offenen Raum: ab zwei Menschen läuft eine Uhr, dann geht es von selbst los */
+  _autoStart() {
+    const humans = this.roster.filter((e) => !e.bot && !e.away).length;
+    if (humans < 2 || this.cdTimer) {
+      if (humans < 2) this.autoAt = 0;
+      return;
+    }
+    const now = performance.now();
+    if (!this.autoAt) this.autoAt = now + AUTO_START * 1000;
+    if (now < this.autoAt) return;
+    this.autoAt = 0;
+    if (this.canFill) this.fillBots();
+    this.startGame();
   }
 
   _onMsg(msg, from) {
@@ -460,6 +560,9 @@ export class Lobby {
           this._changed();
         }
         return;
+      case 'lobby':
+        if (this.pubRoom && !this.rejoin && msg.v === PROTOCOL && typeof msg.host === 'string' && msg.host < this.key) this._stepDown(msg, from);
+        return;
       default:
         break;
     }
@@ -527,7 +630,7 @@ export class Lobby {
       }
     } else if (this.role === 'host' && act === 'kick') {
       const e = this.roster.find((x) => x.key === b.dataset.key && x.key !== this.key);
-      if (!e) return;
+      if (!e || (this.pubRoom && !e.bot)) return;
       this.roster.splice(this.roster.indexOf(e), 1);
       if (!e.bot) {
         // ein Mensch: kommt mit derselben Kennung nicht wieder rein und erfährt es gleich
@@ -550,7 +653,8 @@ export class Lobby {
   _sendLobby(to = undefined) {
     const net = this.net;
     if (!net || this.role !== 'host') return;
-    const msg = { t: 'lobby', v: PROTOCOL, host: this.key, cfg: this.opts, roster: this._publicRoster(), cd: this.countdown };
+    const auto = this.autoAt ? Math.max(1, Math.ceil((this.autoAt - performance.now()) / 1000)) : 0;
+    const msg = { t: 'lobby', v: PROTOCOL, host: this.key, cfg: this.opts, roster: this._publicRoster(), cd: this.countdown, auto };
     net.send(msg, to);
   }
 
@@ -648,6 +752,8 @@ export class Lobby {
     const net = this.net;
     switch (msg.t) {
       case 'hi':
+        // offener Raum ohne Host: wer noch wartet (für die Wahl des nächsten Hosts)
+        if (this.pubRoom && msg.role === 'guest' && typeof msg.key === 'string' && msg.key !== this.key) this.heard.set(msg.key, performance.now());
         // ein 1 gegen 1 läuft noch (man hat neu geladen, der eigene Stand fehlte): weiterspielen
         if (msg.v === PROTOCOL && msg.resume && msg.role === 'host' && msg.resume.ph !== 'over') {
           this._adopt(from, msg.name, msg.looks);
@@ -669,7 +775,9 @@ export class Lobby {
         // läuft schon ein Team-Spiel, kommt gleich dessen Stand
         if (this.rejoin?.kind === 'team') return;
         // ein anderer Host im selben Raum? den ersten behalten, außer er ist weg
-        if (this.hostPeer && from !== this.hostPeer && msg.host !== this.hostKey && !net.lostPeer(this.hostPeer)) return;
+        // (im offenen Raum gilt der mit der kleineren Kennung, der andere tritt gleich ab)
+        if (this.hostPeer && from !== this.hostPeer && msg.host !== this.hostKey && !net.lostPeer(this.hostPeer)
+          && !(this.pubRoom && String(msg.host) < String(this.hostKey))) return;
         const first = !this.hostPeer || this.hostPeer !== from;
         this.hostPeer = from;
         this.hostKey = msg.host;
@@ -680,6 +788,8 @@ export class Lobby {
           : [];
         if (msg.cfg) this.opts = msg.cfg;
         this.countdown = msg.cd || 0;
+        this.autoLeft = msg.auto || 0;
+        this.hostless = 0;
         const mine = this.roster.find((e) => e.key === this.key);
         if (mine) this.problem = '';
         // nicht dabei, oder beim Host noch als "weg" (zurück aus der Partie): Hallo sagen
@@ -735,7 +845,9 @@ export class Lobby {
         return;
       case 'bye':
         if (from === this.hostPeer) {
-          this.problem = 'Der Host hat die Lobby verlassen.';
+          // im offenen Raum geht es gleich mit einem neuen Host weiter
+          this.problem = this.pubRoom ? '' : 'Der Host hat die Lobby verlassen.';
+          if (this.pubRoom) this.hostless = performance.now();
           this.roster = [];
           this.hostPeer = null;
           this.countdown = 0;
@@ -883,7 +995,7 @@ export class Lobby {
       if (e.host) tags.push('Host');
       if (e.bot) tags.push(`KI · ${level}`);
       if (e.away) tags.push('lädt neu …');
-      const kick = host && e.key !== this.key
+      const kick = host && e.key !== this.key && (e.bot || !this.pubRoom)
         ? `<button class="x" data-act="kick" data-key="${escapeHtml(e.key)}" title="${e.bot ? 'KI entfernen' : 'Aus der Lobby werfen'}">✕</button>`
         : '';
       const cls = [e.key === this.key ? 'me' : '', e.bot ? 'bot' : '', e.away ? 'away' : ''].join(' ');
@@ -907,12 +1019,13 @@ export class Lobby {
     $('lobby-link').value = this.link;
     for (const seg of document.querySelectorAll('#lobby-opts .seg')) {
       const key = seg.dataset.opt;
-      seg.classList.toggle('locked', !host || rejoining);
+      seg.classList.toggle('locked', !host || rejoining || (!!this.pubRoom && PUBLIC_LOCKED.includes(key)));
       const def = { mode: 'kampf', map: 'hof', arms: 'alle', level: 'mittel', pub: 0 }[key];
       for (const b of seg.children) b.classList.toggle('on', b.dataset.v === String(this.opts[key] ?? def));
     }
     const pub = this.opts.pub === 1;
-    $('lobby-pub-info').textContent = !pub ? 'Nur wer den Code oder den Link hat, kommt rein.'
+    $('lobby-pub-info').textContent = this.pubRoom ? 'Offener Raum: steht immer in der Liste. Geht der Host, übernimmt ein anderer Spieler.'
+      : !pub ? 'Nur wer den Code oder den Link hat, kommt rein.'
       : host ? 'Steht in der Liste im Mehrspieler-Menü, jeder kann beitreten. Mit ✕ wirfst du jemanden raus.'
         : 'Steht in der Liste im Mehrspieler-Menü, jeder kann beitreten.';
     $('lobby-mode-info').textContent = (MODE_INFO[this.opts.mode] || MODE_INFO.kampf)(this.keyName('use'));
@@ -946,7 +1059,14 @@ export class Lobby {
     else if (this.rejoin?.kind === 'duel') status = 'Zurück ins laufende Duell …';
     else if (this.rejoin) status = 'Zurück ins laufende Spiel …';
     else if (this.countdown > 0) status = `${duel ? '1 gegen 1' : this.sizeLabel} startet in ${this.countdown} …`;
+    else if (!inRoom && this.pubRoom && this.hostless) {
+      status = this.heard.size ? 'Der Host ist weg. Gleich übernimmt ein anderer Spieler …' : 'Noch niemand da. Gleich bist du Host …';
+    }
     else if (!inRoom) status = 'Verbinde mit der Lobby …';
+    else if (this.pubRoom && (host ? this.autoAt : this.autoLeft)) {
+      const s = host ? Math.max(1, Math.ceil((this.autoAt - performance.now()) / 1000)) : this.autoLeft;
+      status = `Startet automatisch in ${s} s`;
+    }
     else if (host && humans < 2 && !bots) status = pub ? 'Warte auf Mitspieler …' : 'Warte auf deine Freunde …';
     else if (host) status = this.startable ? 'Alle da? Dann starte das Spiel.' : 'Im anderen Team fehlt noch jemand.';
     else status = `Warte, bis ${hostName} startet …`;
@@ -961,6 +1081,7 @@ export class Lobby {
       const who = pub ? 'Mitspieler' : peers.length === 1 ? 'Freund' : 'Freunde';
       info = `${peers.length} ${who} verbunden${server ? ` · ${server} über Server` : ''}`;
     } else if (!host && waited > 12) info = 'Noch keine Lobby gefunden. Stimmt der Code, und ist der Host noch in der Lobby?';
+    else if (host && this.pubRoom) info = 'Du bist Host im offenen Raum. Ab zwei Spielern startet die Partie von selbst, allein kannst du mit KI starten.';
     else if (host && pub) info = 'Deine Lobby steht jetzt in der Liste der offenen Lobbys. Bis zu 8 Spieler (4 gegen 4), zu zweit wird es ein 1 gegen 1.';
     else if (host) info = 'Schick deinen Freunden den Code oder den Link. Bis zu 8 Spieler (4 gegen 4), zu zweit wird es ein 1 gegen 1.';
     else if (waited > 6 && !net.serverReady) info = 'Der Server antwortet noch nicht, versuche es direkt …';
@@ -986,8 +1107,19 @@ export class Lobby {
   /** Liste der offenen Lobbys im Menü: volle nach hinten, sonst die mit den meisten Spielern zuerst */
   _renderList() {
     const list = this.list;
+    // die beiden festen Räume immer oben, mit Spielerzahl, sobald dort jemand Host ist
+    const fixed = PUBLIC_ROOMS.map((r) => {
+      const l = list.lobbies.find((x) => x.code === r.code);
+      const n = l ? l.n : 0;
+      const live = !!l?.live;
+      const full = !live && n >= 2 * MAX_TEAM;
+      const what = [l ? MAPS[l.map].name : '', r.opts.mode === 'bombe' ? 'Bombe' : 'Kampf', live ? 'Spiel läuft' : 'immer offen'].filter(Boolean);
+      return `<li class="fixed${live ? ' live' : ''}"><div class="who"><b>${r.name}</b><small>${what.join(' · ')}</small></div>`
+        + `<span class="count" title="Spieler in der Lobby">${n}/${2 * MAX_TEAM}</span>`
+        + `<button data-code="${r.code}"${full ? ' disabled' : ''}>${live ? 'Zuschauen' : full ? 'Voll' : 'Beitreten'}</button></li>`;
+    });
     const rows = list.lobbies
-      .filter((l) => !this.kickedFrom.has(l.code))
+      .filter((l) => !this.kickedFrom.has(l.code) && !publicRoom(l.code))
       // erst die, die auf Spieler warten, dann laufende Partien (dort schaut man zu und spielt danach mit)
       .sort((a, b) => a.live - b.live || (a.n >= 2 * MAX_TEAM) - (b.n >= 2 * MAX_TEAM) || b.n - a.n || b.since - a.since)
       .slice(0, 12)
@@ -1002,16 +1134,15 @@ export class Lobby {
           + `<button data-code="${l.code}"${full ? ' disabled' : ''}>${label}</button></li>`;
       });
     const el = $('lobby-open-list');
-    const html = rows.join('');
+    const html = fixed.concat(rows).join('');
     if (el._html !== html) {
       el._html = html;
       el.innerHTML = html;
     }
-    el.hidden = !rows.length;
+    el.hidden = false;
     let note = '';
     if (list.state === 'fehler') note = 'Die Liste ist gerade nicht erreichbar.';
     else if (list.state !== 'da') note = 'Suche offene Lobbys …';
-    else if (!rows.length) note = 'Gerade ist keine Lobby offen. Erstelle eine mit Häkchen bei „Öffentlich“.';
     const empty = $('lobby-open-empty');
     setText(empty, note);
     empty.hidden = !note;
