@@ -166,6 +166,56 @@ export class Bot {
     this.plan = null;
   }
 
+  /** eigener Stand für den Wiedereinstieg des Hosts (er merkt ihn sich im Tab) */
+  snapshot() {
+    const b = this.body;
+    const f = b.feet;
+    return {
+      k: this.key, a: b.alive ? 1 : 0, hp: Math.ceil(b.health), p: [f.x, f.y, f.z].map((v) => Math.round(v * 100)),
+      y: Math.round(b.yaw * 1000), m: this.money, ls: this.lossStreak, sp: this.special, bt: this.bought ? 1 : 0,
+      inv: [this.inv.primary?.id || null, this.inv.secondary?.id || null], ar: [b.armor, b.helmet ? 1 : 0],
+    };
+  }
+
+  /**
+   * Host nach dem Neuladen: Stand von vorher übernehmen (s aus snapshot(), lives: Leben dieser Runde).
+   * Ohne das begann für die neu angelegte KI eine neue Runde: Auch ausgeschiedene standen mit 100 LP
+   * wieder im Spawn, während sie bei den anderen tot liegen blieben, unsichtbar und nicht zu treffen,
+   * aber schießend (der "Geist" im 2 gegen 2, gemeldet 14.10.2026, nachgestellt am 07.11.2026).
+   */
+  restore(s, lives) {
+    const b = this.body;
+    if (s) {
+      if (Number.isFinite(s.m)) this.money = s.m;
+      if (Number.isFinite(s.ls)) this.lossStreak = s.ls;
+      if (Number.isFinite(s.sp)) this.special = s.sp;
+      const [primary, secondary] = Array.isArray(s.inv) ? s.inv : [];
+      if (WEAPONS[primary]) this.inv.primary = this._weapon(primary);
+      if (WEAPONS[secondary]) this.inv.secondary = this._weapon(secondary);
+      this.cur = this.inv.primary ? 'primary' : 'secondary';
+      if (Array.isArray(s.ar)) {
+        this.roundArmor = { armor: s.ar[0] || 0, helmet: !!s.ar[1] };
+        b.armor = this.roundArmor.armor;
+        b.helmet = this.roundArmor.helmet;
+      }
+      this.bought = !!s.bt;
+    }
+    // in der Kaufzeit stehen ohnehin alle im Spawn; laufende Runde und Rundenende wie vorher
+    if (this.phase !== 'live' && this.phase !== 'end') return;
+    if (s ? !s.a : !(lives > 0)) {
+      b.alive = false;
+      b.health = 0;
+      b.collider.setEnabled(false);
+      // noch Leben übrig: wie sonst nach kurzer Zeit zurück
+      this.respawnT = lives > 0 && this.phase === 'live' ? DUEL.respawnTime : 0;
+      return;
+    }
+    if (!s || !Array.isArray(s.p)) return;
+    _t.set(s.p[0] / 100, s.p[1] / 100, s.p[2] / 100);
+    b.spawn(_t, (s.y || 0) / 1000);
+    b.health = Math.max(1, Math.min(100, s.hp || 100));
+  }
+
   _weapon(id) {
     const def = WEAPONS[id];
     return { id, def, mag: def.mag ?? 0, reserve: def.reserve ?? 0 };

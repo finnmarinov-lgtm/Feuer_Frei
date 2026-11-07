@@ -923,10 +923,12 @@ export class TeamMatch extends Duel {
       return;
     }
     // Host nach dem Neuladen: den anderen die neue Kennung sagen, die KI-Spieler steigen in die
-    // laufende Runde ein
+    // laufende Runde ein, jeder mit seinem Stand von vorher (wer schon ausgeschieden war, bleibt es)
     if (this.isHost) {
       this.hiT = HI_REPEAT;
       this.squad?.receive(this._currentPhase(), this.me);
+      const states = new Map((Array.isArray(saved?.bots) ? saved.bots : []).map((s) => [s?.k, s]));
+      for (const bot of this.squad?.bots.values() || []) bot.restore(states.get(bot.key), this.lives[bot.key] ?? 0);
     }
     if (sync.ph !== 'over') this.g.hud.message('Zurück im Spiel', `Runde ${this.round}`, 2.5);
   }
@@ -946,7 +948,11 @@ export class TeamMatch extends Duel {
       board: [...this.board],
     };
     // der Host merkt sich auch, wer mitspielt (nach seinem Neuladen geht es damit weiter)
-    if (this.isHost) data.roster = this._rosterList();
+    if (this.isHost) {
+      data.roster = this._rosterList();
+      // und den Stand seiner KI-Spieler (Leben, LP, Ort, Waffen), siehe Bot.restore
+      if (this.squad) data.bots = [...this.squad.bots.values()].map((b) => b.snapshot());
+    }
     session.setTeam(data);
   }
 
