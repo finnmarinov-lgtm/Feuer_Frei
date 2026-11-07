@@ -10,6 +10,19 @@ import { createTopicStrategy, entries, fromJson, keys, values } from '@trystero-
 // melden sich alle an ("join"), auf dem eigenen Thema kommen die Verbindungsangebote an ("sdp", von
 // Trystero verschlüsselt). Adresse und Schlüssel kommen über relayConfig (url, key).
 
+// Trystero schreibt es als Fehler in die Konsole, wenn die Gegenseite die Verbindung schließt
+// (Mitspieler lädt neu oder geht: "User-Initiated Abort, reason=Close called"). Das ist ein normales
+// Ende und wird nur noch als Hinweis gezeigt; alle anderen Fehler bleiben, wie sie sind.
+const consoleError = console.error.bind(console);
+console.error = (...args) => {
+  const [what, err] = args;
+  if (typeof what === 'string' && what.endsWith('peer error:') && /User-Initiated Abort/.test(String(err?.message ?? err))) {
+    console.info('Mitspieler-Verbindung beendet (Gegenseite hat geschlossen)');
+    return;
+  }
+  consoleError(...args);
+};
+
 const EVENTS = { join: 'join', sdp: 'sdp' };
 const channelName = (topic) => `ff-vermittlung-${topic}`;
 

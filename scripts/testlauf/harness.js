@@ -139,7 +139,9 @@ export function install({ tick = 16 } = {}) {
   addEventListener('unhandledrejection', (e) => rec(S.errors, { ...snap(), msg: `rejection: ${e.reason?.message || e.reason}` }));
   const ce = console.error.bind(console);
   console.error = (...a) => {
-    rec(S.errors, { ...snap(), msg: a.map((x) => x?.stack || x?.message || String(x)).join(' ').slice(0, 400) });
+    const msg = a.map((x) => x?.stack || x?.message || String(x)).join(' ').slice(0, 400);
+    // normales Verbindungsende (Mitspieler lädt neu), das Spiel zeigt es nur als Hinweis (net/signal.js)
+    if (!/peer error: .*User-Initiated Abort/.test(msg)) rec(S.errors, { ...snap(), msg });
     ce(...a);
   };
   const cw = console.warn.bind(console);

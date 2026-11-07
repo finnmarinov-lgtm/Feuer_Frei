@@ -33,6 +33,7 @@ export class TouchControls {
     this.lookId = null;
     this.crouch = false;
     this.slotsKey = '';
+    this.rotatePaused = false;
 
     this.el = {
       move: $('t-move'), look: $('t-look'), base: $('t-stick'), knob: $('t-knob'),
@@ -270,9 +271,19 @@ export class TouchControls {
     const playing = g.state === 'playing';
     const show = playing && !g.buyMenu.open;
     if (this.root.hidden === show) this.root.hidden = !show;
-    const portrait = playing && window.innerHeight > window.innerWidth;
+    // Hochkant: Hinweis zum Drehen. Ohne Netz (gegen die KI, Training) hält das Spiel dahinter an,
+    // sonst lief die Runde weiter und man wurde unbemerkt abgeschossen. Der Hinweis bleibt über der
+    // Pause, bis das Gerät quer liegt; danach geht es mit "Weiter" zurück ins Spiel.
+    const upright = window.innerHeight > window.innerWidth;
+    const online = g.mode === 'duel' && g.match.online;
+    if (playing && upright && !online) {
+      this.rotatePaused = true;
+      this.onPause?.();
+    }
+    if (g.state !== 'paused' || !upright) this.rotatePaused = false;
+    const portrait = upright && (playing || this.rotatePaused);
     if (this.el.rotate.hidden === portrait) this.el.rotate.hidden = !portrait;
-    if (!show) return;
+    if (g.state !== 'playing' || !show) return;
     const m = g.match;
     const p = g.player;
     // Ducken: Zustand angleichen (z. B. nach neuer Runde oder Pause)

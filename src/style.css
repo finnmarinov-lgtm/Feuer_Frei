@@ -703,6 +703,30 @@ body.touch .t-buy { height: 40px; }
   body.touch #t-slots button { padding: 3px 5px 4px; }
 }
 
+/* Lobby am Handy: Rauswerfen (✕) und "+ KI" groß genug für den Finger */
+body.touch .team li { min-height: 38px; }
+body.touch .team li .x { min-width: 38px; min-height: 32px; font-size: 16px; }
+body.touch .team-btns button { min-height: 40px; padding: 6px 14px; }
+/* Killfeed am Handy: nur so viele Zeilen, wie über den Luftschlag- bzw. Bombe-Knopf passen
+   (bei 640 x 320 lag er sonst darüber); neue Meldungen stehen oben, die ältesten fallen weg */
+@media (max-height: 430px) { body.touch #killfeed .kill:nth-child(n+5) { display: none; } }
+@media (max-height: 404px) { body.touch #killfeed .kill:nth-child(n+4) { display: none; } }
+@media (max-height: 379px) { body.touch #killfeed .kill:nth-child(n+3) { display: none; } }
+@media (max-height: 353px) { body.touch #killfeed .kill:nth-child(n+2) { display: none; } }
+@media (max-height: 340px) { body.touch #killfeed { top: 54px; transform: scale(0.65); } }
+/* Einstellungen am Handy: nur was dort wirkt (keine Maus, Tasten oder Notizblock-Taste; Zielen ist
+   am Handy immer zum Umschalten). Umgekehrt am PC keine Touch-Empfindlichkeit */
+body.touch #set-allgemein label:has(#set-sens),
+body.touch #set-allgemein label:has(#set-bosskey),
+body.touch #bosskey-hint,
+body.touch #set-allgemein label:has(#set-adstoggle),
+body.touch #set-steuerung .keys-help,
+body.touch #keys-note,
+body.touch #keys-table,
+body.touch #set-steuerung .tip,
+body.touch #btn-keys-reset { display: none !important; }
+body:not(.touch) #set-allgemein label:has(#set-touchsens) { display: none; }
+
 /* Auswertung und Einstellungen: Knöpfe bleiben unten sichtbar, auch wenn der Inhalt höher als der
    Bildschirm ist (bei 1366x768 und 1280x720 lag "Hauptmenü" halb unter dem Rand, "Zurück" in der
    Tastenbelegung erst nach langem Scrollen) */

@@ -207,7 +207,7 @@ const EN = {
   'Luftschlag': 'Air strike',
   'Schnellnachricht': 'Quick message',
   'Statistik': 'Scoreboard',
-  'Bitte dreh dein Handy quer': 'Please turn your phone sideways',
+  'Bitte dreh dein Gerät quer': 'Please turn your device sideways',
   'Das Spiel läuft im Querformat.': 'The game runs in landscape.',
 
   // ---------- Anzeige im Spiel ----------
