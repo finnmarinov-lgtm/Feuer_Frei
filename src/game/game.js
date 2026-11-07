@@ -113,12 +113,11 @@ export class Game {
     this.frameTime = 0;
     this.renderer.applyQuality(settings.quality, this.env.sun, this._renderScale());
     this._applyTextureFilter();
-    this.effects.setViewport(this.renderer.renderer.getDrawingBufferSize(new THREE.Vector2()).y, this.camera.fov);
+    this.effects.setViewport(this.renderer.bufferHeight, this.camera.fov);
     this.sunCheckT = 0;
     this.viewLight = 1;
     this.menuAngle = 0;
     this._aim = { pitch: 0, yaw: 0 };
-    this._size = new THREE.Vector2();
   }
 
   /** Shader vorab übersetzen, damit es beim ersten Schuss nicht ruckelt */
@@ -220,7 +219,7 @@ export class Game {
 
   onResize() {
     this.renderer.resize();
-    this.effects.setViewport(this.renderer.renderer.getDrawingBufferSize(new THREE.Vector2()).y, this.camera.fov);
+    this.effects.setViewport(this.renderer.bufferHeight, this.camera.fov);
   }
 
   /**
@@ -586,6 +585,8 @@ export class Game {
     const online = duel && this.match.online;
     // hinter dem Notizblock nichts zeichnen (spart Strom und bleibt unauffällig)
     if (this.renderPaused && !online) return;
+    // neue Fenstergröße: Kameras und Zwischenbilder gleich, die Leinwand selbst erst direkt vor dem
+    // fertigen Bild (Renderer._applyCanvas), damit sie nie leer dasteht
     if (window.innerWidth !== this._w || window.innerHeight !== this._h) {
       this._w = window.innerWidth;
       this._h = window.innerHeight;
@@ -601,6 +602,9 @@ export class Game {
         if (this.buyMenu.open) this.closeBuyMenu();
         else this.openBuyMenu();
       }
+      // Kaufmenü zu, sobald Kaufen nicht mehr geht (Kaufzeit vorbei, tot): Sonst stand man wehrlos
+      // davor, am Handy sogar ganz ohne Touch-Knöpfe (Testlauf 07.11.2026)
+      if (this.buyMenu.open && (!this.match.canBuy || !this.player.alive)) this.closeBuyMenu();
       this._quickChat(input);
       this._ping(input);
       this._special(input);
@@ -725,7 +729,7 @@ export class Game {
     if (cam.fov !== fov) {
       cam.fov = fov;
       cam.updateProjectionMatrix();
-      this.effects.setViewport(this.renderer.renderer.getDrawingBufferSize(this._size).y, fov);
+      this.effects.setViewport(this.renderer.bufferHeight, fov);
     }
     cam.updateMatrixWorld();
     this.viewCamera.quaternion.copy(cam.quaternion);

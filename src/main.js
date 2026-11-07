@@ -81,7 +81,8 @@ async function boot() {
   // meldet ein Grafiktreiber nie "fertig übersetzt", nach 10 s trotzdem weiter (dann ruckelt höchstens
   // das erste Bild)
   await Promise.race([game.warmup(), new Promise((r) => setTimeout(r, 10000))]);
-  window.addEventListener('resize', () => game.onResize());
+  // Fenstergröße: game.frame prüft sie in jedem Bild und zeichnet gleich danach. Ein eigener
+  // resize-Listener leerte die Leinwand außerhalb des Bilds (kurz schwarz, und danach gleich noch einmal).
   // Grafik vom Gerät zurückgesetzt (Treiberproblem, zu wenig Speicher): Three.js baut sie wieder auf,
   // wenn sie zurückkommt; bis dahin steht das Bild, also Bescheid sagen
   renderer.canvas.addEventListener('webglcontextlost', () => zeigeGrafikAusfall(true));

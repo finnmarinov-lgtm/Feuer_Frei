@@ -34,7 +34,6 @@ const _m = new THREE.Vector3();
 const _p = new THREE.Vector3();
 const _n = new THREE.Vector3();
 const _body = new THREE.Vector3();
-const _size = new THREE.Vector2();
 
 const smooth = (t) => {
   const x = Math.min(1, Math.max(0, t));
@@ -409,7 +408,7 @@ export class KillCam {
     if (Math.abs(cam.fov - fov) < 0.01) return;
     cam.fov = fov;
     cam.updateProjectionMatrix();
-    g.effects.setViewport(g.renderer.renderer.getDrawingBufferSize(_size).y, fov);
+    g.effects.setViewport(g.renderer.bufferHeight, fov);
   }
 
   /** Waffe des anderen in der eigenen Hand zeigen (pro Bild, statt der eigenen) */

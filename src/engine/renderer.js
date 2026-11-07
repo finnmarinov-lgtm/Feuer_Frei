@@ -5,6 +5,8 @@ import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { QUALITY } from '../settings.js';
 
+const _size = new THREE.Vector2();
+
 // Auflösung "Automatisch": Läuft das Spiel im Schnitt unter MIN_FPS Bildern pro Sekunde, wird eine
 // Stufe kleiner gezeichnet (weniger Pixel entlasten schwache Grafikchips am meisten). Bringt eine
 // Stufe nichts (der Rechner hängt am Prozessor, oder der Browser zeigt im Stromsparmodus ohnehin nur
@@ -73,11 +75,15 @@ export class Renderer {
     // der das fertige Bild am Ende in einem Zug ausgibt (sonst flackert es).
     // Auf Handys und Tablets nicht: Mit dem Finger bringt es kaum etwas, und der Sonderweg ist dort
     // weniger erprobt (Verdacht, als das Spiel auf Finns Handy einfror, 03.10.2026).
+    // Kurze schwarze Aussetzer (Rückmeldung eines Spielers, 06.11.2026): Ohne "preserveDrawingBuffer"
+    // leert Chrome die Leinwand zwischen zwei Bildern, und mit "desynchronized" kann der Bildschirm
+    // genau diese leere Leinwand zeigen (so beschreibt es Chrome selbst). Deshalb bleibt das alte Bild
+    // stehen, bis das neue es überschreibt, und das letzte Bild wird ohne Löschen gezeichnet (OutputPass unten).
     const touchFirst = matchMedia('(hover: none) and (pointer: coarse)').matches;
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('webgl2', {
       alpha: false, antialias: false, depth: true, stencil: false,
-      powerPreference: 'high-performance', desynchronized: !touchFirst,
+      powerPreference: 'high-performance', desynchronized: !touchFirst, preserveDrawingBuffer: !touchFirst,
     });
     this.renderer = new THREE.WebGLRenderer({ canvas, context, antialias: false, powerPreference: 'high-performance', stencil: false });
     const r = this.renderer;
@@ -90,6 +96,8 @@ export class Renderer {
     this.canvas = r.domElement;
     this.composer = null;
     this.quality = null;
+    this.size = { w: window.innerWidth, h: window.innerHeight, ratio: 1 };
+    this._canvasDirty = false;
   }
 
   setup(scene, camera, viewScene, viewCamera) {
@@ -105,7 +113,6 @@ export class Renderer {
     this.qualityKey = key;
     this.renderScale = renderScale;
     const r = this.renderer;
-    r.setPixelRatio(Math.min(window.devicePixelRatio || 1, q.pixelRatio) * renderScale);
     if (sun) {
       sun.shadow.mapSize.set(q.shadowSize, q.shadowSize);
       sun.shadow.map?.dispose();
@@ -122,7 +129,33 @@ export class Renderer {
   /** nur die Auflösung ändern (Automatisch); danach resize(), dann passen sich die Zwischenbilder an */
   setScale(renderScale) {
     this.renderScale = renderScale;
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, this.quality.pixelRatio) * renderScale);
+  }
+
+  /** Pixel pro CSS-Pixel: Bildschirm, höchstens so viel wie die Grafikstufe erlaubt, mal Auflösungsstufe */
+  _ratio() {
+    return Math.min(window.devicePixelRatio || 1, this.quality.pixelRatio) * this.renderScale;
+  }
+
+  /** Höhe des Bilds in Pixeln (stimmt schon, bevor die Leinwand beim nächsten Zeichnen umgestellt wird) */
+  get bufferHeight() {
+    return Math.floor(this.size.h * this.size.ratio);
+  }
+
+  /**
+   * Leinwand auf die neue Größe bringen, unmittelbar bevor das fertige Bild darauf kommt. Jede neue
+   * Größe leert die Leinwand. Geschah das gleich bei resize(), stand sie bis zum Zeichnen leer da
+   * (beim Partiestart bis über eine Sekunde, während die Zwischenbilder gezeichnet und Shader
+   * übersetzt wurden) und der Bildschirm konnte sie schwarz zeigen.
+   */
+  _applyCanvas() {
+    if (!this._canvasDirty) return;
+    this._canvasDirty = false;
+    const r = this.renderer;
+    const { w, h, ratio } = this.size;
+    const cur = r.getSize(_size);
+    if (r.getPixelRatio() === ratio && cur.x === w && cur.y === h) return;
+    r.setPixelRatio(ratio);
+    r.setSize(w, h);
   }
 
   /** Schattenkarte einmal zeichnen; bei festen Schatten bleibt sie danach so */
@@ -139,7 +172,8 @@ export class Renderer {
   _buildComposer() {
     this.composer?.dispose();
     const q = this.quality;
-    const size = this.renderer.getDrawingBufferSize(new THREE.Vector2());
+    const ratio = this._ratio();
+    const size = { x: Math.floor(window.innerWidth * ratio) || 1, y: Math.floor(window.innerHeight * ratio) || 1 };
     const target = new THREE.WebGLRenderTarget(size.x, size.y, { type: THREE.HalfFloatType, samples: q.msaa });
     const c = new EffectComposer(this.renderer, target);
     c.addPass(new RenderPass(this.scene, this.camera));
@@ -170,19 +204,36 @@ export class Renderer {
     vp.clearDepth = true;
     c.addPass(vp);
     this.viewPass = vp;
-    c.addPass(new OutputPass());
+    // Das fertige Bild deckt die ganze Leinwand ab: vorher nicht schwarz löschen. Sonst kann der
+    // Bildschirm mit "desynchronized" (siehe oben) genau den gelöschten Zustand zeigen. Eine neue
+    // Größe bekommt die Leinwand erst hier, direkt vor dem fertigen Bild (siehe _applyCanvas).
+    const out = new OutputPass();
+    out.material.depthTest = false;
+    out.material.depthWrite = false;
+    const outRender = out.render.bind(out);
+    out.render = (renderer, ...rest) => {
+      this._applyCanvas();
+      const autoClear = renderer.autoClear;
+      renderer.autoClear = false;
+      outRender(renderer, ...rest);
+      renderer.autoClear = autoClear;
+    };
+    c.addPass(out);
     this.composer = c;
   }
 
+  /** neue Fenstergröße oder Auflösung: Kameras und Zwischenbilder sofort, die Leinwand beim Zeichnen */
   resize() {
     const w = window.innerWidth, h = window.innerHeight;
-    this.renderer.setSize(w, h);
+    const ratio = this._ratio();
+    this.size = { w, h, ratio };
+    this._canvasDirty = true;
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     this.viewCamera.aspect = w / h;
     this.viewCamera.updateProjectionMatrix();
     if (this.composer) {
-      this.composer.setPixelRatio(this.renderer.getPixelRatio());
+      this.composer.setPixelRatio(ratio);
       this.composer.setSize(w, h);
     }
   }

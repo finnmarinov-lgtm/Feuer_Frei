@@ -118,17 +118,22 @@ export class WeaponSystem {
     const p = this.g.player;
     let base = s.base;
     let move = s.move;
+    let fire = this.fireInacc;
     if (def.scope) {
       if (this.scoped) base = s.scoped;
     } else if (def.ads && this.ads > 0) {
-      base *= 1 + (def.ads.spread - 1) * this.ads;
+      const k = 1 + (def.ads.spread - 1) * this.ads;
+      base *= k;
+      // auch die Ungenauigkeit durchs Dauerfeuer: Ohne das brachte Zielen beim Wolf ab dem zweiten
+      // Schuss fast nichts (Grundstreuung 1,4 statt 3,5, aber +7 pro Schuss; Rückmeldung 06.11.2026)
+      fire *= k;
       move *= 1 - 0.25 * this.ads;
     }
     if (p.ducked) base *= 0.75;
     const max = def.speed;
     const speed = p.horizontalSpeed;
     const moveFrac = Math.min(1, Math.max(0, (speed - MOVE.accurateSpeed * max) / (max * (1 - MOVE.accurateSpeed))));
-    return base + move * moveFrac + (p.onGround ? 0 : s.air) + this.fireInacc;
+    return base + move * moveFrac + (p.onGround ? 0 : s.air) + fire;
   }
 
   /** Öffnung des Schrotkegels in Milliradiant (im Anschlag etwas enger) */
@@ -331,7 +336,8 @@ export class WeaponSystem {
         side = (Math.random() * 2 - 1) * rc.side;
       }
       this.recoil.pitch += up * hip;
-      this.recoil.yaw -= side * hip;
+      // im Anschlag schwingt das Muster weniger zur Seite (wirkte beim Wolf sehr wackelig)
+      this.recoil.yaw -= side * hip * (1 - 0.3 * this.ads);
     }
     this.recoilIndex += 1;
 

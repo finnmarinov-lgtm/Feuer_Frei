@@ -522,7 +522,8 @@ export class Viewmodel {
     // Rückstoß
     this.kickZ *= Math.exp(-dt * 16);
     this.kickRot *= Math.exp(-dt * 13);
-    const kick = 1 - 0.45 * e;
+    // im Anschlag springt die Waffe weniger, damit Kimme und Korn beim Dauerfeuer ruhiger bleiben
+    const kick = 1 - 0.65 * e;
     pos.z += this.kickZ * kick;
     rot.x += this.kickRot * kick;
     if (aim && e > 0) {
