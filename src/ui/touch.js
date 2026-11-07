@@ -323,7 +323,7 @@ export class TouchControls {
       const cls = inv.current === k ? ' class="on"' : '';
       // in der Waffenleiste heißt das Messer immer "Messer" (welches es ist, zeigt die Munitionsanzeige)
       const label = SLOT_SHORT[k] === w.def.name ? '&nbsp;' : SLOT_SHORT[k];
-      return `<button data-slot="${i + 1}"${cls}><small>${label}</small>${w.def.name}</button>`;
+      return `<button data-slot="${i + 1}"${cls}><small>${label}</small><span>${w.def.name}</span></button>`;
     }).join('');
   }
 }

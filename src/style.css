@@ -674,6 +674,50 @@ body.touch.radar #net-status { top: 196px; }
 body.touch.radar #tasks-hud { top: 86px; }
 body.touch #task-toast { top: 22%; transform: translateX(-50%) scale(0.75); }
 
+/* Handy-Korrekturen nach dem Testlauf vom 07.11.2026 */
+/* Leben, Weste, Herzen und Bombe in höchstens zwei Reihen: in einer Reihe ragten sie unter die
+   Anzeigetafel oben in der Mitte und verdeckten Teamnamen und Spielstand */
+body.touch #vitals { flex-wrap: wrap; max-width: 272px; row-gap: 6px; transform: scale(0.55); }
+/* Waffenleiste nur zwischen Stick und Ducken-/Nachladen-Knopf (lag sonst über "Ducken", ein Tipp
+   wechselte dann die Waffe); lange Namen werden gekürzt */
+body.touch #t-slots { left: 150px; right: 272px; transform: none; justify-content: center; }
+body.touch #t-slots button { flex: 0 1 auto; min-width: 0; max-width: 104px; min-height: 40px; }
+body.touch #t-slots button span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* gekürzt werden zuerst die langen Granatennamen (Fächer ab 4), nicht "Messer" oder die Waffen */
+body.touch #t-slots button:not([data-slot="1"]):not([data-slot="2"]):not([data-slot="3"]) { max-width: 86px; }
+body.touch #t-slots button[data-slot="1"], body.touch #t-slots button[data-slot="2"], body.touch #t-slots button[data-slot="3"] { flex-shrink: 0.2; }
+/* Rundenmeldungen unter der Anzeigetafel; die Aufgaben darunter so lange ausblenden */
+body.touch #center-msg { top: 90px; transform: translateX(-50%) scale(0.62); }
+body.touch #round-end { top: 90px; transform: translateX(-50%) scale(0.62); }
+body.touch:has(#center-msg.show) #tasks-hud, body.touch:has(#round-end:not([hidden])) #tasks-hud { visibility: hidden; }
+/* größere Ziele für den Finger */
+body.touch .seg button { min-height: 40px; }
+body.touch .t-buy { height: 40px; }
+/* schmale Handys quer (z. B. Galaxy S7, 640 px): Radar, Geld, Leben und Tafel enger */
+@media (max-width: 700px) {
+  body.touch #radar { transform: scale(0.45); }
+  body.touch.radar #money { left: 118px; transform: scale(0.6); }
+  body.touch.radar #vitals { left: 118px; top: 42px; transform: scale(0.46); }
+  body.touch #topbar { transform: translateX(-50%) scale(0.58); }
+  body.touch #t-slots { left: 140px; right: 266px; gap: 4px; }
+  body.touch #t-slots button { padding: 3px 5px 4px; }
+}
+
+/* Auswertung und Einstellungen: Knöpfe bleiben unten sichtbar, auch wenn der Inhalt höher als der
+   Bildschirm ist (bei 1366x768 und 1280x720 lag "Hauptmenü" halb unter dem Rand, "Zurück" in der
+   Tastenbelegung erst nach langem Scrollen) */
+#results .buttons, #settings .buttons { position: sticky; bottom: 0; z-index: 2; padding: 10px 14px; margin-bottom: -4px; border-radius: 10px 10px 0 0; background: var(--panel-strong); box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.35); }
+#results .buttons, #settings .buttons { flex-direction: row; flex-wrap: wrap; justify-content: center; width: auto; max-width: calc(100vw - 24px); box-sizing: border-box; }
+/* Auswertung auf schmalen Bildschirmen (Handy hochkant): Kacheln umbrechen, Rundentabelle passt sich an */
+.res-grid { max-width: calc(100vw - 24px); }
+.res-rounds { min-width: min(620px, calc(100vw - 24px)); }
+@media (max-width: 660px) {
+  #results h1 { font-size: 30px; text-align: center; padding: 0 12px; }
+  .res-grid { grid-template-columns: repeat(2, minmax(0, 150px)); }
+  .res-rounds { font-size: 14px; }
+  .res-rounds th, .res-rounds td { padding: 4px 6px; }
+}
+
 /* Handy hochkant: Schriftzug in eine Zeile, unter den Knöpfen oben rechts, Unterzeile mit Rand */
 @media (max-width: 600px) {
   #menu { padding-top: 76px; }
