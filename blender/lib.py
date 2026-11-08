@@ -603,6 +603,97 @@ def profile(name, pts, width, material, axis='X', offset=0.0, taper=None, bevel=
     return _finish(name, bm, material, parent, origin, bevel, segs, angle, False, uv_tile, uv_long)
 
 
+def loft(name, rings, material, segs=16, side=(1, 0, 0), caps=True, parent=None, start=0.0):
+    """Körperform aus Querschnitten entlang eines Pfads (Rumpf, Arme, Beine, Riemen).
+    rings: Liste von (Mitte, rx, ry) oder (Mitte, rx, ry, p). rx gilt entlang side (quer zum Pfad),
+    ry senkrecht dazu; p ist die Form des Querschnitts (2 = Ellipse, größer = eckiger).
+    Ein Ring mit rx = ry = 0 am Anfang oder Ende wird zur Spitze (runder Abschluss).
+    caps: offene Enden mit einer Fläche schließen. start: Drehung des Querschnitts (Bogenmaß)."""
+    pts = [Vector(r[0]) for r in rings]
+    n = len(pts)
+    tangents = []
+    for i in range(n):
+        a = pts[max(0, i - 1)]
+        b = pts[min(n - 1, i + 1)]
+        tangents.append((b - a).normalized())
+    # Rahmen mitführen (Paralleltransport), damit sich der Querschnitt in Kurven nicht verdreht
+    u = Vector(side)
+    frames = []
+    for t in tangents:
+        u = (u - t * u.dot(t))
+        if u.length < 1e-6:
+            u = Vector((0, 0, 1)) - t * t.z
+        u.normalize()
+        frames.append((u.copy(), t.cross(u)))
+    bm = bmesh.new()
+    loops = []
+    for i, r in enumerate(rings):
+        c, rx, ry = pts[i], r[1], r[2]
+        p = r[3] if len(r) > 3 else 2.0
+        if rx == 0 and ry == 0:
+            loops.append(bm.verts.new(c))
+            continue
+        uu, vv = frames[i]
+        ring = []
+        for k in range(segs):
+            a = start + 2 * math.pi * k / segs
+            ca, sa = math.cos(a), math.sin(a)
+            x = math.copysign(abs(ca) ** (2 / p), ca) * rx
+            y = math.copysign(abs(sa) ** (2 / p), sa) * ry
+            ring.append(bm.verts.new(c + uu * x + vv * y))
+        loops.append(ring)
+    for i in range(n - 1):
+        a, b = loops[i], loops[i + 1]
+        if isinstance(a, list) and isinstance(b, list):
+            for k in range(segs):
+                j = (k + 1) % segs
+                bm.faces.new((a[k], a[j], b[j], b[k]))
+        elif isinstance(b, list):
+            for k in range(segs):
+                bm.faces.new((a, b[(k + 1) % segs], b[k]))
+        else:
+            for k in range(segs):
+                bm.faces.new((a[k], a[(k + 1) % segs], b))
+    if caps:
+        if isinstance(loops[0], list):
+            bm.faces.new(list(reversed(loops[0])))
+        if isinstance(loops[-1], list):
+            bm.faces.new(loops[-1])
+    center = sum(pts, Vector()) / n
+    return _finish(name, bm, material, parent, center, 0, 0, 0, True)
+
+
+def shell(name, center, r, scale, rim, material, cols=24, rows=7, thickness=0.008, parent=None):
+    """Schale aus einer Kugel (z. B. ein Helm) mit frei geformtem Rand und Wandstärke.
+    rim(theta): Winkel des Rands von oben gemessen, je Richtung (theta 0 = +X, pi/2 = vorne +Y)."""
+    bm = bmesh.new()
+    cx, cy, cz = center
+    sx, sy, sz = scale
+    top = bm.verts.new((cx, cy, cz + r * sz))
+    grid = []
+    for i in range(cols):
+        th = 2 * math.pi * i / cols
+        edge = rim(th)
+        col = []
+        for k in range(1, rows + 1):
+            phi = edge * k / rows
+            col.append(bm.verts.new((cx + r * sx * math.sin(phi) * math.cos(th),
+                                     cy + r * sy * math.sin(phi) * math.sin(th),
+                                     cz + r * sz * math.cos(phi))))
+        grid.append(col)
+    for i in range(cols):
+        j = (i + 1) % cols
+        bm.faces.new((top, grid[i][0], grid[j][0]))
+        for k in range(rows - 1):
+            bm.faces.new((grid[i][k], grid[i][k + 1], grid[j][k + 1], grid[j][k]))
+    o = _finish(name, bm, material, parent, center, 0, 0, 0, True)
+    s = o.modifiers.new('Solidify', 'SOLIDIFY')
+    s.thickness = thickness
+    s.offset = -1
+    s.use_even_offset = True
+    return o
+
+
 def empty(name, loc=(0, 0, 0), parent=None):
     o = bpy.data.objects.new(name, None)
     o.empty_display_size = 0.02

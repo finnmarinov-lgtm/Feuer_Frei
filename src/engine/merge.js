@@ -103,8 +103,8 @@ function groupParts(parts, keep, splitTextured = true) {
 
 /**
  * Geometrie der Teile in einem gemeinsamen Raum (to: Welt -> dieser Raum), zu einer zusammengefasst.
- * surface: Farbe, Rauheit und Metall der Materialien je Ecke mitschreiben; bone(p): Knochen, an dem
- * das Teil fest hängt (für SkinnedMesh).
+ * surface: Farbe, Rauheit und Metall der Materialien je Ecke mitschreiben; bone(p, v, index, weight, k):
+ * schreibt Knochen und Gewichte der Ecke v (schon im gemeinsamen Raum) ab Stelle k (für SkinnedMesh).
  */
 function bake(parts, to, surface, bone = null) {
   const m = new THREE.Matrix4();
@@ -138,10 +138,10 @@ function bake(parts, to, surface, bone = null) {
     if (bone) {
       const index = new Uint16Array(n * 4);
       const weight = new Float32Array(n * 4);
-      const b = bone(p);
+      const pos = g.attributes.position;
       for (let i = 0; i < n; i++) {
-        index[i * 4] = b;
-        weight[i * 4] = 1;
+        _p.fromBufferAttribute(pos, i);
+        bone(p, _p, index, weight, i * 4);
       }
       g.setAttribute('skinIndex', new THREE.BufferAttribute(index, 4));
       g.setAttribute('skinWeight', new THREE.BufferAttribute(weight, 4));
@@ -160,24 +160,74 @@ function bake(parts, to, surface, bone = null) {
 // zusammengefasste Geometrie je Vorlage (alle Kopien eines Modells teilen sich die Geometrie ihrer Teile)
 const skinCache = new WeakMap();
 const flatCache = new WeakMap();
+const _p = new THREE.Vector3();
+const _j = new THREE.Vector3();
+
+const smoothstep = (a, b, x) => {
+  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
 
 /**
  * Figur aus starren Teilen, die an Gelenken hängen: wird zu biegsamen Modellen (SkinnedMesh) mit den
  * Gelenken als Knochen, je eins pro Gruppe (siehe groupParts). Die Teile verschwinden, die Gelenke
  * bleiben und bewegen die Modelle wie vorher; unsichtbar wird ein Gelenk samt Teilen mit Größe 0.
- * Liefert die neuen Meshes.
+ *
+ * soft: weiche Gelenke [{ bone, normal, width }]. Ecken der Teile an diesem Gelenk und an seinem
+ * übergeordneten Gelenk gehören dann nach ihrer Lage zu einem der beiden: Die Ebene durch das Gelenk
+ * (normal zeigt zum Gelenk hin, im Raum des Modells) trennt sie, und innerhalb von width davor und
+ * dahinter gehen sie fließend vom einen zum anderen über. So knickt ein durchgehendes Hosenbein am
+ * Knie, statt dass zwei starre Teile auseinanderklaffen. Kostet beim Zeichnen nichts extra (der Shader
+ * mischt ohnehin vier Knochen pro Ecke). Liefert die neuen Meshes.
  */
-export function skinParts(root, keep = []) {
+export function skinParts(root, keep = [], soft = []) {
   root.updateWorldMatrix(true, true);
   const parts = [];
   root.traverse((o) => { if (o.isMesh) parts.push(o); });
   if (!parts.length) return [];
   const bones = [...new Set(parts.map((p) => p.parent))];
+  const to = root.matrixWorld.clone().invert();
+  // weiche Gelenke: Knochen (auch ohne eigene Teile), Lage des Gelenks im Raum des Modells
+  const joints = [];
+  for (const s of soft) {
+    const child = root.getObjectByName(s.bone);
+    const parent = child?.parent;
+    if (!child || !parent) continue;
+    for (const b of [parent, child]) if (!bones.includes(b)) bones.push(b);
+    joints.push({
+      parent: bones.indexOf(parent), child: bones.indexOf(child), width: s.width,
+      at: child.getWorldPosition(new THREE.Vector3()).applyMatrix4(to),
+      normal: new THREE.Vector3(...s.normal).normalize(),
+    });
+  }
   const groups = groupParts(parts, keep);
   let baked = skinCache.get(parts[0].geometry);
   if (!baked) {
-    const to = root.matrixWorld.clone().invert();
-    baked = [...groups].map(([name, list]) => ({ name, geometry: bake(list, to, !name, (p) => bones.indexOf(p.parent)) }));
+    const weigh = (p, v, index, weight, k) => {
+      const own = bones.indexOf(p.parent);
+      // das nächste weiche Gelenk, an dem dieses Teil hängt
+      let best = null;
+      let dist = Infinity;
+      for (const j of joints) {
+        if (j.parent !== own && j.child !== own) continue;
+        const d = _j.subVectors(v, j.at).dot(j.normal);
+        if (Math.abs(d) < Math.abs(dist)) {
+          dist = d;
+          best = j;
+        }
+      }
+      if (!best) {
+        index[k] = own;
+        weight[k] = 1;
+        return;
+      }
+      const c = smoothstep(-best.width, best.width, dist);
+      index[k] = best.parent;
+      weight[k] = 1 - c;
+      index[k + 1] = best.child;
+      weight[k + 1] = c;
+    };
+    baked = [...groups].map(([name, list]) => ({ name, geometry: bake(list, to, !name, weigh) }));
     skinCache.set(parts[0].geometry, baked);
   }
   const skeleton = new THREE.Skeleton(bones);

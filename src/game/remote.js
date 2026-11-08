@@ -35,6 +35,14 @@ const HITBOXES = [
   ['ShinR', 'legs', [0.1, 0.28, -0.03], [0.2, 0.56, 0.3]],
 ];
 const HITBOX_MATERIAL = new THREE.MeshBasicMaterial({ visible: false });
+// weiche Gelenke der Figur (siehe skinParts): Knie, Taille und Hals biegen sich fließend.
+// normal: Richtung vom übergeordneten Gelenk zu diesem (im Modell, y oben), width: halbe Breite des Übergangs
+const SOFT_JOINTS = [
+  { bone: 'ShinL', normal: [0, -1, 0], width: 0.05 },
+  { bone: 'ShinR', normal: [0, -1, 0], width: 0.05 },
+  { bone: 'Spine', normal: [0, 1, 0], width: 0.06 },
+  { bone: 'Head', normal: [0, 1, 0], width: 0.035 },
+];
 
 const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 // so lange bleiben die Zustände des Gegners gespeichert (für die Kill-Cam)
@@ -131,9 +139,9 @@ export class RemotePlayer {
       else if (o.material.name === 'Helmet') this.helmet = o.material;
     });
     // Körper als biegsame Modelle mit den Gelenken als Knochen: Uniform und Helm (Teamfarbe, Skins)
-    // für sich, alle anderen Teile zusammen, also 3 Zeichenaufrufe statt gut 20. Die Meshes und ihre
+    // für sich, alle anderen Teile zusammen, also 3 Zeichenaufrufe statt gut 60. Die Meshes und ihre
     // Materialien braucht auch der Schimmer während des Spawn-Schutzes.
-    this.bodyMeshes = skinParts(model, ['Uniform', 'Helmet']);
+    this.bodyMeshes = skinParts(model, ['Uniform', 'Helmet'], SOFT_JOINTS);
     this.bodyMaterials = new Set();
     this._collectBody();
     this.glow = 0;

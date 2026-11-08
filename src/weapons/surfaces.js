@@ -37,7 +37,8 @@ const SURFACES = {
   Sleeve: ['stoff', 1, 0.6, null],
 };
 
-// nur Waffen, Messer und Granaten (Figur, Kisten und Kulissen haben keine Textur-Koordinaten dafür)
+// Waffen, Messer und Granaten (die Uniform der Figur kommt am Ende von applySurfaces; Kisten und
+// Kulissen haben keine Textur-Koordinaten dafür)
 const MODELS = ['wolf', 'luchs', 'falke', 'keiler', 'adler', 'natter', 'kobra', 'karambit', 'butterfly', 'he', 'flash', 'smoke'];
 
 /** sets: { name: { col, arm, nor } } (Texturen); legt sie auf die passenden Materialien der Modelle */
@@ -73,6 +74,18 @@ export function applySurfaces(models, sets) {
       m.needsUpdate = true;
     });
   }
+  // Uniform der Spielerfigur: Stoff. Uniform und Helm malt das Spiel ohnehin je in einem eigenen
+  // Zeichenaufruf (Teamfarbe, Skins), die Textur kostet also keinen weiteren. Skins behalten das Relief.
+  models.soldier?.traverse((o) => {
+    const m = o.material;
+    if (!o.isMesh || m?.name !== 'Uniform' || !o.geometry.attributes.uv || done.has(m)) return;
+    done.add(m);
+    m.map = tex('stoff', 'col', 1);
+    m.roughnessMap = m.metalnessMap = tex('stoff', 'arm', 1);
+    m.normalMap = tex('stoff', 'nor', 1);
+    m.normalScale.set(0.45, 0.45);
+    m.needsUpdate = true;
+  });
 }
 
 /**

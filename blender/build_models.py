@@ -10,8 +10,9 @@ import sys, os, math
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import bpy
+from mathutils import Vector
 from lib import (reset, mat, textured_mat, box, cyl, cyl_between, sphere, dome, torus, tube, profile, empty,
-                 parent_all, export, render_preview, join_meshes, triangle_count, ROOT,
+                 parent_all, export, loft, shell, render_preview, join_meshes, triangle_count, ROOT,
                  pbr_mat, tex_brushed, tex_grain, tex_stipple, text_mesh, AUTO_UV, weapon_surfaces)
 
 ARGS = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
@@ -598,56 +599,168 @@ def build_smoke():
     return root
 
 
-# ---------- Gegner-Soldat für das 1 gegen 1 ----------
-# Starre Körperteile an Gelenkpunkten (leere Objekte), bewegt wird im Spiel per Code.
-# Blickrichtung +Y, Füße bei z = 0. Uniform und Helm bekommen im Spiel die Teamfarbe.
+# ---------- Spieler-Figur (Gegner, Mitspieler, KI) ----------
+# Teile an Gelenkpunkten (leere Objekte), bewegt wird im Spiel per Code. Rumpf, Arme, Beine und Kopf
+# sind aus Querschnitten geformt (loft); an Knien, Taille und Hals verbiegt das Spiel sie weich (siehe
+# SOFT_JOINTS in src/game/remote.js). Gelenke, Hände und Waffenanker müssen bleiben, wo sie sind: daran
+# hängen die Waffen, die Trefferzonen und die Beinlängen im Spiel (THIGH, SHIN).
+# Blickrichtung +Y, Füße bei z = 0. Uniform und Helm bekommen im Spiel die Teamfarbe (auch die Armbinden,
+# die aus dem Helm-Material sind), alle anderen Teile malt das Spiel zusammen in einem Zeichenaufruf.
 def build_soldier():
-    uniform = mat('Uniform', (0.3, 0.27, 0.2), 0.0, 0.88)
-    vest = mat('Vest', (0.15, 0.16, 0.12), 0.0, 0.82)
+    uniform = mat('Uniform', (0.3, 0.27, 0.2), 0.0, 0.9)
+    helmet = mat('Helmet', (0.34, 0.33, 0.27), 0.0, 0.62)
+    vest = mat('Vest', (0.15, 0.16, 0.12), 0.0, 0.85)
+    pouch = mat('Pouch', (0.12, 0.13, 0.095), 0.0, 0.88)
+    strap = mat('Strap', (0.045, 0.047, 0.042), 0.0, 0.8)
+    pad = mat('Pad', (0.06, 0.062, 0.058), 0.0, 0.6)
     glove = mat('Glove', (0.035, 0.035, 0.038), 0.0, 0.78)
     boot = mat('Boot', (0.11, 0.085, 0.06), 0.0, 0.72)
-    helmet = mat('Helmet', (0.34, 0.33, 0.27), 0.0, 0.62)
+    sole = mat('Sole', (0.025, 0.024, 0.022), 0.0, 0.9)
     mask = mat('Mask', (0.05, 0.05, 0.055), 0.0, 0.92)
     goggle = mat('Goggles', (0.02, 0.03, 0.04), 0.7, 0.1)
+    gear = mat('Gear', (0.03, 0.031, 0.033), 0.0, 0.55)
+    buckle = mat('Buckle', (0.3, 0.3, 0.29), 0.9, 0.35)
+
     root = empty('Soldier')
     hips = empty('Hips', (0, 0, 0.95), parent=root)
-    box('Pelvis', (0.34, 0.2, 0.2), (0, 0, 0.95), uniform, bevel=0.05, segs=3, parent=hips)
-    box('Belt', (0.36, 0.22, 0.05), (0, 0, 1.03), vest, bevel=0.015, parent=hips)
     spine = empty('Spine', (0, 0, 1.03), parent=hips)
-    box('Torso', (0.38, 0.22, 0.44), (0, 0, 1.25), uniform, bevel=0.07, segs=3, parent=spine)
-    box('PlateCarrier', (0.4, 0.27, 0.34), (0, 0.01, 1.28), vest, bevel=0.04, segs=2, parent=spine)
-    for i, x in enumerate((-0.11, 0.0, 0.11)):
-        box(f'Pouch{i}', (0.085, 0.05, 0.1), (x, 0.15, 1.19), vest, bevel=0.012, parent=spine)
-    for sx in (-1, 1):
-        sphere(f'Shoulder{sx}', 0.068, (0.2 * sx, 0, 1.42), uniform, parent=spine)
-    cyl_between('Neck', (0, 0, 1.46), (0, 0.005, 1.54), 0.055, 0.052, mask, parent=spine)
     head = empty('Head', (0, 0, 1.53), parent=spine)
-    sphere('Skull', 0.1, (0, 0.012, 1.63), mask, scale=(0.92, 1.0, 1.08), parent=head)
-    box('GoggleBand', (0.165, 0.05, 0.046), (0, 0.083, 1.642), goggle, bevel=0.016, segs=3, parent=head)
-    dome('HelmetShell', 0.128, (0, -0.004, 1.652), helmet, scale=(1.0, 1.08, 0.86), parent=head)
-    # Arme in Anschlagshaltung, die rechte Hand hält die Waffe am Griff
-    cyl_between('UpperArmR', (0.2, 0, 1.42), (0.25, 0.14, 1.22), 0.056, 0.05, uniform, parent=spine)
-    cyl_between('ForearmR', (0.25, 0.14, 1.22), (0.12, 0.28, 1.3), 0.047, 0.04, uniform, parent=spine)
-    box('FistR', (0.08, 0.1, 0.085), (0.1, 0.3, 1.31), glove, bevel=0.026, segs=3, parent=spine)
+
+    # Hose und Gürtel (unten rund geschlossen, die Beine stecken oben darin)
+    loft('Pelvis', [((0, 0, 0.8), 0, 0), ((0, 0, 0.82), 0.1, 0.07, 2.4), ((0, 0, 0.86), 0.165, 0.1, 2.4),
+                    ((0, 0, 0.93), 0.192, 0.115, 2.4), ((0, -0.002, 0.965), 0.186, 0.113, 2.4),
+                    ((0, -0.003, 1.0), 0.17, 0.108, 2.4), ((0, -0.005, 1.07), 0.158, 0.104, 2.4)],
+         uniform, segs=24, parent=hips)
+    loft('Belt', [((0, -0.004, 0.998), 0.178, 0.12, 2.8), ((0, -0.004, 1.045), 0.176, 0.119, 2.8)],
+         strap, segs=24, parent=hips)
+    box('Buckle', (0.05, 0.012, 0.036), (0, 0.121, 1.022), buckle, bevel=0.004, segs=1, parent=hips)
+
+    # Oberkörper: Taille, Brust, Schultern, zum Hals hin schmal
+    loft('Torso', [((0, -0.005, 0.99), 0.152, 0.1, 2.4), ((0, -0.005, 1.06), 0.158, 0.104, 2.4),
+                   ((0, -0.004, 1.15), 0.166, 0.108, 2.4), ((0, -0.003, 1.25), 0.18, 0.114, 2.4),
+                   ((0, -0.002, 1.34), 0.19, 0.116, 2.4), ((0, -0.004, 1.41), 0.19, 0.11, 2.6),
+                   ((0, -0.008, 1.455), 0.15, 0.092, 2.4), ((0, -0.008, 1.48), 0.09, 0.07),
+                   ((0, -0.006, 1.5), 0.062, 0.058)], uniform, segs=24, parent=spine)
+    for sx in (-1, 1):
+        sphere(f'Shoulder{sx}', 0.066, (0.2 * sx, 0, 1.415), uniform, scale=(1.0, 1.0, 1.06), segs=14, parent=spine)
+
+    # Plattenträger mit Schulterriemen, Magazintaschen, Funkgerät und Trinkrucksack
+    loft('PlateCarrier', [((0, 0.004, 1.07), 0.178, 0.128, 3.2), ((0, 0.006, 1.1), 0.184, 0.134, 3.2),
+                          ((0, 0.008, 1.24), 0.188, 0.138, 3.2), ((0, 0.008, 1.35), 0.186, 0.136, 3.2),
+                          ((0, 0.006, 1.395), 0.17, 0.128, 3.2), ((0, 0.004, 1.42), 0.14, 0.118, 3.0)],
+         vest, segs=28, parent=spine)
+    for sx in (-1, 1):
+        loft(f'ShoulderStrap{sx}', [((0.12 * sx, 0.13, 1.395), 0.034, 0.009, 4), ((0.124 * sx, 0.095, 1.455), 0.034, 0.009, 4),
+                                    ((0.127 * sx, 0.0, 1.479), 0.034, 0.009, 4), ((0.124 * sx, -0.09, 1.455), 0.034, 0.009, 4),
+                                    ((0.12 * sx, -0.122, 1.395), 0.034, 0.009, 4)], vest, segs=8, parent=spine)
+    for i, x in enumerate((-0.105, 0.0, 0.105)):
+        y = 0.168 if x == 0 else 0.161
+        box(f'Pouch{i}', (0.08, 0.05, 0.11), (x, y, 1.18), pouch, bevel=0.01, segs=1, parent=spine)
+        box(f'PouchFlap{i}', (0.086, 0.056, 0.024), (x, y + 0.001, 1.243), pouch, bevel=0.006, segs=1, parent=spine)
+    box('AdminPouch', (0.15, 0.03, 0.07), (0, 0.158, 1.315), pouch, bevel=0.008, segs=1, parent=spine)
+    box('Radio', (0.05, 0.075, 0.13), (-0.211, -0.03, 1.2), gear, bevel=0.008, segs=1, parent=spine)
+    cyl_between('Antenna', (-0.214, -0.05, 1.26), (-0.226, -0.08, 1.63), 0.005, 0.003, gear, segs=6, parent=spine)
+    box('Backpack', (0.22, 0.06, 0.3), (0, -0.163, 1.24), pouch, bevel=0.025, segs=2, parent=spine)
+
+    # Kopf mit Sturmhaube, Brille, Gehörschutz und Helm (hinten tiefer, über den Ohren hoch geschnitten)
+    loft('Skull', [((0, 0.0, 1.46), 0.066, 0.062), ((0, 0.003, 1.52), 0.064, 0.062), ((0, 0.012, 1.555), 0.068, 0.074),
+                   ((0, 0.016, 1.585), 0.08, 0.09), ((0, 0.014, 1.625), 0.09, 0.1), ((0, 0.008, 1.67), 0.089, 0.098),
+                   ((0, 0.002, 1.71), 0.076, 0.085), ((0, -0.002, 1.738), 0.048, 0.055), ((0, -0.004, 1.75), 0, 0)],
+         mask, segs=20, parent=head)
+
+    def arc(rx, ry, cy, z, a0, a1, n):
+        return [(rx * math.cos(a), cy + ry * math.sin(a), z) for a in
+                (math.radians(a0 + (a1 - a0) * k / (n - 1)) for k in range(n))]
+
+    loft('GoggleFrame', [(p, 0.024, 0.011, 4) for p in arc(0.094, 0.104, 0.012, 1.645, 22, 158, 11)],
+         gear, segs=8, side=(0, 0, 1), parent=head)
+    loft('GoggleLens', [(p, 0.018, 0.004, 4) for p in arc(0.1, 0.113, 0.012, 1.645, 40, 140, 9)],
+         goggle, segs=8, side=(0, 0, 1), parent=head)
+    for sx in (-1, 1):
+        cyl(f'EarCup{sx}', 0.038, 0.032, (0.1 * sx, -0.006, 1.622), gear, axis='X', segs=14, bevel=0.005, parent=head)
+    loft('ChinStrap', [(p, 0.005, 0.005) for p in [(-0.104, -0.012, 1.67), (-0.09, 0.012, 1.6), (-0.062, 0.05, 1.556),
+                                                    (0, 0.08, 1.538), (0.062, 0.05, 1.556), (0.09, 0.012, 1.6),
+                                                    (0.104, -0.012, 1.67)]], strap, segs=6, parent=head)
+
+    # Rand: vorne knapp über der Brille, an den Seiten über dem Gehörschutz, hinten tief im Nacken
+    def rim(th):
+        s = math.sin(th)
+        return 1.39 - 0.08 * max(0.0, s) + 0.51 * max(0.0, -s) ** 1.3
+
+    shell('HelmetShell', (0, -0.006, 1.64), 0.13, (1.0, 1.1, 0.95), rim, helmet, cols=24, rows=7,
+          thickness=0.009, parent=head)
+    box('NvgMount', (0.046, 0.02, 0.036), (0, 0.13, 1.705), gear, bevel=0.006, segs=1, parent=head)
+    for sx in (-1, 1):
+        box(f'HelmetRail{sx}', (0.012, 0.1, 0.02), (0.124 * sx, -0.01, 1.685), gear, bevel=0.004, segs=1, parent=head)
+
+    # Arme in Anschlagshaltung: Ärmel mit Armbinde (Teamfarbe) und Handschuh
+    def arm(tag, S, E, W, fist, fsize, parent):
+        S, E, W = Vector(S), Vector(E), Vector(W)
+        d1 = (E - S).normalized()
+        d2 = (W - E).normalized()
+        loft(f'Sleeve{tag}', [(S - d1 * 0.02, 0.054, 0.054), (S + (E - S) * 0.3, 0.056, 0.056),
+                              (S + (E - S) * 0.7, 0.051, 0.051), (E - d1 * 0.03, 0.049, 0.049),
+                              (E + d2 * 0.03, 0.048, 0.048), (E + (W - E) * 0.45, 0.046, 0.046),
+                              (E + (W - E) * 0.8, 0.04, 0.04), (W + d2 * 0.01, 0.041, 0.041)],
+             uniform, segs=14, parent=parent)
+        band = S + (E - S) * 0.42
+        loft(f'Armband{tag}', [(band - d1 * 0.026, 0.0585, 0.0585), (band + d1 * 0.026, 0.0575, 0.0575)],
+             helmet, segs=14, parent=parent)
+        loft(f'Cuff{tag}', [(W - d2 * 0.012, 0.045, 0.045), (W + d2 * 0.025, 0.046, 0.046)], glove, segs=12, parent=parent)
+        box(f'Fist{tag}', fsize, fist, glove, bevel=0.025, segs=3, parent=parent)
+
+    arm('R', (0.2, 0, 1.42), (0.25, 0.14, 1.22), (0.12, 0.28, 1.3), (0.1, 0.3, 1.31), (0.08, 0.1, 0.085), spine)
     # linker Arm in zwei Varianten: am Handschutz (Gewehre) oder an der Schusshand (Pistole, Messer, Granate)
     long_arm = empty('ArmLLong', (-0.2, 0, 1.42), parent=spine)
-    cyl_between('UpperArmL', (-0.2, 0, 1.42), (-0.15, 0.25, 1.22), 0.056, 0.05, uniform, parent=long_arm)
-    cyl_between('ForearmL', (-0.15, 0.25, 1.22), (0.05, 0.53, 1.3), 0.047, 0.04, uniform, parent=long_arm)
-    box('FistL', (0.08, 0.1, 0.08), (0.07, 0.56, 1.31), glove, bevel=0.025, segs=3, parent=long_arm)
+    arm('L', (-0.2, 0, 1.42), (-0.15, 0.25, 1.22), (0.05, 0.53, 1.3), (0.07, 0.56, 1.31), (0.08, 0.1, 0.08), long_arm)
     short_arm = empty('ArmLShort', (-0.2, 0, 1.42), parent=spine)
-    cyl_between('UpperArmLS', (-0.2, 0, 1.42), (-0.2, 0.13, 1.2), 0.056, 0.05, uniform, parent=short_arm)
-    cyl_between('ForearmLS', (-0.2, 0.13, 1.2), (0.0, 0.29, 1.28), 0.047, 0.04, uniform, parent=short_arm)
-    box('FistLS', (0.075, 0.095, 0.08), (0.03, 0.31, 1.29), glove, bevel=0.025, segs=3, parent=short_arm)
+    arm('LS', (-0.2, 0, 1.42), (-0.2, 0.13, 1.2), (0.0, 0.29, 1.28), (0.03, 0.31, 1.29), (0.075, 0.095, 0.08), short_arm)
     # Ursprung der Waffen liegt oben am Griff, knapp über der Faust
     empty('WeaponAnchor', (0.1, 0.3, 1.365), parent=spine)
-    # Beine mit Knie- und Hüftgelenk
+
+    # Beine: ein durchgehendes Hosenbein je Seite (das Spiel biegt es am Knie), Knieschoner, Stiefel;
+    # links eine Beintasche, rechts ein Holster
     for sx, tag in ((-1, 'L'), (1, 'R')):
-        thigh = empty(f'Thigh{tag}', (0.1 * sx, 0, 0.93), parent=hips)
-        cyl_between(f'ThighMesh{tag}', (0.1 * sx, 0, 0.95), (0.1 * sx, 0.01, 0.52), 0.1, 0.078, uniform, parent=thigh)
-        shin = empty(f'Shin{tag}', (0.1 * sx, 0.01, 0.5), parent=thigh)
-        box(f'KneePad{tag}', (0.1, 0.05, 0.11), (0.1 * sx, 0.08, 0.5), vest, bevel=0.02, parent=shin)
-        cyl_between(f'ShinMesh{tag}', (0.1 * sx, 0.01, 0.5), (0.1 * sx, 0.0, 0.12), 0.074, 0.06, uniform, parent=shin)
-        box(f'Boot{tag}', (0.125, 0.29, 0.12), (0.1 * sx, 0.05, 0.06), boot, bevel=0.03, segs=2, parent=shin)
+        x = 0.1 * sx
+        thigh = empty(f'Thigh{tag}', (x, 0, 0.93), parent=hips)
+        shin = empty(f'Shin{tag}', (x, 0.01, 0.5), parent=thigh)
+        loft(f'Leg{tag}', [((x, 0.0, 0.98), 0.074, 0.08), ((x, 0.0, 0.93), 0.088, 0.092), ((x, 0.002, 0.82), 0.087, 0.09),
+                           ((x, 0.005, 0.7), 0.079, 0.083), ((x, 0.008, 0.6), 0.07, 0.074), ((x, 0.01, 0.55), 0.066, 0.07),
+                           ((x, 0.012, 0.5), 0.064, 0.068), ((x, 0.008, 0.45), 0.062, 0.066), ((x, 0.0, 0.38), 0.064, 0.068),
+                           ((x, -0.004, 0.3), 0.062, 0.065), ((x, -0.002, 0.22), 0.054, 0.056), ((x, 0.0, 0.15), 0.05, 0.052)],
+             uniform, segs=16, parent=thigh)
+        # Knieschoner: gebogenes Polster vorne um das Knie
+        loft(f'KneePad{tag}', [((x + px, py, pz), 0.05, 0.011, 4) for px, py, pz in arc(0.073, 0.077, 0.012, 0.488, 35, 145, 7)],
+             pad, segs=8, side=(0, 0, 1), parent=shin)
+        loft(f'KneeStrap{tag}', [((x, 0.009, 0.458), 0.066, 0.07), ((x, 0.008, 0.474), 0.066, 0.07)], strap, segs=16, parent=shin)
+        loft(f'BootShaft{tag}', [((x, 0.005, 0.04), 0.06, 0.066, 2.4), ((x, 0.0, 0.12), 0.06, 0.064),
+                                 ((x, -0.003, 0.2), 0.061, 0.063), ((x, -0.003, 0.215), 0.056, 0.058)],
+             boot, segs=16, parent=shin)
+        # Fuß von der Ferse bis zur Spitze, vorne flacher und schmaler
+        loft(f'BootFoot{tag}', [((x, -0.092, 0.075), 0, 0), ((x, -0.085, 0.075), 0.046, 0.055, 2.6),
+                                ((x, -0.06, 0.078), 0.056, 0.068, 2.6), ((x, 0.0, 0.074), 0.058, 0.07, 2.6),
+                                ((x, 0.06, 0.062), 0.058, 0.058, 2.6), ((x, 0.12, 0.052), 0.055, 0.046, 2.6),
+                                ((x, 0.165, 0.047), 0.05, 0.039, 2.4), ((x, 0.193, 0.044), 0.04, 0.032, 2.2),
+                                ((x, 0.206, 0.042), 0, 0)], boot, segs=16, parent=shin)
+        profile(f'Sole{tag}', [(-0.09, 0.0), (0.185, 0.0), (0.208, 0.018), (0.203, 0.03), (-0.092, 0.03)], 0.116, sole,
+                axis='X', offset=x, taper=[1, 0.9, 0.75, 0.75, 1], bevel=0.006, segs=1, parent=shin)
+        if tag == 'L':
+            box('CargoPocket', (0.034, 0.12, 0.14), (x - 0.083, 0.0, 0.72), uniform, bevel=0.012, segs=1, parent=thigh)
+            box('CargoFlap', (0.04, 0.126, 0.026), (x - 0.085, 0.0, 0.796), uniform, bevel=0.008, segs=1, parent=thigh)
+        else:
+            box('HolsterPlate', (0.03, 0.085, 0.17), (x + 0.094, -0.005, 0.76), strap, bevel=0.008, segs=1, parent=thigh)
+            box('Holster', (0.04, 0.07, 0.13), (x + 0.115, 0.0, 0.74), gear, bevel=0.012, segs=1, parent=thigh)
+            box('HolsterGrip', (0.032, 0.035, 0.065), (x + 0.115, -0.022, 0.835), gear, bevel=0.008, segs=1, parent=thigh)
+            # Beinriemen knapp über dem Hosenbein (dessen Querschnitt bei 0,7 und 0,8 m)
+            for i, (z, rx, ry) in enumerate(((0.7, 0.079, 0.083), (0.8, 0.086, 0.089))):
+                loft(f'LegStrap{i}', [((x, 0.004, z - 0.012), rx + 0.0045, ry + 0.0045),
+                                      ((x, 0.004, z + 0.012), rx + 0.0045, ry + 0.0045)], strap, segs=16, parent=thigh)
+    # Textur-Koordinaten braucht nur die Uniform (Stoff), alle anderen Teile sind einfarbig: ohne sie
+    # wird die Datei kleiner, und an den Nähten der Koordinaten entstehen keine doppelten Ecken
+    for o in bpy.context.scene.objects:
+        if o.type == 'MESH' and o.data.materials and o.data.materials[0].name != 'Uniform':
+            while o.data.uv_layers:
+                o.data.uv_layers.remove(o.data.uv_layers[0])
     return root
 
 
@@ -796,7 +909,7 @@ for name, fn, view in BUILDS:
         fn()
         continue
     # Waffen und Granaten: 10 cm pro Kachel, längs zur Waffe (Y)
-    AUTO_UV['tile'] = 0.1 if name in WEAPON_MODELS else None
+    AUTO_UV['tile'] = 0.1 if name in WEAPON_MODELS else 0.12 if name == 'soldier' else None
     fn()
     export(f'{name}.glb', jpeg=name in ('props', 'crates', 'natter', 'karambit', 'butterfly'))
     if PREVIEW:
@@ -806,4 +919,10 @@ for name, fn, view in BUILDS:
         if name in ('natter', 'kobra'):
             # so ähnlich sieht man die Pistole im Spiel: von links hinten oben
             render_preview(name + '_left', direction=(-1.0, -0.75, 0.5), res=(1280, 720), hide=('Hand', 'Wrist', 'Sleeve'))
+        if name == 'soldier':
+            # dazu von hinten links und von der Seite, nur mit dem Arm fürs Gewehr
+            short = ('SleeveLS', 'ArmbandLS', 'CuffLS', 'FistLS')
+            render_preview(name, direction=view, res=(1280, 720), hide=short)
+            render_preview(name + '_back', direction=(-0.8, -1.0, 0.3), res=(1280, 720), hide=short)
+            render_preview(name + '_side', direction=(1.0, 0.05, 0.1), res=(1280, 720), hide=short)
 print('BUILD_DONE')
