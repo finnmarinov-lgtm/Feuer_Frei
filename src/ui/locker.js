@@ -1,4 +1,4 @@
-import { LOCKER, TASKS, cleanLooks, isDone, skinOf, stat, taskFor, unlocked } from '../game/cosmetics.js';
+import { LOCKER, TASKS, TIERS, cleanLooks, isDone, skinOf, stat, taskFor, unlocked } from '../game/cosmetics.js';
 import { FINISHES } from '../weapons/finishes.js';
 
 const $ = (id) => document.getElementById(id);
@@ -102,11 +102,14 @@ export class Locker {
     $('locker-skins').innerHTML = ['standard', ...l.skins].map((skin) => {
       const open = unlocked(this.cat, skin);
       const task = taskFor(this.cat, skin);
-      const cls = ['skin', skin === worn ? 'worn' : '', open ? '' : 'locked', skin === this.picked ? 'picked' : ''].join(' ');
+      // Skins aus Kisten tragen die Farbe ihrer Seltenheit
+      const tier = FINISHES[skin]?.tier;
+      const cls = ['skin', skin === worn ? 'worn' : '', open ? '' : 'locked', skin === this.picked ? 'picked' : '', tier ? `tier-${tier}` : ''].join(' ');
       let body;
       if (skin === worn) body = '<span class="state">✓ Ausgerüstet</span>';
       else if (open) body = '<span class="state">Anklicken zum Ausrüsten</span>';
-      else body = `<span class="task">${esc(task.text)}</span>${progressHtml(task)}`;
+      else if (task) body = `<span class="task">${esc(task.text)}</span>${progressHtml(task)}`;
+      else body = `<span class="task">Nur aus Kisten</span><span class="tier">${esc(TIERS[tier].name)}</span>`;
       const label = skin === 'standard' ? (this.cat === 'spieler' ? 'Standard (Teamfarbe)' : 'Standard') : FINISHES[skin].name;
       return `<button data-skin="${skin}" class="${cls}"><i class="swatch sw-${skin}"></i><b>${esc(label)}</b>${body}</button>`;
     }).join('');

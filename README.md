@@ -162,6 +162,17 @@ Unter **Skins & Aufgaben** im Hauptmenü stehen links die Waffen (Natter, Kobra,
 - **Die anderen sehen sie:** Im Mehrspieler schickt die Lobby die eigenen Skins mit. Gegner und Mitspieler sehen Waffen, Messer und Uniform so, wie man sie trägt, auch in der Kill-Cam und beim Zuschauen.
 - Gespeichert wird im Browser: der Fortschritt unter `feuer-frei-aufgaben`, die getragenen Skins in den Einstellungen. Wer das Regenbogen-Messer schon vor den Aufgaben geschenkt bekommen hatte, behält es. Mit einem Konto (nächster Abschnitt) zusätzlich auf dem Server.
 
+## Kisten
+
+Unter **Kisten** im Hauptmenü gibt es weitere Skins, die es nur dort gibt. Eine Kiste kostet 250 **Münzen**; die verdient man beim Spielen. Echtes Geld gibt es nirgends.
+
+- **Münzen:** Abschuss 10, Kopfschuss zusätzlich 5, Bombe legen oder entschärfen 15, Sieg 100, goldene Banane 250. Training gibt nichts. Jeder startet mit 250 (eine Kiste geschenkt). Die Auswertung nach der Partie zeigt die verdienten Münzen, der Knopf im Hauptmenü den Stand (er leuchtet, wenn es für eine Kiste reicht).
+- **Inhalt:** 50 Skins in vier Stufen. Die Chancen stehen offen im Bildschirm: **Selten** 60 % (Minze, Violett, Signalorange, Pink, Mattschwarz, Titan), **Episch** 28 % (Stadttarn, Bonbon, Smaragd, Rubin, Karbon, Zebra, Tiger), **Legendär** 10 % (Plasma, Giftgrün, Blutmond: bewegte Energie), **Jackpot** 2 %.
+- **Jackpot:** ein **Diamant**-Skin (funkelnde Facetten), den man noch nicht hat, und 1.000 Münzen dazu. Hat man alle neun, gibt es 2.500 Münzen.
+- **Doppelte** geben Münzen zurück: 50, 100 oder 250 je nach Stufe.
+- **Öffnen:** Eine Rolle mit Karten läuft durch und bleibt auf dem Gewinn stehen (Klick überspringt). Gewürfelt und gespeichert wird schon beim Klick auf „Kiste öffnen“, die Rolle zeigt nur das Ergebnis. Danach dreht sich der Skin rechts im Bild, „Ausrüsten“ legt ihn an.
+- **Technik:** Werte in `CASE`, `TIERS`, `CASE_SKINS` und `COIN_FOR` in `src/game/cosmetics.js`, Bildschirm in `src/ui/kisten.js`. Gespeichert wird im Fortschritt (`feuer-frei-aufgaben`): Zähler `m:plus` (verdient), `m:minus` (ausgegeben), `kisten` (geöffnet) und die Skins als `k:<waffe>:<skin>` in `done`. Das Konto führt das ohne Änderung an der Datenbank zusammen. In der Waffenkammer stehen Kisten-Skins mit „Nur aus Kisten“ und ihrer Stufe.
+
 ## Konto
 
 Mit Benutzername und Passwort (ohne E-Mail) lassen sich Aufgaben-Fortschritt, getragene Skins und die Notizen vom Notizblock auf jedem Gerät nutzen. Der Konto-Knopf oben rechts im Hauptmenü erscheint erst, wenn die Datenbank eingerichtet ist.

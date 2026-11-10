@@ -2,6 +2,8 @@ import { FINISHES } from '../weapons/finishes.js';
 
 // Skins und Aufgaben: Jede Waffe (und das Messer) hat drei Skins, dazu gibt es Spieler-Skins.
 // Freigeschaltet wird jeder Skin durch eine Aufgabe (Abschüsse, Kopfschüsse, Bomben, Siege …).
+// Weitere Skins gibt es nur aus Kisten (siehe "Kisten" unten); die kosten Münzen, die man beim
+// Spielen verdient.
 // Der Fortschritt zählt im 1 gegen 1 (gegen die KI oder einen Freund), manche Aufgaben im Training.
 // Alles steht im Browser-Speicher; welche Skins man trägt, steht in den Einstellungen (looks).
 
@@ -37,7 +39,48 @@ export const LOCKER = [
   { id: 'messer', name: 'Messer', skins: ['gold', 'galaxie', 'regenbogen'] },
   { id: 'spieler', name: 'Spieler', skins: ['wueste', 'wald', 'nacht', 'arktis', 'kupfer', 'galaxie', 'gold'] },
 ];
+
+// ---------- Kisten ----------
+// Skins, die es nur aus Kisten gibt (Oberflächen mit tier in finishes.js). Eine Kiste kostet
+// Münzen; die verdient man beim Spielen (COIN_FOR). Echtes Geld gibt es nirgends.
+export const CASE_SKINS = {
+  natter: ['mint', 'rosa', 'karbon', 'plasma', 'diamant'],
+  kobra: ['schwarz', 'titan', 'rubin', 'blutmond', 'diamant'],
+  falke: ['orange', 'violett', 'stadt', 'gift', 'diamant'],
+  keiler: ['titan', 'mint', 'zebra', 'blutmond', 'diamant'],
+  wolf: ['schwarz', 'orange', 'karbon', 'tiger', 'plasma', 'diamant'],
+  luchs: ['rosa', 'violett', 'bonbon', 'gift', 'diamant'],
+  adler: ['titan', 'schwarz', 'stadt', 'smaragd', 'plasma', 'diamant'],
+  messer: ['violett', 'mint', 'rubin', 'zebra', 'blutmond', 'diamant'],
+  spieler: ['schwarz', 'rosa', 'stadt', 'bonbon', 'tiger', 'gift', 'diamant'],
+};
+for (const l of LOCKER) l.skins.push(...CASE_SKINS[l.id]);
 const LOCKER_BY_ID = Object.fromEntries(LOCKER.map((l) => [l.id, l]));
+
+/** Seltenheitsstufen von häufig nach selten: chance = Anteil beim Öffnen, refund = Münzen für ein Doppeltes */
+export const TIERS = {
+  selten: { name: 'Selten', chance: 0.6, refund: 50 },
+  episch: { name: 'Episch', chance: 0.28, refund: 100 },
+  legendaer: { name: 'Legendär', chance: 0.1, refund: 250 },
+  jackpot: { name: 'Jackpot', chance: 0.02, refund: 0 },
+};
+/**
+ * price = Preis einer Kiste, start = Startguthaben (eine Kiste geschenkt), jackpotCoins = Münzen
+ * zusätzlich zum Diamant-Skin, jackpotAll = Münzen, wenn man schon alle Diamant-Skins hat
+ */
+export const CASE = { price: 250, start: 250, jackpotCoins: 1000, jackpotAll: 2500 };
+/** alles, was in der Kiste steckt: { target, skin, tier, id } */
+export const CASE_ITEMS = LOCKER.flatMap((l) => CASE_SKINS[l.id].map((skin) => (
+  { target: l.id, skin, tier: FINISHES[skin].tier, id: `k:${l.id}:${skin}` })));
+const CASE_IDS = new Set(CASE_ITEMS.map((i) => i.id));
+// Münzen fürs Spielen, nach Zähler (Anfang des Namens); Training (targets) gibt nichts
+const COIN_FOR = [['kill:', 10], ['head:', 5], ['plant', 15], ['defuse', 15], ['wins', 100], ['banane', 250]];
+const coinFor = (key) => COIN_FOR.find(([start]) => key === start || (start.endsWith(':') && key.startsWith(start)))?.[1] || 0;
+// Zähler im Fortschritt: verdiente und ausgegebene Münzen, geöffnete Kisten. Beide Münz-Zähler
+// wachsen nur, so führt das Konto sie wie alle Zähler zusammen (der größere Wert gilt).
+const PLUS = 'm:plus';
+const MINUS = 'm:minus';
+const OPENED = 'kisten';
 
 // Aufgaben: stat = Zähler, goal = Ziel, reward = [Waffe/'messer'/'spieler', Skin]
 // Zähler: kill:<waffe>, head:<waffe>, kill:luftschlag, plant, defuse, wins, win:<modus>, win:schwer, targets,
@@ -137,11 +180,12 @@ export function mergeProgress(p) {
   const fresh = [];
   const ids = new Set(TASKS.map((t) => t.id));
   for (const id of Array.isArray(p.done) ? p.done : []) {
-    if (ids.has(id) && !state.done.includes(id)) {
-      state.done.push(id);
-      fresh.push(TASKS.find((t) => t.id === id));
-      changed = true;
-    }
+    if (state.done.includes(id)) continue;
+    if (ids.has(id)) fresh.push(TASKS.find((t) => t.id === id));
+    // Skins aus Kisten stehen als 'k:<waffe>:<skin>' in derselben Liste
+    else if (!CASE_IDS.has(id)) continue;
+    state.done.push(id);
+    changed = true;
   }
   if (changed) save();
   return fresh;
@@ -149,7 +193,8 @@ export function mergeProgress(p) {
 
 /** Fortschritt vom Gerät nehmen (beim Abmelden: er bleibt im Konto) */
 export function resetProgress() {
-  state = { stats: {}, done: [] };
+  // das Startguthaben für Kisten gibt es nur einmal, nicht nach jedem Abmelden neu
+  state = { stats: { [MINUS]: CASE.start }, done: [] };
   save();
 }
 
@@ -166,6 +211,11 @@ export const isDone = (task) => state.done.includes(task.id);
 export function count(key, n = 1) {
   if (!(n > 0)) return;
   state.stats[key] = (state.stats[key] || 0) + n;
+  const c = coinFor(key) * n;
+  if (c) {
+    state.stats[PLUS] = (state.stats[PLUS] || 0) + c;
+    gain += c;
+  }
   const fresh = [];
   for (const t of TASKS) {
     if (t.stat !== key || isDone(t)) continue;
@@ -181,11 +231,69 @@ export function count(key, n = 1) {
   return fresh;
 }
 
-/** Skin freigeschaltet? ('standard' immer) */
+/** Skin freigeschaltet? ('standard' immer; sonst über seine Aufgabe oder aus einer Kiste) */
 export function unlocked(target, skin) {
   if (!skin || skin === 'standard') return true;
   const t = taskFor(target, skin);
-  return !!t && isDone(t);
+  return t ? isDone(t) : state.done.includes(`k:${target}:${skin}`);
+}
+
+// ---------- Münzen und Kisten ----------
+
+let gain = 0;
+
+/** Münzen auf dem Konto */
+export const coins = () => Math.max(0, CASE.start + (state.stats[PLUS] || 0) - (state.stats[MINUS] || 0));
+
+/** beim Spielen verdiente Münzen seit dem letzten Aufruf (für die Auswertung nach der Partie) */
+export function takeCoinGain() {
+  const g = gain;
+  gain = 0;
+  return g;
+}
+
+export const casesOpened = () => state.stats[OPENED] || 0;
+export const ownsCaseItem = (item) => state.done.includes(item.id);
+
+const pick = (list, rng) => list[Math.min(list.length - 1, Math.floor(rng() * list.length))];
+
+/** Stufe auswürfeln (nach TIERS.chance) */
+export function rollTier(rng = Math.random) {
+  let r = rng();
+  for (const [id, t] of Object.entries(TIERS)) {
+    r -= t.chance;
+    if (r < 0) return id;
+  }
+  return 'selten';
+}
+
+/** ein zufälliger Inhalt, gewichtet wie beim Öffnen (für die Rolle, die am Gewinn vorbeiläuft) */
+export function rollItem(rng = Math.random) {
+  const tier = rollTier(rng);
+  return pick(CASE_ITEMS.filter((i) => i.tier === tier), rng);
+}
+
+/**
+ * Kiste öffnen: zieht den Preis ab und würfelt. Liefert null, wenn die Münzen nicht reichen, sonst
+ * { item, fresh, refund, bonus }: fresh = neuer Skin; refund = Münzen für ein Doppeltes; bonus =
+ * Münzen aus dem Jackpot. Der Jackpot gibt immer einen Diamant-Skin, den man noch nicht hat (hat
+ * man alle: item = irgendeiner davon, fresh = false und dafür mehr Münzen).
+ */
+export function openCase(rng = Math.random) {
+  if (coins() < CASE.price) return null;
+  state.stats[MINUS] = (state.stats[MINUS] || 0) + CASE.price;
+  state.stats[OPENED] = (state.stats[OPENED] || 0) + 1;
+  const tier = rollTier(rng);
+  const pool = CASE_ITEMS.filter((i) => i.tier === tier);
+  const open = pool.filter((i) => !ownsCaseItem(i));
+  const item = pick(tier === 'jackpot' && open.length ? open : pool, rng);
+  const fresh = !ownsCaseItem(item);
+  if (fresh) state.done.push(item.id);
+  const refund = fresh ? 0 : TIERS[tier].refund;
+  const bonus = tier === 'jackpot' ? (fresh ? CASE.jackpotCoins : CASE.jackpotAll) : 0;
+  if (refund + bonus) state.stats[PLUS] = (state.stats[PLUS] || 0) + refund + bonus;
+  save();
+  return { item, fresh, refund, bonus };
 }
 
 /** nächste offene Aufgabe für eine Waffe (für die Live-Anzeige im Spiel) */

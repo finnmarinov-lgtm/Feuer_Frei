@@ -176,6 +176,7 @@
       <button id="btn-bots">Gegen KI</button>
       <button id="btn-start">Training</button>
       <button id="btn-locker">Skins &amp; Aufgaben</button>
+      <button id="btn-kisten" class="kisten-btn"><span>Kisten</span><em><i class="coin"></i><b id="menu-coins" data-roh></b></em></button>
     </div>
     <div class="menu-map">Karte <div class="seg" id="menu-map"><button data-v="hof">Hof</button><button data-v="halle">Lagerhalle</button><button data-v="hafen">Hafen</button></div>
       <small id="menu-map-info"></small></div>
@@ -188,7 +189,7 @@
         <li><b>Gegen KI:</b> 1 gegen 1 gegen einen Computer-Gegner in vier Stärken.</li>
         <li><b>Training:</b> freies Üben an Klappzielen, ohne Zeitgrenze.</li>
         <li><b>Karten:</b> Hof, Lagerhalle und Hafen. <b>Waffen:</b> alle Waffen, nur Pistolen oder Scharfschützen, dazu Messer und Granaten aus dem Kaufmenü.</li>
-        <li><b>Skins</b> für Waffen, Messer und Figur, freigeschaltet über Aufgaben.</li>
+        <li><b>Skins</b> für Waffen, Messer und Figur, freigeschaltet über Aufgaben und Kisten (Münzen gibt es fürs Spielen, kein echtes Geld).</li>
       </ul>
       <p class="tech">Gebaut mit Three.js und der Physik-Engine Rapier.</p>
       <p class="tech legal"><a href="datenschutz.html" target="_blank" rel="noopener">Datenschutz</a> · <a href="nutzungsbedingungen.html" target="_blank" rel="noopener">Nutzungsbedingungen</a></p>
@@ -427,6 +428,8 @@
       <svg viewBox="0 0 24 24"><path d="M3 10h18v4H3zM4.5 14h15v7h-15z"/><path d="M11 10h2v11h-2z" fill="#fff" opacity=".55"/><path d="M12 10c-1.6-3.6-6.2-5.2-6.8-2.6C4.6 10 9.4 10 12 10zm0 0c1.6-3.6 6.2-5.2 6.8-2.6.6 2.6-4.2 2.6-6.8 2.6z"/></svg>
       <div><b id="res-gift-title">Neuer Skin freigeschaltet!</b><span id="res-gift-text"></span></div>
     </div>
+    <!-- beim Spielen verdiente Münzen (für Kisten) -->
+    <div id="res-coins" hidden><i class="coin"></i><b id="res-coins-n" data-roh></b><span>Münzen verdient</span><small id="res-coins-hint"></small></div>
     <div class="res-grid" id="res-grid"></div>
     <!-- Team-Spiel: alle Spieler mit Abschüssen und Toden -->
     <div class="res-board" id="res-board" hidden></div>
@@ -451,6 +454,51 @@
       <div class="buttons"><button id="btn-locker-back">Zurück</button></div>
     </div>
     <div class="locker-label" id="locker-label"></div>
+  </div>
+
+  <!-- Kisten: links Münzen, Kiste und Inhalt, rechts dreht sich der Skin (wie in der Waffenkammer) -->
+  <div id="kisten" class="screen" hidden>
+    <div class="locker-panel kisten-panel">
+      <div class="kisten-head">
+        <h1>Kisten</h1>
+        <div class="coins-chip"><i class="coin"></i><b id="kisten-coins" data-roh></b><span>Münzen</span></div>
+      </div>
+      <div class="kiste-card">
+        <div class="kiste-box"><i></i></div>
+        <div class="kiste-info">
+          <b>Waffenkiste</b>
+          <span>Ein zufälliger Skin für Waffe, Messer oder Figur. Mit etwas Glück der Jackpot: ein Diamant-Skin und 1.000 Münzen.</span>
+          <button class="primary" id="btn-kiste-open"><span>Kiste öffnen</span><em><i class="coin"></i><b id="kiste-price" data-roh></b></em></button>
+          <small id="kiste-need"></small>
+        </div>
+      </div>
+      <div class="kisten-odds" id="kisten-odds"></div>
+      <p class="kisten-how">Münzen gibt es fürs Spielen: Abschuss 10, Kopfschuss +5, Bombe legen oder entschärfen 15, Sieg 100. Doppelte Skins geben Münzen zurück. Kein echtes Geld.</p>
+      <div class="kisten-sub"><b>Inhalt</b><em id="kisten-have" data-roh></em><span>Geöffnet:</span><em id="kisten-opened" data-roh></em></div>
+      <div class="kisten-items" id="kisten-items"></div>
+      <div class="buttons"><button id="btn-kisten-back">Zurück</button></div>
+    </div>
+    <div class="locker-label" id="kisten-label"></div>
+    <!-- Öffnen: erst läuft die Rolle, dann steht das Ergebnis links und der Skin dreht sich rechts -->
+    <div id="kiste-roll" hidden>
+      <div class="roll-stage" id="roll-stage">
+        <div class="roll-window"><div class="roll-strip" id="roll-strip"></div><i class="roll-mark"></i></div>
+        <small>Klicken zum Überspringen</small>
+      </div>
+      <div class="roll-result" id="roll-result" hidden>
+        <span class="roll-tier" id="roll-tier"></span>
+        <i class="swatch" id="roll-swatch"></i>
+        <span class="roll-target" id="roll-target"></span>
+        <b class="roll-name" id="roll-name"></b>
+        <div class="roll-note" id="roll-note"></div>
+        <div class="buttons">
+          <button class="primary" id="btn-roll-equip">Ausrüsten</button>
+          <button id="btn-roll-again"><span>Noch eine öffnen</span><em><i class="coin"></i><b id="roll-price" data-roh></b></em></button>
+          <button id="btn-roll-done">Fertig</button>
+        </div>
+      </div>
+      <div class="roll-coins" id="roll-coins"></div>
+    </div>
   </div>
 
   <div id="click-resume" class="screen dim" hidden>

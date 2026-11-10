@@ -25,6 +25,26 @@ export const FINISHES = {
   lava: { name: 'Lava', kind: 'lava' },
   neon: { name: 'Neon', kind: 'neon' },
   galaxie: { name: 'Galaxie', kind: 'galaxy' },
+  // ---------- nur aus Kisten (game/cosmetics.js, CASE_SKINS); tier = Seltenheit ----------
+  mint: { name: 'Minze', kind: 'paint', color: '#35cf9d', rough: 0.35, tier: 'selten' },
+  violett: { name: 'Violett', kind: 'paint', color: '#6427cc', rough: 0.35, tier: 'selten' },
+  orange: { name: 'Signalorange', kind: 'paint', color: '#f0640c', rough: 0.4, tier: 'selten' },
+  rosa: { name: 'Pink', kind: 'paint', color: '#ee4f97', rough: 0.35, tier: 'selten' },
+  schwarz: { name: 'Mattschwarz', kind: 'paint', color: '#0b0b0d', rough: 0.6, tier: 'selten' },
+  titan: { name: 'Titan', kind: 'metal', color: '#7e8ea3', rough: 0.34, tier: 'selten' },
+  stadt: { name: 'Stadttarn', kind: 'camo', digital: true, colors: ['#8d949c', '#565c64', '#c4c9ce', '#2e3238'], tier: 'episch' },
+  bonbon: { name: 'Bonbon', kind: 'camo', colors: ['#ff7ac0', '#4fd8e8', '#ffe45c', '#a070ff'], tier: 'episch' },
+  smaragd: { name: 'Smaragd', kind: 'metal', color: '#14b86a', rough: 0.18, tier: 'episch' },
+  rubin: { name: 'Rubin', kind: 'metal', color: '#d4163c', rough: 0.18, tier: 'episch' },
+  karbon: { name: 'Karbon', kind: 'carbon', tier: 'episch' },
+  zebra: { name: 'Zebra', kind: 'stripes', colors: ['#f0f0ea', '#0c0c0e', '#cfcfc6', '#000'], tier: 'episch' },
+  tiger: { name: 'Tiger', kind: 'stripes', colors: ['#f08a12', '#0e0a08', '#ffc552', '#000'], tier: 'episch' },
+  // bewegte Energie: Grundfarbe, Schleier, heller Rand
+  plasma: { name: 'Plasma', kind: 'plasma', colors: ['#0a0418', '#7a2cff', '#35d6ff', '#000'], tier: 'legendaer' },
+  gift: { name: 'Giftgrün', kind: 'plasma', colors: ['#07140a', '#3fd11f', '#d8ff3a', '#000'], tier: 'legendaer' },
+  blutmond: { name: 'Blutmond', kind: 'plasma', colors: ['#120204', '#c4121c', '#ff7a3a', '#000'], tier: 'legendaer' },
+  // der Jackpot
+  diamant: { name: 'Diamant', kind: 'crystal', tier: 'jackpot' },
 };
 
 // gemeinsame Uhr aller bewegten Muster (Sekunden)
@@ -121,6 +141,46 @@ const PATTERN = {
       ffStar += step(k == 0 ? 0.86 : 0.8, ffH) * ffDot * ffTw;
     }
     ffGlow = vec3(2.6, 2.6, 3.0) * ffStar + diffuseColor.rgb * 0.35;`,
+  stripes: /* glsl */ `
+    // Fellstreifen: Wellen quer über das Modell, vom Rauschen verbogen und mal dicker, mal dünner
+    float ffWarp = ffFbm(p * 0.45) * 7.0;
+    float ffS = sin(dot(p, vec3(0.3, 0.75, 0.6)) * 7.5 + ffWarp);
+    float ffM = smoothstep(0.1, 0.3, ffS + (ffNoise(p * 0.9 + 3.1) - 0.5) * 1.1);
+    vec3 ffFur = mix(uFfC0, uFfC2, smoothstep(0.4, 0.7, ffFbm(p * 0.5 + 9.0)));
+    diffuseColor.rgb = mix(ffFur, uFfC1, ffM);`,
+  carbon: /* glsl */ `
+    // Karbon-Gewebe: Würfelmuster, jedes Feld mit eigenem Glanzverlauf (wie gekreuzte Fasern)
+    vec3 ffQ = p * 2.6;
+    vec3 ffCell = floor(ffQ);
+    vec3 ffF = fract(ffQ);
+    float ffPar = mod(ffCell.x + ffCell.y + ffCell.z, 2.0);
+    float ffG = ffPar < 0.5 ? abs(ffF.x + ffF.y - 1.0) : abs(ffF.z - ffF.y);
+    diffuseColor.rgb = mix(vec3(0.012, 0.012, 0.014), vec3(0.1, 0.105, 0.115), ffG);`,
+  plasma: /* glsl */ `
+    // Energie: zwei Rauschfelder schieben sich ineinander, an ihren Rändern leuchtet es hell
+    vec3 ffQ = p * 0.55;
+    float ffA = ffFbm(ffQ + vec3(0.0, uFfTime * 0.25, 0.0));
+    float ffB = ffFbm(ffQ * 1.7 + vec3(uFfTime * 0.18, 0.0, -uFfTime * 0.21) + ffA * 2.0);
+    float ffV = smoothstep(0.35, 0.72, ffB);
+    float ffRim = 1.0 - smoothstep(0.0, 0.035, abs(ffB - 0.5));
+    diffuseColor.rgb = mix(uFfC0, uFfC1 * 0.45, ffV);
+    ffGlow = uFfC1 * ffV * 1.1 + uFfC2 * ffRim * 1.9;`,
+  crystal: /* glsl */ `
+    // Diamant: schiefe Facetten, jede mit eigener Helligkeit und zartem Farbstich, dazu Funkeln
+    vec3 ffQ = p * 2.0;
+    vec3 ffCell = floor(ffQ + ffQ.yzx * 0.45);
+    float ffH = ffHash(ffCell);
+    float ffH2 = ffHash(ffCell + 31.0);
+    vec3 ffIce = mix(vec3(0.5, 0.78, 1.0), vec3(1.0), ffH);
+    ffIce = mix(ffIce, ffHsv(vec3(fract(ffH2 + uFfTime * 0.05), 0.4, 1.0)), 0.35);
+    diffuseColor.rgb = ffIce;
+    float ffTw = pow(0.5 + 0.5 * sin(uFfTime * (2.0 + ffH2 * 3.0) + ffH * 40.0), 6.0);
+    ffGlow = ffIce * (0.16 + 1.7 * ffTw * step(0.55, ffH));`,
+};
+// Glanz je Muster: [Metall, Rauheit]
+const SHINE = {
+  camo: [0.08, 0.72], rainbow: [0.55, 0.28], lava: [0.2, 0.62], neon: [0.5, 0.22], galaxy: [0.1, 0.25],
+  stripes: [0.1, 0.5], carbon: [0.55, 0.32], plasma: [0.3, 0.3], crystal: [0.9, 0.08],
 };
 
 const cache = new Map();
@@ -148,8 +208,7 @@ export function finishMaterial(base, id, scale = 22) {
     m.metalness = f.kind === 'metal' ? 1 : 0.15;
     m.roughness = f.rough;
   } else {
-    m.metalness = { camo: 0.08, rainbow: 0.55, lava: 0.2, neon: 0.5, galaxy: 0.1 }[f.kind];
-    m.roughness = { camo: 0.72, rainbow: 0.28, lava: 0.62, neon: 0.22, galaxy: 0.25 }[f.kind];
+    [m.metalness, m.roughness] = SHINE[f.kind];
     const colors = (f.colors || ['#000', '#000', '#000', '#000']).map(hex);
     const uniforms = {
       uFfTime: TIME, uFfScale: { value: scale },

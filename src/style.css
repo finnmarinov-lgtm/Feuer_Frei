@@ -767,3 +767,167 @@ body:not(.touch) #set-allgemein label:has(#set-touchsens) { display: none; }
   .rate-chip::before { font-size: 20px; margin: 0; }
   .rate-text { display: none; }
 }
+
+/* ---------- Kisten: Skins für Münzen (ui/kisten.js) ---------- */
+/* Seltenheitsstufen: --tier ist die Farbe der Stufe */
+.tier-selten { --tier: #4f8fff; }
+.tier-episch { --tier: #a862ff; }
+.tier-legendaer { --tier: #ff4d6a; }
+.tier-jackpot { --tier: #ffcf3d; }
+.coin { display: inline-block; width: 1em; height: 1em; border-radius: 50%; flex-shrink: 0; vertical-align: -0.14em;
+  background: radial-gradient(circle at 35% 30%, #fff3b0, #f2b33d 45%, #a86e0c); box-shadow: inset 0 0 0 0.09em #8a5a08; }
+/* Knopf im Hauptmenü mit Münzstand; leuchtet, wenn es für eine Kiste reicht */
+.buttons button.kisten-btn { display: flex; justify-content: space-between; align-items: center; }
+.kisten-btn em { font-style: normal; font-size: 0.85em; display: flex; align-items: center; gap: 6px; color: var(--accent); font-variant-numeric: tabular-nums; }
+.buttons button.kisten-btn.ready { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent), 0 0 18px rgba(242, 179, 61, 0.22); }
+/* Auswertung: Münzen aus der Partie */
+#res-coins { display: flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 600; }
+#res-coins b { font-size: 24px; color: var(--accent); }
+#res-coins small { font-size: 16px; color: var(--money); margin-left: 6px; }
+
+#kisten { align-items: flex-start; justify-content: flex-start; padding: 26px 0 16px 40px;
+  background: linear-gradient(90deg, rgba(8, 10, 12, 0.92) 0, rgba(8, 10, 12, 0.85) 620px, rgba(8, 10, 12, 0.15) 760px, rgba(8, 10, 12, 0) 100%); }
+#kisten::before, #kisten::after { display: none; }
+.kisten-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.coins-chip { display: flex; align-items: center; gap: 9px; padding: 5px 16px 5px 12px; border-radius: 22px; border: 1px solid rgba(242, 179, 61, 0.5); background: rgba(242, 179, 61, 0.1); font-size: 17px; font-weight: 600; color: var(--muted); }
+.coins-chip .coin { font-size: 24px; }
+.coins-chip b { font-size: 28px; line-height: 1; color: var(--accent); font-variant-numeric: tabular-nums; }
+.kiste-card { display: flex; gap: 18px; align-items: center; padding: 14px 16px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.14); background: rgba(255, 255, 255, 0.05); }
+/* die Kiste: Munitionskiste mit Deckel, Beschlägen und goldenem Verschluss */
+.kiste-box { position: relative; width: 124px; height: 98px; flex-shrink: 0; border-radius: 7px;
+  background: linear-gradient(#5d6848 0 33%, #1c2016 33% 37%, #4b553a 37%);
+  box-shadow: inset 0 0 0 2px #1d2118, inset 0 -16px 22px rgba(0, 0, 0, 0.4), 0 0 28px rgba(242, 179, 61, 0.28); }
+.kiste-box::before, .kiste-box::after { content: ''; position: absolute; top: 0; bottom: 0; width: 12px; background: linear-gradient(90deg, #2a2d28, #5b5f58 45%, #2a2d28); box-shadow: 0 0 0 1px #14160f; }
+.kiste-box::before { left: 16px; }
+.kiste-box::after { right: 16px; }
+.kiste-box i { position: absolute; left: 50%; top: 35%; width: 24px; height: 26px; transform: translate(-50%, -50%); border-radius: 4px; background: linear-gradient(135deg, #fbe29a, #d9a33a 45%, #8d6317); box-shadow: 0 0 0 1px #5b3f0d, 0 0 14px rgba(255, 207, 61, 0.7); }
+.kiste-info { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; min-width: 0; }
+.kiste-info > b { font-size: 26px; line-height: 1; }
+.kiste-info > span { font-size: 14px; color: var(--muted); line-height: 1.3; }
+.kiste-info > small { font-size: 13px; color: var(--muted); min-height: 1.2em; }
+.kiste-info button, #btn-roll-again { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.kiste-info button { font: 700 21px var(--font); padding: 9px 16px; border-radius: 7px; border: 1px solid var(--accent); background: var(--accent); color: #1a1407; cursor: pointer; letter-spacing: 0.5px; }
+.kiste-info button:hover { background: #ffc657; }
+.kiste-info button span, #btn-roll-again span { white-space: nowrap; }
+.kiste-info button em, #btn-roll-again em { font-style: normal; display: flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+#kisten button:disabled { opacity: 0.45; cursor: default; }
+.kisten-odds { display: flex; gap: 8px; }
+.odd { flex: 1; display: flex; justify-content: space-between; align-items: baseline; gap: 6px; padding: 5px 10px; border-radius: 6px; background: rgba(255, 255, 255, 0.05); border-left: 4px solid var(--tier); font-size: 15px; }
+.odd b { color: var(--tier); }
+.odd em { font-style: normal; color: var(--muted); font-size: 14px; white-space: nowrap; }
+.kisten-how { margin: 0; font-size: 13px; line-height: 1.35; color: var(--muted); }
+.kisten-sub { display: flex; align-items: baseline; gap: 8px; font-size: 15px; color: var(--muted); }
+.kisten-sub b { font-size: 19px; color: var(--text); }
+.kisten-sub em { font-style: normal; font-variant-numeric: tabular-nums; }
+.kisten-sub span { margin-left: auto; }
+.kisten-items { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; align-content: start; overflow-y: auto; min-height: 96px; flex: 1; padding-right: 4px; }
+/* Karte eines Skins: Muster, Waffe, Name; unten die Farbe der Seltenheit */
+.kcard { position: relative; display: grid; grid-template-columns: 30px 1fr; column-gap: 8px; align-items: center; padding: 6px 8px; border-radius: 6px; background: rgba(255, 255, 255, 0.05); border-bottom: 3px solid var(--tier); cursor: pointer; min-width: 0; }
+.kcard .swatch { grid-row: span 2; width: 30px; height: 30px; border-radius: 6px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18); }
+.kcard span { font-size: 12px; color: var(--muted); line-height: 1.1; }
+.kcard b { font-size: 15px; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kisten-items .kcard:not(.own) { opacity: 0.55; }
+.kisten-items .kcard:hover { opacity: 1; background: rgba(255, 255, 255, 0.1); }
+.kisten-items .kcard.own::after { content: '✓'; position: absolute; right: 6px; top: 3px; font-size: 12px; color: var(--money); }
+.kisten-items .kcard.picked { outline: 2px solid var(--accent); outline-offset: 1px; opacity: 1; }
+#kisten-label small { color: var(--tier); text-transform: uppercase; letter-spacing: 2px; font-weight: 700; }
+/* Waffenkammer: Skins aus Kisten */
+.skin .tier { grid-column: 2 / 4; font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--tier); }
+.skin[class*="tier-"] .swatch { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18), 0 0 0 2px var(--tier); }
+
+/* Öffnen: die Rolle */
+#kiste-roll { position: fixed; inset: 0; z-index: 6; display: flex; flex-direction: column; }
+#kiste-roll.rolling { align-items: center; justify-content: center; background: rgba(6, 8, 10, 0.93); }
+.roll-stage { display: flex; flex-direction: column; align-items: center; gap: 14px; cursor: pointer; }
+.roll-stage small { font-size: 14px; color: var(--muted); }
+.roll-window { position: relative; width: min(960px, 96vw); height: 176px; overflow: hidden; border-radius: 10px; background: rgba(255, 255, 255, 0.04); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent); mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent); }
+.roll-strip { position: absolute; left: 50%; top: 13px; display: flex; gap: 8px; will-change: transform; }
+.roll-strip .kcard { width: 132px; height: 150px; flex-shrink: 0; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 5px; text-align: center; padding: 10px 8px; cursor: default;
+  border-bottom-width: 5px; background: linear-gradient(rgba(255, 255, 255, 0.05) 40%, color-mix(in srgb, var(--tier) 26%, transparent)); }
+.roll-strip .kcard .swatch { width: 66px; height: 66px; border-radius: 10px; }
+.roll-strip .kcard span { font-size: 14px; }
+.roll-strip .kcard b { font-size: 18px; max-width: 100%; }
+.roll-strip .kcard.win { z-index: 1; box-shadow: 0 0 0 2px var(--tier), 0 0 30px var(--tier); animation: rollWin 0.5s ease-out; transform: scale(1.06); }
+@keyframes rollWin { from { transform: scale(1); } 45% { transform: scale(1.14); } to { transform: scale(1.06); } }
+.roll-mark { position: absolute; left: 50%; top: 0; bottom: 0; width: 3px; transform: translateX(-50%); background: var(--accent); box-shadow: 0 0 10px rgba(242, 179, 61, 0.9); pointer-events: none; }
+.roll-mark::before, .roll-mark::after { content: ''; position: absolute; left: 50%; transform: translateX(-50%); border: 9px solid transparent; }
+.roll-mark::before { top: 0; border-top-color: var(--accent); }
+.roll-mark::after { bottom: 0; border-bottom-color: var(--accent); }
+/* das Ergebnis: links der Gewinn, rechts dreht sich der Skin */
+#kiste-roll.done { align-items: flex-start; justify-content: center; padding-left: 40px; box-sizing: border-box;
+  background: linear-gradient(90deg, rgba(8, 10, 12, 0.97) 0, rgba(8, 10, 12, 0.92) 620px, rgba(8, 10, 12, 0.15) 760px, rgba(8, 10, 12, 0) 100%); }
+.roll-result { width: 640px; max-width: 100%; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 26px 24px; border-radius: 14px; border: 2px solid var(--tier);
+  background: linear-gradient(color-mix(in srgb, var(--tier) 20%, rgba(12, 14, 17, 0.9)), rgba(12, 14, 17, 0.9) 60%); box-shadow: 0 0 44px color-mix(in srgb, var(--tier) 40%, transparent); animation: giftIn 0.5s cubic-bezier(0.2, 1.4, 0.4, 1); }
+.roll-tier { font-size: 22px; font-weight: 700; letter-spacing: 5px; text-transform: uppercase; color: var(--tier); }
+.jackpot .roll-tier { font-size: 46px; letter-spacing: 6px; text-shadow: 0 0 22px rgba(255, 207, 61, 0.8); animation: jackpotPulse 0.8s ease-in-out infinite alternate; }
+@keyframes jackpotPulse { from { transform: scale(1); } to { transform: scale(1.08); } }
+.roll-result > .swatch { width: 104px; height: 104px; border-radius: 16px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2), 0 0 0 3px var(--tier); margin: 6px 0; }
+.roll-target { font-size: 20px; font-weight: 600; color: var(--muted); }
+.roll-name { font-size: 44px; line-height: 1; }
+.roll-note { font-size: 19px; font-weight: 600; color: var(--money); min-height: 1.3em; }
+.roll-note .plus { color: var(--accent); margin-left: 8px; }
+.roll-note .plus + span { color: var(--accent); }
+.roll-result .buttons { flex-direction: row; flex-wrap: wrap; justify-content: center; width: auto; margin-top: 10px; }
+/* Jackpot: goldener Blitz und Münzregen */
+#kiste-roll.jackpot::before { content: ''; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(circle at 50% 45%, rgba(255, 220, 110, 0.9), rgba(255, 190, 50, 0) 65%); animation: jackpotFlash 1.3s ease-out forwards; }
+@keyframes jackpotFlash { from { opacity: 1; } to { opacity: 0; } }
+.roll-coins { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.roll-coins i { position: absolute; top: -40px; width: 26px; height: 26px; border-radius: 50%; transform: scale(var(--s, 1));
+  background: radial-gradient(circle at 35% 30%, #fff3b0, #f2b33d 45%, #a86e0c); box-shadow: inset 0 0 0 2px #8a5a08; animation: coinFall linear 2 both; }
+@keyframes coinFall { from { translate: 0 0; rotate: 0deg; } to { translate: 0 calc(100vh + 80px); rotate: 540deg; } }
+@media (prefers-reduced-motion: reduce) { .roll-coins, #kiste-roll.jackpot::before { display: none; } .jackpot .roll-tier { animation: none; } }
+
+/* Farbmuster der Kisten-Skins */
+.sw-mint { background: linear-gradient(135deg, #8df0cf, #35cf9d 50%, #14795a); }
+.sw-violett { background: linear-gradient(135deg, #a877ff, #6427cc 55%, #33106e); }
+.sw-orange { background: linear-gradient(135deg, #ffa25c, #f0640c 55%, #8a3604); }
+.sw-rosa { background: linear-gradient(135deg, #ff9cc8, #ee4f97 55%, #8e2254); }
+.sw-schwarz { background: linear-gradient(135deg, #3a3a40, #0b0b0d 55%, #000); }
+.sw-titan { background: linear-gradient(135deg, #d5dde8, #7e8ea3 45%, #3d4756); }
+.sw-stadt { background: conic-gradient(from 0deg, #8d949c 0 25%, #565c64 0 50%, #c4c9ce 0 75%, #2e3238 0) 0 0 / 12px 12px; }
+.sw-bonbon { background: radial-gradient(circle at 30% 30%, #4fd8e8 18%, transparent 19%), radial-gradient(circle at 70% 65%, #ffe45c 22%, transparent 23%), radial-gradient(circle at 72% 22%, #a070ff 14%, transparent 15%), #ff7ac0; }
+.sw-smaragd { background: linear-gradient(135deg, #8dffc9, #14b86a 45%, #06502c); }
+.sw-rubin { background: linear-gradient(135deg, #ff8fa6, #d4163c 45%, #5e0817); }
+.sw-karbon { background: repeating-conic-gradient(#0c0c0e 0 25%, #2b2d31 0 50%) 0 0 / 10px 10px; }
+.sw-zebra { background: repeating-linear-gradient(115deg, #f0f0ea 0 6px, #0c0c0e 6px 11px, #f0f0ea 11px 14px, #0c0c0e 14px 22px); }
+.sw-tiger { background: repeating-linear-gradient(115deg, #f08a12 0 7px, #0e0a08 7px 11px, #ffc552 11px 15px, #0e0a08 15px 21px); }
+.sw-plasma { background: radial-gradient(circle at 30% 35%, #35d6ff 4%, #7a2cff 22%, transparent 46%), radial-gradient(circle at 72% 68%, #b56bff 5%, #7a2cff 20%, transparent 42%), #0a0418; }
+.sw-gift { background: radial-gradient(circle at 30% 35%, #d8ff3a 4%, #3fd11f 22%, transparent 46%), radial-gradient(circle at 72% 68%, #9cff4a 5%, #3fd11f 20%, transparent 42%), #07140a; }
+.sw-blutmond { background: radial-gradient(circle at 30% 35%, #ff7a3a 4%, #c4121c 22%, transparent 46%), radial-gradient(circle at 72% 68%, #ff4a3a 5%, #c4121c 20%, transparent 42%), #120204; }
+.sw-diamant { background: conic-gradient(from 20deg at 50% 45%, #fff, #a8dcff, #e9d5ff, #fff, #9fe8ff, #ffe9f6, #cfeaff, #fff); }
+
+@media (max-width: 900px) {
+  #kisten { padding: 12px 16px; background: rgba(8, 10, 12, 0.92); }
+  .kisten-items { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  #kiste-roll.done { align-items: center; padding: 12px 16px; background: rgba(8, 10, 12, 0.95); }
+  .roll-name { font-size: 34px; }
+}
+/* schmal (Handy hochkant): Chancen in zwei Reihen, kleinere Kiste */
+@media (max-width: 600px) {
+  .kisten-odds { flex-wrap: wrap; }
+  .odd { flex: 1 1 40%; }
+  .kiste-card { gap: 12px; padding: 10px 12px; }
+  .kiste-box { width: 84px; height: 68px; }
+  .kiste-box::before { left: 10px; }
+  .kiste-box::after { right: 10px; }
+}
+/* niedrige Bildschirme (Handy quer): alles untereinander, die ganze Spalte scrollt */
+@media (max-height: 640px) {
+  .kisten-panel { overflow-y: auto; padding-right: 4px; }
+  .kisten-panel > * { flex-shrink: 0; }
+  .kisten-items { overflow: visible; flex: none; }
+  /* "Zurück" bleibt unten stehen, während der Inhalt scrollt */
+  .kisten-panel .buttons { position: sticky; bottom: 0; z-index: 1; width: auto; padding: 8px 0 2px; background: rgba(8, 10, 12, 0.95); }
+  .kisten-panel .buttons button { width: 220px; }
+  .kiste-box { width: 92px; height: 74px; }
+  #kiste-roll.done { overflow-y: auto; justify-content: flex-start; padding-top: 10px; padding-bottom: 10px; }
+  .roll-result { padding: 12px 16px; gap: 4px; margin: auto 0; }
+  .roll-result > .swatch { width: 60px; height: 60px; margin: 2px 0; }
+  .roll-name { font-size: 30px; }
+  .jackpot .roll-tier { font-size: 32px; }
+  .roll-window { height: 150px; }
+  .roll-strip { top: 10px; }
+  .roll-strip .kcard { height: 130px; }
+  .roll-strip .kcard .swatch { width: 52px; height: 52px; }
+}

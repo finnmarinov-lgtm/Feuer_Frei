@@ -652,6 +652,40 @@ export class Audio {
         this._tone(o, t, { freq: 95, freqEnd: 40, gain: 0.7, decay: 0.18 });
         break;
       }
+      // ---------- Kisten ----------
+      // die Rolle tickt von Karte zu Karte
+      case 'caseTick': {
+        const o = this._out(null, 0.16 * vol, 0);
+        this._noise(o, t, { type: 'bandpass', freq: 2600, q: 5, gain: 1, decay: 0.02 });
+        this._tone(o, t, { type: 'square', freq: 1250, gain: 0.1, decay: 0.03 });
+        break;
+      }
+      // Verschluss springt auf, der Deckel schwingt hoch
+      case 'caseOpen': {
+        const o = this._out(null, 0.4 * vol, 0.2);
+        this._noise(o, t, { type: 'bandpass', freq: 2400, q: 3, gain: 1, decay: 0.04 });
+        this._tone(o, t, { freq: 1700, gain: 0.1, decay: 0.1 });
+        this._noise(o, t + 0.07, { type: 'lowpass', freq: 300, freqEnd: 1400, q: 0.8, gain: 0.5, attack: 0.12, decay: 0.2 });
+        break;
+      }
+      // Gewinn: je seltener, desto mehr Töne nach oben
+      case 'caseWin': {
+        const steps = { selten: [523, 784], episch: [523, 659, 988], legendaer: [523, 659, 784, 1047, 1319] }[opt.tier] || [523, 784];
+        const o = this._out(null, 0.26 * vol, 0.3);
+        steps.forEach((f, i) => this._tone(o, t + i * 0.08, { type: 'triangle', freq: f, gain: 0.7, decay: i === steps.length - 1 ? 0.7 : 0.25 }));
+        if (opt.tier === 'legendaer') this._tone(o, t + 0.4, { type: 'sine', freq: 2637, gain: 0.35, attack: 0.01, decay: 0.9 });
+        break;
+      }
+      // Jackpot: Fanfare nach oben, gehaltener Akkord, darüber klimpern Münzen
+      case 'jackpot': {
+        const o = this._out(null, 0.3 * vol, 0.4);
+        [523, 659, 784, 1047, 1319, 1568].forEach((f, i) => this._tone(o, t + i * 0.09, { type: 'square', freq: f, gain: 0.3, decay: 0.22 }));
+        for (const f of [1047, 1319, 1568, 2093]) this._tone(o, t + 0.56, { type: 'triangle', freq: f, gain: 0.4, attack: 0.01, decay: 1.6 });
+        for (let i = 0; i < 16; i++) {
+          this._tone(o, t + 0.7 + i * 0.11 + Math.random() * 0.05, { type: 'sine', freq: 2400 + Math.random() * 1800, gain: 0.22, decay: 0.12 });
+        }
+        break;
+      }
       default:
         break;
     }

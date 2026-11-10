@@ -11,12 +11,14 @@ import { parseCode } from './net/net.js';
 import { maskUrl, session, setUrlLobby } from './net/session.js';
 import { loadSettings, saveSettings, SENSITIVITY } from './settings.js';
 import {
-  LOCKER, cleanLooks, emptyLooks, mergeProgress, onProgress, onProgressSaved, progressSnapshot, resetProgress, skinOf,
+  CASE, LOCKER, cleanLooks, coins, emptyLooks, mergeProgress, onProgress, onProgressSaved, progressSnapshot, resetProgress, skinOf,
+  takeCoinGain,
 } from './game/cosmetics.js';
 import { Konto } from './net/konto.js';
 import { rude } from './names.js';
 import { FINISHES } from './weapons/finishes.js';
 import { Locker } from './ui/locker.js';
+import { Kisten } from './ui/kisten.js';
 import { ARMS } from './config.js';
 import { MAP, MAPS, setMap } from './world/map.js';
 import { TEAM_NAMES, otherTeam } from './game/sides.js';
@@ -31,7 +33,7 @@ starteFehleranzeige();
 zaehleAufruf();
 
 const $ = (id) => document.getElementById(id);
-const SCREENS = ['loading', 'menu', 'lobby', 'bots', 'locker', 'konto', 'bewerten', 'pause', 'settings', 'results', 'click-resume'];
+const SCREENS = ['loading', 'menu', 'lobby', 'bots', 'locker', 'kisten', 'konto', 'bewerten', 'pause', 'settings', 'results', 'click-resume'];
 const BOT_KEY = 'feuer-frei-ki';
 const MAP_KEY = 'feuer-frei-karte';
 const BOT_INFO = {
@@ -191,6 +193,7 @@ function setupMenus(game, input, audio) {
 
   async function start() {
     freshSkins = [];
+    takeCoinGain();
     audio.init();
     enterFullscreen();
     show(null);
@@ -203,6 +206,7 @@ function setupMenus(game, input, audio) {
   // Duell startet von selbst (Countdown), die Maus lässt sich aber erst nach einem Klick fangen
   function startDuel(net, opts) {
     if (!opts.resume) freshSkins = [];
+    if (!opts.resume) takeCoinGain();
     duelNet = net;
     duelOpts = opts;
     audio.init();
@@ -229,6 +233,7 @@ function setupMenus(game, input, audio) {
   // Team-Spiel (ab drei Spielern oder mit KI): startet wie das Duell, die Maus nach einem Klick
   function startTeam(net, opts) {
     if (!opts.resume) freshSkins = [];
+    if (!opts.resume) takeCoinGain();
     teamNet = net;
     teamOpts = opts;
     audio.init();
@@ -285,6 +290,27 @@ function setupMenus(game, input, audio) {
     show('menu');
   });
 
+  // ---------- Kisten: Skins für Münzen, die man beim Spielen verdient ----------
+  const setLooks = (looks) => {
+    settings.looks = looks;
+    saveSettings(settings);
+    game.setLooks(looks);
+    konto.merken('looks');
+  };
+  const kisten = new Kisten(game, audio, { show, looks: () => settings.looks, setLooks });
+  $('btn-kisten').addEventListener('click', () => kisten.open());
+  $('btn-kisten-back').addEventListener('click', () => {
+    if (kisten.back()) show('menu');
+  });
+  // Münzen im Hauptmenü; der Knopf leuchtet, wenn es für eine Kiste reicht
+  const syncCoins = () => {
+    $('menu-coins').textContent = Math.round(coins()).toLocaleString(locale());
+    $('btn-kisten').classList.toggle('ready', coins() >= CASE.price);
+  };
+  syncCoins();
+  onProgressSaved(syncCoins);
+  if (import.meta.env.DEV) window.__kisten = kisten;
+
   // neue Skins aus Aufgaben: sofort anlegen, wo noch der Standard getragen wird, und in der
   // Auswertung zeigen
   onProgress(({ task, done }) => {
@@ -318,6 +344,7 @@ function setupMenus(game, input, audio) {
       }
       if (notizen) setNotes(notizen);
       if (!$('locker').hidden) locker.render();
+      if (!$('kisten').hidden) kisten.render();
     },
     leeren: () => {
       resetProgress();
@@ -332,6 +359,11 @@ function setupMenus(game, input, audio) {
   onProgressSaved(() => konto.merken('fortschritt'));
   const skinLabel = (t) => `${LOCKER.find((l) => l.id === t.reward[0]).name} · ${FINISHES[t.reward[1]].name}`;
   function showNewSkins() {
+    // Münzen aus dieser Partie
+    const gain = takeCoinGain();
+    $('res-coins').hidden = !gain;
+    $('res-coins-n').textContent = `+${gain}`;
+    $('res-coins-hint').textContent = coins() >= CASE.price ? 'Das reicht für eine Kiste!' : '';
     const list = freshSkins;
     freshSkins = [];
     $('res-gift').hidden = !list.length;
@@ -481,7 +513,7 @@ function setupMenus(game, input, audio) {
   // Knopf, der dort zurückführt (Pause: Weiter, Auswertung: Hauptmenü)
   const ESC_BACK = {
     pause: 'btn-resume', settings: 'btn-settings-back', lobby: 'btn-lobby-back',
-    bots: 'btn-bot-back', locker: 'btn-locker-back', konto: 'btn-konto-back', results: 'btn-menu',
+    bots: 'btn-bot-back', locker: 'btn-locker-back', kisten: 'btn-kisten-back', konto: 'btn-konto-back', results: 'btn-menu',
   };
   input.onEscape = () => {
     if (notesOpen) return;
