@@ -4,10 +4,11 @@ import { BOMB_SITES, MAPS, SPAWNS } from '../world/map.js';
 import { PROTOCOL } from '../net/net.js';
 import { session } from '../net/session.js';
 import { Match } from './match.js';
-import { cleanLooks, count, isDone, taskFor } from './cosmetics.js';
+import { COIN_RATE, cleanLooks, coinsFor, count, isDone, taskFor } from './cosmetics.js';
 import { bananaNav, findBananaSpot } from './banana.js';
 import { FLAG } from './remote.js';
 import { cleanName } from '../names.js';
+import { locale } from '../i18n.js';
 
 const other = (role) => (role === 'host' ? 'guest' : 'host');
 const pack = (v) => [Math.round(v.x * 100), Math.round(v.y * 100), Math.round(v.z * 100)];
@@ -577,6 +578,7 @@ export class Duel extends Match {
       if (!this.bananaSent) g.audio.play('banana');
       g.hud.message('Goldene Banane!', had ? 'Den goldenen Spieler-Skin hast du schon' : 'Goldener Spieler-Skin freigeschaltet', 3.5);
       g.hud.notice('Du hast die goldene Banane!');
+      g.hud.notice(`+${coinsFor('banane').toLocaleString(locale())} Münzen`);
     } else {
       const who = this.name(by);
       g.hud.message(`${who} hat die goldene Banane!`, 'Sie taucht nur ganz selten auf', 2.5);
@@ -787,8 +789,16 @@ export class Duel extends Match {
     });
   }
 
+  /**
+   * Faktor für die Münzen (COIN_RATE): victim = wen man ausgeschaltet hat; ohne victim für den
+   * Sieg (im 1 gegen 1 derselbe Gegner)
+   */
+  coinRate() {
+    return this.net.bot ? COIN_RATE[this.net.level] ?? 1 : COIN_RATE.mensch;
+  }
+
   // Geld und Statistik für einen eigenen Abschuss (die Meldung kommt vom Gegner)
-  onKill(def, head) {
+  onKill(def, head, victim) {
     this.stats.kills++;
     if (head) this.stats.heads++;
     if (this.roundStats) {
@@ -799,8 +809,9 @@ export class Duel extends Match {
     this.addMoney(def.reward);
     if (def.id !== 'luftschlag') this.addStreak();
     // Aufgaben: Abschüsse und Kopfschüsse je Waffe
-    count(`kill:${def.id}`);
-    if (head) count(`head:${def.id}`);
+    const rate = this.coinRate(victim);
+    count(`kill:${def.id}`, 1, rate);
+    if (head) count(`head:${def.id}`, 1, rate);
   }
 
   buy(id) {
@@ -972,7 +983,7 @@ export class Duel extends Match {
         g.remote.die();
         // die Bombe zählt für niemanden als Abschuss
         if (ev.by === this.me && ev.w !== 'bombe') {
-          this.onKill(WEAPONS[ev.w] || KILLERS[ev.w] || WEAPONS.natter, !!ev.h);
+          this.onKill(WEAPONS[ev.w] || KILLERS[ev.w] || WEAPONS.natter, !!ev.h, this.them);
           g.audio.play(ev.h ? 'headshotKill' : 'kill');
           g.hud.hitmarker(!!ev.h, true);
         }
@@ -1341,7 +1352,7 @@ export class Duel extends Match {
     const their = this.wins[this.them];
     // Aufgaben: Siege (ein kampfloser Sieg zählt nicht)
     if (!forfeit && my > their) {
-      count('wins');
+      count('wins', 1, this.coinRate());
       count(`win:${this.cfg.arms}`);
       if (this.net.bot && this.net.level === 'schwer') count('win:schwer');
       if (this.online) count('win:online');

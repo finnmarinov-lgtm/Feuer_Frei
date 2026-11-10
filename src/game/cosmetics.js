@@ -77,7 +77,14 @@ export const CASE_ITEMS = LOCKER.flatMap((l) => CASE_SKINS[l.id].map((skin) => (
   { target: l.id, skin, tier: FINISHES[skin].tier, id: `k:${l.id}:${skin}` })));
 const CASE_IDS = new Set(CASE_ITEMS.map((i) => i.id));
 // Münzen fürs Spielen, nach Zähler (Anfang des Namens); Training (targets) gibt nichts
-const COIN_FOR = [['kill:', 10], ['head:', 5], ['plant', 15], ['defuse', 15], ['wins', 100], ['banane', 250]];
+const COIN_FOR = [['kill:', 10], ['head:', 5], ['plant', 15], ['defuse', 15], ['wins', 100], ['banane', 100000]];
+/**
+ * Abschüsse und Siege zählen je nach Gegner verschieden viel: gegen die KI nach ihrer Stärke,
+ * gegen Menschen doppelt (mit dem Grundwert aus COIN_FOR malgenommen)
+ */
+export const COIN_RATE = { anfaenger: 0.5, leicht: 1, mittel: 1.5, schwer: 2.5, mensch: 2 };
+/** Münzen für einen Zähler bei diesem Faktor (für Anzeigen) */
+export const coinsFor = (key, rate = 1) => Math.round(coinFor(key) * rate);
 const coinFor = (key) => COIN_FOR.find(([start]) => key === start || (start.endsWith(':') && key.startsWith(start)))?.[1] || 0;
 // Zähler im Fortschritt: verdiente und ausgegebene Münzen, geöffnete Kisten. Beide Münz-Zähler
 // wachsen nur, so führt das Konto sie wie alle Zähler zusammen (der größere Wert gilt).
@@ -216,11 +223,14 @@ export function onProgress(fn) {
 export const stat = (key) => state.stats[key] || 0;
 export const isDone = (task) => state.done.includes(task.id);
 
-/** Zähler erhöhen; meldet Fortschritt und neu geschaffte Aufgaben */
-export function count(key, n = 1) {
+/**
+ * Zähler erhöhen; meldet Fortschritt und neu geschaffte Aufgaben. rate = Faktor für die Münzen
+ * (COIN_RATE: Stärke des Gegners)
+ */
+export function count(key, n = 1, rate = 1) {
   if (!(n > 0)) return;
   state.stats[key] = (state.stats[key] || 0) + n;
-  const c = coinFor(key) * n;
+  const c = coinsFor(key, rate) * n;
   if (c) {
     state.stats[PLUS] = (state.stats[PLUS] || 0) + c;
     gain += c;
@@ -253,7 +263,10 @@ let gain = 0;
 // Geschenk fürs Konto: Es wird nirgends gespeichert, sondern zählt einfach mit, solange man
 // angemeldet ist. So gibt es das Geschenk auf jedem Gerät genau einmal, und Ab- und wieder Anmelden
 // bringt nichts ein.
-let accountBonus = false;
+let accountBonus = 0;
+// Geschenke für einzelne Konten, zusätzlich zu CASE.account (Name klein geschrieben; Kontonamen
+// sind ohne Groß- und Kleinschreibung eindeutig, siehe supabase/konto.sql). Finns eigenes Konto.
+const ACCOUNT_GIFTS = { 'finderzerstörer': 1000000 };
 // Nach dem Abmelden ist der Fortschritt vom Gerät verschwunden. Gäbe es dann wieder das
 // Startguthaben, könnte man damit eine Kiste öffnen, sich anmelden und den Skin behalten, ohne
 // dass das Konto dafür bezahlt hat. Im Konto selbst bleibt das Startguthaben erhalten.
@@ -264,13 +277,13 @@ try {
   // ohne Speicher gilt das Startguthaben
 }
 
-/** angemeldet oder nicht (main.js meldet jede Änderung) */
-export function setAccountBonus(on) {
-  accountBonus = !!on;
+/** angemeldet (mit welchem Namen) oder nicht (main.js meldet jede Änderung) */
+export function setAccountBonus(on, name = '') {
+  accountBonus = on ? CASE.account + (ACCOUNT_GIFTS[String(name || '').toLowerCase()] || 0) : 0;
 }
 
 /** Münzen auf dem Konto */
-export const coins = () => Math.max(0, (accountBonus ? CASE.start + CASE.account : noStart ? 0 : CASE.start)
+export const coins = () => Math.max(0, (accountBonus ? CASE.start + accountBonus : noStart ? 0 : CASE.start)
   + (state.stats[PLUS] || 0) - (state.stats[MINUS] || 0));
 
 /** beim Spielen verdiente Münzen seit dem letzten Aufruf (für die Auswertung nach der Partie) */

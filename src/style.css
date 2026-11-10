@@ -939,3 +939,7 @@ body:not(.touch) #set-allgemein label:has(#set-touchsens) { display: none; }
 .kisten-konto b { font-size: 20px; color: var(--accent); white-space: nowrap; }
 .konto-bonus { display: flex; align-items: center; gap: 8px; color: var(--accent); font-weight: 600; }
 .konto-bonus .coin { font-size: 20px; }
+
+/* Gegen KI: Münzen je Stärke */
+.bot-coins { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+.bot-coins b { color: var(--accent); margin-right: 6px; }

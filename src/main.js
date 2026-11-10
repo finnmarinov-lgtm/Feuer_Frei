@@ -11,7 +11,7 @@ import { parseCode } from './net/net.js';
 import { maskUrl, session, setUrlLobby } from './net/session.js';
 import { loadSettings, saveSettings, SENSITIVITY } from './settings.js';
 import {
-  CASE, LOCKER, cleanLooks, coins, emptyLooks, mergeProgress, onProgress, onProgressSaved, progressSnapshot, resetProgress,
+  CASE, COIN_RATE, LOCKER, cleanLooks, coins, coinsFor, emptyLooks, mergeProgress, onProgress, onProgressSaved, progressSnapshot, resetProgress,
   setAccountBonus, skinOf, takeCoinGain,
 } from './game/cosmetics.js';
 import { Konto } from './net/konto.js';
@@ -371,7 +371,7 @@ function setupMenus(game, input, audio) {
     // Münzen aus dieser Partie
     const gain = takeCoinGain();
     $('res-coins').hidden = !gain;
-    $('res-coins-n').textContent = `+${gain}`;
+    $('res-coins-n').textContent = `+${gain.toLocaleString(locale())}`;
     $('res-coins-hint').textContent = coins() >= CASE.price ? 'Das reicht für eine Kiste!' : '';
     const list = freshSkins;
     freshSkins = [];
@@ -412,6 +412,9 @@ function setupMenus(game, input, audio) {
       for (const b of seg.children) b.classList.toggle('on', b.dataset.v === String(botOpts[seg.dataset.opt]));
     }
     $('bot-arms-info').textContent = (ARMS[botOpts.arms] || ARMS.alle).info;
+    // je stärker die KI, desto mehr Münzen
+    $('bot-coins-kill').textContent = coinsFor('kill:', COIN_RATE[botOpts.level]);
+    $('bot-coins-win').textContent = coinsFor('wins', COIN_RATE[botOpts.level]);
     $('bot-level-info').textContent = (BOT_INFO[botOpts.level] || '')
       + (input.touch ? ' Auf dem Handy spielt die KI in jeder Stufe schwächer als am PC.' : '');
   }
@@ -1040,7 +1043,7 @@ function setupMenus(game, input, audio) {
 
   function renderKonto() {
     // Geschenk fürs Konto: 1.000 Münzen zählen mit, solange man angemeldet ist
-    setAccountBonus(konto.angemeldet);
+    setAccountBonus(konto.angemeldet, konto.name);
     syncCoins();
     if (!$('kisten').hidden) kisten.render();
     // oben rechts im Hauptmenü: abgemeldet „Anmelden“, angemeldet der Name mit dem Anfangsbuchstaben im Kreis

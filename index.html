@@ -258,7 +258,8 @@
     <div class="hint">Ein Computer-Gegner spielt nach denselben Regeln wie ein Freund im 1 gegen 1.</div>
     <div class="opts" id="bot-opts">
       <div class="opt">Schwierigkeit <div class="seg" data-opt="level"><button data-v="anfaenger">Anfänger</button><button data-v="leicht">Leicht</button><button data-v="mittel">Mittel</button><button data-v="schwer">Schwer</button></div>
-        <small id="bot-level-info"></small></div>
+        <small id="bot-level-info"></small>
+        <small class="bot-coins"><i class="coin"></i><span>Münzen:</span> <span>Abschuss</span> <b id="bot-coins-kill" data-roh></b> <span>Sieg</span> <b id="bot-coins-win" data-roh></b></small></div>
       <div class="opt">Modus <div class="seg" data-opt="mode"><button data-v="kampf">Kampf</button><button data-v="bombe">Bombe</button></div></div>
       <div class="opt">Karte <div class="seg" data-opt="map"><button data-v="hof">Hof</button><button data-v="halle">Lagerhalle</button><button data-v="hafen">Hafen</button></div></div>
       <div class="opt">Waffen <div class="seg" data-opt="arms"><button data-v="alle">Alle</button><button data-v="pistolen">Nur Pistolen</button><button data-v="adler">Scharfschützen</button></div>
@@ -476,7 +477,7 @@
       </div>
       <button class="kisten-konto" id="btn-kisten-konto" hidden><i class="coin"></i><b data-roh>+<span id="kisten-konto-n"></span></b><span>Münzen geschenkt, wenn du ein Konto erstellst</span></button>
       <div class="kisten-odds" id="kisten-odds"></div>
-      <p class="kisten-how">Münzen gibt es fürs Spielen: Abschuss 10, Kopfschuss +5, Bombe legen oder entschärfen 15, Sieg 100. Doppelte Skins geben Münzen zurück. Fürs Konto gibt es 1.000 Münzen geschenkt. Kein echtes Geld.</p>
+      <p class="kisten-how">Münzen gibt es fürs Spielen: Abschuss 10, Kopfschuss +5, Bombe legen oder entschärfen 15, Sieg 100. Je stärker der Gegner, desto mehr: KI Anfänger die Hälfte, Mittel das 1,5-Fache, Schwer das 2,5-Fache, gegen Menschen das Doppelte. Die goldene Banane bringt 100.000. Doppelte Skins geben Münzen zurück. Fürs Konto gibt es 1.000 Münzen geschenkt. Kein echtes Geld.</p>
       <div class="kisten-sub"><b>Inhalt</b><em id="kisten-have" data-roh></em><span>Geöffnet:</span><em id="kisten-opened" data-roh></em></div>
       <div class="kisten-items" id="kisten-items"></div>
       <div class="buttons"><button id="btn-kisten-back">Zurück</button></div>

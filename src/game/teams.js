@@ -4,7 +4,7 @@ import { SPAWNS } from '../world/map.js';
 import { PROTOCOL } from '../net/net.js';
 import { session } from '../net/session.js';
 import { Duel, nextSend } from './duel.js';
-import { cleanLooks, count } from './cosmetics.js';
+import { COIN_RATE, cleanLooks, count } from './cosmetics.js';
 import { SIDE, TEAM_IDS, TEAM_NAMES, otherTeam, slotSpawn, teamAttacker } from './sides.js';
 import { Squad } from '../ai/squad.js';
 import { cleanName } from '../names.js';
@@ -392,12 +392,21 @@ export class TeamMatch extends Duel {
     if (alive && !this.g.player.alive) this._score(this.me, this.attacker);
   }
 
+  // Münzen: ein KI-Spieler zählt nach der eingestellten Stärke, ein Mensch doppelt; für den Sieg
+  // (ohne victim) zählt als Mensch, wenn im anderen Team mindestens einer mitgespielt hat
+  coinRate(victim) {
+    const human = victim === undefined
+      ? this.members(otherTeam(this.team)).some((e) => !e.bot)
+      : !this.roster.get(victim)?.bot;
+    return human ? COIN_RATE.mensch : COIN_RATE[this.cfg.level] ?? 1;
+  }
+
   /** Tod eines anderen (Meldung aus seinem Zustand) */
   _onDead(victim, ev) {
     const g = this.g;
     this.remoteOf(victim)?.die();
     if (ev.by === this.me && victim !== this.me && ev.w !== 'bombe') {
-      this.onKill(WEAPONS[ev.w] || KILLERS[ev.w] || WEAPONS.natter, !!ev.h);
+      this.onKill(WEAPONS[ev.w] || KILLERS[ev.w] || WEAPONS.natter, !!ev.h, victim);
       g.audio.play(ev.h ? 'headshotKill' : 'kill');
       g.hud.hitmarker(!!ev.h, true);
     }
@@ -1020,7 +1029,7 @@ export class TeamMatch extends Duel {
     const won = forfeit ? reason === 'won' : my > their;
     // Aufgaben: Siege (kampflos zählt nicht, "online" nur gegen Menschen)
     if (!forfeit && my > their) {
-      count('wins');
+      count('wins', 1, this.coinRate());
       count(`win:${this.cfg.arms}`);
       if (this.members(otherTeam(this.team)).some((e) => !e.bot)) count('win:online');
     }

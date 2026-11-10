@@ -820,10 +820,12 @@ export class Game {
   _showcaseModel(target) {
     const holder = new THREE.Group();
     const parts = [];
-    const add = (name, paint, scale, size, x) => {
+    // arms: Waffenmodelle bringen die Arme der Ego-Ansicht mit, die gehören nicht in die Vorschau.
+    // Bei der Figur heißen die Ärmel aber genauso (SleeveL/R): dort bleibt alles dran.
+    const add = (name, paint, scale, size, x, arms = false) => {
       const src = this.assets.models[name].clone();
       const remove = [];
-      src.traverse((o) => { if (/^(Hand|Wrist|Sleeve)/.test(o.name)) remove.push(o); });
+      if (!arms) src.traverse((o) => { if (/^(Hand|Wrist|Sleeve)/.test(o.name)) remove.push(o); });
       for (const o of remove) o.removeFromParent();
       mergeByMaterial(src);
       src.traverse((o) => { if (o.isMesh) o.frustumCulled = false; });
@@ -839,7 +841,7 @@ export class Game {
       parts.push({ model: src, names: paint, scale, pivot });
     };
     if (target === 'spieler') {
-      add('soldier', ['Uniform'], 8, 1.85, 0);
+      add('soldier', ['Uniform'], 8, 1.85, 0, true);
       const soldier = parts[0].model;
       // Helm neutral (im Spiel zeigt er die Teamfarbe)
       soldier.traverse((o) => {

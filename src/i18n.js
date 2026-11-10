@@ -529,8 +529,11 @@ const EN = {
   'Ein zufälliger Skin für Waffe, Messer oder Figur. Mit etwas Glück der Jackpot: ein Diamant-Skin und 1.000 Münzen.':
     'A random skin for a weapon, the knife or your character. With some luck the jackpot: a diamond skin and 1,000 coins.',
   'Kiste öffnen': 'Open case',
-  'Münzen gibt es fürs Spielen: Abschuss 10, Kopfschuss +5, Bombe legen oder entschärfen 15, Sieg 100. Doppelte Skins geben Münzen zurück. Fürs Konto gibt es 1.000 Münzen geschenkt. Kein echtes Geld.':
-    'You earn coins by playing: kill 10, headshot +5, planting or defusing the bomb 15, win 100. Duplicate skins give coins back. Creating an account gives you 1,000 coins. No real money.',
+  'Münzen gibt es fürs Spielen: Abschuss 10, Kopfschuss +5, Bombe legen oder entschärfen 15, Sieg 100. Je stärker der Gegner, desto mehr: KI Anfänger die Hälfte, Mittel das 1,5-Fache, Schwer das 2,5-Fache, gegen Menschen das Doppelte. Die goldene Banane bringt 100.000. Doppelte Skins geben Münzen zurück. Fürs Konto gibt es 1.000 Münzen geschenkt. Kein echtes Geld.':
+    'You earn coins by playing: kill 10, headshot +5, planting or defusing the bomb 15, win 100. The stronger the opponent, the more you get: beginner AI half, medium 1.5x, hard 2.5x, against humans double. The golden banana is worth 100,000. Duplicate skins give coins back. Creating an account gives you 1,000 coins. No real money.',
+  'Münzen:': 'Coins:',
+  'Abschuss': 'Kill',
+  'Sieg': 'Win',
   'Münzen geschenkt, wenn du ein Konto erstellst': 'coins as a gift when you create an account',
   'Geschenk fürs Konto: 1.000 Münzen für Kisten.': 'Account gift: 1,000 coins for cases.',
   'Geschenk fürs Konto: 1.000 Münzen für Kisten sind gutgeschrieben.': 'Account gift: 1,000 coins for cases have been added.',
@@ -772,6 +775,7 @@ const VORLAGEN = [
   ['Du bist in {}', 'You are in {1}'],
   ['{n} neue Skins freigeschaltet!', '{1} new skins unlocked!'],
   ['Noch {n} Münzen bis zur nächsten Kiste', '{1} more coins until the next case'],
+  ['+{} Münzen', '+{1} coins'],
   ['{}. Auswählen kannst du alle Skins unter „Skins & Aufgaben“.', '{1}. You can pick all skins under “Skins & challenges”.'],
   ['{} Auf dem Handy spielt die KI in jeder Stufe schwächer als am PC.', '{1} On phones the AI plays weaker at every level than on a PC.'],
   // Steuerung
