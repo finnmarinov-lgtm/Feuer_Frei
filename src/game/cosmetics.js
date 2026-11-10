@@ -266,7 +266,7 @@ let gain = 0;
 let accountBonus = 0;
 // Geschenke für einzelne Konten, zusätzlich zu CASE.account (Name klein geschrieben; Kontonamen
 // sind ohne Groß- und Kleinschreibung eindeutig, siehe supabase/konto.sql). Finns eigenes Konto.
-const ACCOUNT_GIFTS = { 'finderzerstörer': 1000000 };
+const ACCOUNT_GIFTS = { 'finnderzerstörer': 1000000 };
 // Nach dem Abmelden ist der Fortschritt vom Gerät verschwunden. Gäbe es dann wieder das
 // Startguthaben, könnte man damit eine Kiste öffnen, sich anmelden und den Skin behalten, ohne
 // dass das Konto dafür bezahlt hat. Im Konto selbst bleibt das Startguthaben erhalten.
