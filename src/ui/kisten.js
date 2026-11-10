@@ -22,12 +22,20 @@ const card = (item, cls = '') => `<div class="kcard tier-${item.tier} ${cls}" da
 // durch und bleibt auf dem Gewinn stehen. Gewürfelt und gespeichert wird schon beim Klick
 // (cosmetics.openCase), die Rolle zeigt das Ergebnis nur noch.
 export class Kisten {
-  constructor(game, audio, { show, looks, setLooks }) {
+  /**
+   * kontoOffen(): true, wenn es Konten gibt und man nicht angemeldet ist (dann wirbt ein Knopf für
+   * das Geschenk fürs Konto); onKonto(): zum Bildschirm "Konto erstellen"
+   */
+  constructor(game, audio, { show, looks, setLooks, kontoOffen, onKonto }) {
     this.g = game;
     this.audio = audio;
     this.show = show;
     this.getLooks = looks;
     this.putLooks = setLooks;
+    this.kontoOffen = kontoOffen;
+    $('btn-kisten-konto').addEventListener('click', () => {
+      if (this.back()) onKonto();
+    });
     this.roll = null;
     this.result = null;
     // Münzen aus dem laufenden Öffnen (Doppeltes, Jackpot) erst zeigen, wenn die Rolle steht
@@ -89,6 +97,8 @@ export class Kisten {
     $('btn-roll-again').disabled = !enough || !!this.roll;
     $('kiste-need').textContent = enough ? '' : `Noch ${CASE.price - have} Münzen bis zur nächsten Kiste`;
     $('kisten-opened').textContent = num(casesOpened());
+    $('btn-kisten-konto').hidden = !this.kontoOffen();
+    $('kisten-konto-n').textContent = num(CASE.account);
     $('kisten-odds').innerHTML = Object.entries(TIERS).map(([id, t]) => (
       `<span class="odd tier-${id}"><b>${esc(t.name)}</b><em data-roh>${num(t.chance * 100)} %</em></span>`)).join('');
     const owned = CASE_ITEMS.filter(ownsCaseItem).length;

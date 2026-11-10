@@ -11,8 +11,8 @@ import { parseCode } from './net/net.js';
 import { maskUrl, session, setUrlLobby } from './net/session.js';
 import { loadSettings, saveSettings, SENSITIVITY } from './settings.js';
 import {
-  CASE, LOCKER, cleanLooks, coins, emptyLooks, mergeProgress, onProgress, onProgressSaved, progressSnapshot, resetProgress, skinOf,
-  takeCoinGain,
+  CASE, LOCKER, cleanLooks, coins, emptyLooks, mergeProgress, onProgress, onProgressSaved, progressSnapshot, resetProgress,
+  setAccountBonus, skinOf, takeCoinGain,
 } from './game/cosmetics.js';
 import { Konto } from './net/konto.js';
 import { rude } from './names.js';
@@ -297,7 +297,16 @@ function setupMenus(game, input, audio) {
     game.setLooks(looks);
     konto.merken('looks');
   };
-  const kisten = new Kisten(game, audio, { show, looks: () => settings.looks, setLooks });
+  const kisten = new Kisten(game, audio, {
+    show, looks: () => settings.looks, setLooks,
+    // Geschenk fürs Konto: nur anbieten, wenn es Konten gibt und man noch nicht angemeldet ist
+    kontoOffen: () => konto.bereit && !konto.angemeldet,
+    onKonto: () => {
+      show('menu');
+      kontoModus = 'neu';
+      $('btn-konto').click();
+    },
+  });
   $('btn-kisten').addEventListener('click', () => kisten.open());
   $('btn-kisten-back').addEventListener('click', () => {
     if (kisten.back()) show('menu');
@@ -1030,6 +1039,10 @@ function setupMenus(game, input, audio) {
   }
 
   function renderKonto() {
+    // Geschenk fürs Konto: 1.000 Münzen zählen mit, solange man angemeldet ist
+    setAccountBonus(konto.angemeldet);
+    syncCoins();
+    if (!$('kisten').hidden) kisten.render();
     // oben rechts im Hauptmenü: abgemeldet „Anmelden“, angemeldet der Name mit dem Anfangsbuchstaben im Kreis
     const btn = $('btn-konto');
     btn.hidden = !konto.bereit && !konto.angemeldet;

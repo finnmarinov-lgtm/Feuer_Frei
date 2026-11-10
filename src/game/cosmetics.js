@@ -8,6 +8,8 @@ import { FINISHES } from '../weapons/finishes.js';
 // Alles steht im Browser-Speicher; welche Skins man trägt, steht in den Einstellungen (looks).
 
 const KEY = 'feuer-frei-aufgaben';
+// gesetzt nach dem Abmelden: ohne Konto gibt es auf diesem Gerät kein Startguthaben mehr
+const NO_START_KEY = 'feuer-frei-kein-startgeld';
 // alter Speicher des Regenbogen-Messers (Easter Egg vor den Aufgaben)
 const OLD_GIFT_KEY = 'feuer-frei-geschenke';
 
@@ -65,10 +67,11 @@ export const TIERS = {
   jackpot: { name: 'Jackpot', chance: 0.02, refund: 0 },
 };
 /**
- * price = Preis einer Kiste, start = Startguthaben (eine Kiste geschenkt), jackpotCoins = Münzen
- * zusätzlich zum Diamant-Skin, jackpotAll = Münzen, wenn man schon alle Diamant-Skins hat
+ * price = Preis einer Kiste, start = Startguthaben (eine Kiste geschenkt), account = Geschenk fürs
+ * Konto (zählt, solange man angemeldet ist), jackpotCoins = Münzen zusätzlich zum Diamant-Skin,
+ * jackpotAll = Münzen, wenn man schon alle Diamant-Skins hat
  */
-export const CASE = { price: 250, start: 250, jackpotCoins: 1000, jackpotAll: 2500 };
+export const CASE = { price: 250, start: 250, account: 1000, jackpotCoins: 1000, jackpotAll: 2500 };
 /** alles, was in der Kiste steckt: { target, skin, tier, id } */
 export const CASE_ITEMS = LOCKER.flatMap((l) => CASE_SKINS[l.id].map((skin) => (
   { target: l.id, skin, tier: FINISHES[skin].tier, id: `k:${l.id}:${skin}` })));
@@ -193,8 +196,14 @@ export function mergeProgress(p) {
 
 /** Fortschritt vom Gerät nehmen (beim Abmelden: er bleibt im Konto) */
 export function resetProgress() {
-  // das Startguthaben für Kisten gibt es nur einmal, nicht nach jedem Abmelden neu
-  state = { stats: { [MINUS]: CASE.start }, done: [] };
+  state = { stats: {}, done: [] };
+  // das Startguthaben für Kisten gibt es nur einmal, nicht nach jedem Abmelden neu (siehe coins)
+  noStart = true;
+  try {
+    localStorage.setItem(NO_START_KEY, '1');
+  } catch {
+    // egal
+  }
   save();
 }
 
@@ -241,9 +250,28 @@ export function unlocked(target, skin) {
 // ---------- Münzen und Kisten ----------
 
 let gain = 0;
+// Geschenk fürs Konto: Es wird nirgends gespeichert, sondern zählt einfach mit, solange man
+// angemeldet ist. So gibt es das Geschenk auf jedem Gerät genau einmal, und Ab- und wieder Anmelden
+// bringt nichts ein.
+let accountBonus = false;
+// Nach dem Abmelden ist der Fortschritt vom Gerät verschwunden. Gäbe es dann wieder das
+// Startguthaben, könnte man damit eine Kiste öffnen, sich anmelden und den Skin behalten, ohne
+// dass das Konto dafür bezahlt hat. Im Konto selbst bleibt das Startguthaben erhalten.
+let noStart = false;
+try {
+  noStart = localStorage.getItem(NO_START_KEY) === '1';
+} catch {
+  // ohne Speicher gilt das Startguthaben
+}
+
+/** angemeldet oder nicht (main.js meldet jede Änderung) */
+export function setAccountBonus(on) {
+  accountBonus = !!on;
+}
 
 /** Münzen auf dem Konto */
-export const coins = () => Math.max(0, CASE.start + (state.stats[PLUS] || 0) - (state.stats[MINUS] || 0));
+export const coins = () => Math.max(0, (accountBonus ? CASE.start + CASE.account : noStart ? 0 : CASE.start)
+  + (state.stats[PLUS] || 0) - (state.stats[MINUS] || 0));
 
 /** beim Spielen verdiente Münzen seit dem letzten Aufruf (für die Auswertung nach der Partie) */
 export function takeCoinGain() {

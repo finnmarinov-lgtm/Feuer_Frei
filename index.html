@@ -289,6 +289,7 @@
     <h1>Konto</h1>
     <div class="form konto-form" id="konto-aus">
       <p class="konto-info">Mit einem Konto werden deine Skins, dein Aufgaben-Fortschritt und deine Notizen gespeichert. Meldest du dich auf einem anderen Gerät an, ist alles da.</p>
+      <p class="konto-info konto-bonus"><i class="coin"></i><span>Geschenk fürs Konto: 1.000 Münzen für Kisten.</span></p>
       <div class="seg" id="konto-modus"><button data-v="anmelden" class="on">Anmelden</button><button data-v="neu">Konto erstellen</button></div>
       <label><span>Benutzername</span><input id="konto-name" maxlength="20" spellcheck="false" autocomplete="username"></label>
       <label><span>Passwort</span><input id="konto-pass" type="password" maxlength="72" autocomplete="current-password"></label>
@@ -302,6 +303,7 @@
     <div class="form konto-form" id="konto-an" hidden>
       <p class="konto-wer">Angemeldet als <b id="konto-wer" data-roh></b></p>
       <p class="konto-info small" id="konto-stand"></p>
+      <p class="konto-info konto-bonus"><i class="coin"></i><span>Geschenk fürs Konto: 1.000 Münzen für Kisten sind gutgeschrieben.</span></p>
       <div class="buttons konto-row"><button id="btn-konto-sync">Jetzt abgleichen</button><button id="btn-konto-ab">Abmelden</button></div>
       <p class="konto-info small">Beim Abmelden verschwinden Skins, Fortschritt und Notizen von diesem Gerät, im Konto bleiben sie.</p>
       <details>
@@ -472,8 +474,9 @@
           <small id="kiste-need"></small>
         </div>
       </div>
+      <button class="kisten-konto" id="btn-kisten-konto" hidden><i class="coin"></i><b data-roh>+<span id="kisten-konto-n"></span></b><span>Münzen geschenkt, wenn du ein Konto erstellst</span></button>
       <div class="kisten-odds" id="kisten-odds"></div>
-      <p class="kisten-how">Münzen gibt es fürs Spielen: Abschuss 10, Kopfschuss +5, Bombe legen oder entschärfen 15, Sieg 100. Doppelte Skins geben Münzen zurück. Kein echtes Geld.</p>
+      <p class="kisten-how">Münzen gibt es fürs Spielen: Abschuss 10, Kopfschuss +5, Bombe legen oder entschärfen 15, Sieg 100. Doppelte Skins geben Münzen zurück. Fürs Konto gibt es 1.000 Münzen geschenkt. Kein echtes Geld.</p>
       <div class="kisten-sub"><b>Inhalt</b><em id="kisten-have" data-roh></em><span>Geöffnet:</span><em id="kisten-opened" data-roh></em></div>
       <div class="kisten-items" id="kisten-items"></div>
       <div class="buttons"><button id="btn-kisten-back">Zurück</button></div>

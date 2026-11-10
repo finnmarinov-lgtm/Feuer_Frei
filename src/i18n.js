@@ -529,8 +529,11 @@ const EN = {
   'Ein zufälliger Skin für Waffe, Messer oder Figur. Mit etwas Glück der Jackpot: ein Diamant-Skin und 1.000 Münzen.':
     'A random skin for a weapon, the knife or your character. With some luck the jackpot: a diamond skin and 1,000 coins.',
   'Kiste öffnen': 'Open case',
-  'Münzen gibt es fürs Spielen: Abschuss 10, Kopfschuss +5, Bombe legen oder entschärfen 15, Sieg 100. Doppelte Skins geben Münzen zurück. Kein echtes Geld.':
-    'You earn coins by playing: kill 10, headshot +5, planting or defusing the bomb 15, win 100. Duplicate skins give coins back. No real money.',
+  'Münzen gibt es fürs Spielen: Abschuss 10, Kopfschuss +5, Bombe legen oder entschärfen 15, Sieg 100. Doppelte Skins geben Münzen zurück. Fürs Konto gibt es 1.000 Münzen geschenkt. Kein echtes Geld.':
+    'You earn coins by playing: kill 10, headshot +5, planting or defusing the bomb 15, win 100. Duplicate skins give coins back. Creating an account gives you 1,000 coins. No real money.',
+  'Münzen geschenkt, wenn du ein Konto erstellst': 'coins as a gift when you create an account',
+  'Geschenk fürs Konto: 1.000 Münzen für Kisten.': 'Account gift: 1,000 coins for cases.',
+  'Geschenk fürs Konto: 1.000 Münzen für Kisten sind gutgeschrieben.': 'Account gift: 1,000 coins for cases have been added.',
   'Inhalt': 'Contents',
   'Geöffnet:': 'Opened:',
   'Klicken zum Überspringen': 'Click to skip',

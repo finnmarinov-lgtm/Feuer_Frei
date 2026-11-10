@@ -931,3 +931,11 @@ body:not(.touch) #set-allgemein label:has(#set-touchsens) { display: none; }
   .roll-strip .kcard { height: 130px; }
   .roll-strip .kcard .swatch { width: 52px; height: 52px; }
 }
+
+/* Geschenk fürs Konto: Hinweis im Kisten-Bildschirm und im Konto */
+.kisten-konto { display: flex; align-items: center; gap: 9px; padding: 8px 14px; border-radius: 8px; border: 1px dashed rgba(242, 179, 61, 0.7); background: rgba(242, 179, 61, 0.1); color: var(--text); font: 600 16px var(--font); text-align: left; cursor: pointer; }
+.kisten-konto:hover { background: rgba(242, 179, 61, 0.2); }
+.kisten-konto .coin { font-size: 22px; }
+.kisten-konto b { font-size: 20px; color: var(--accent); white-space: nowrap; }
+.konto-bonus { display: flex; align-items: center; gap: 8px; color: var(--accent); font-weight: 600; }
+.konto-bonus .coin { font-size: 20px; }

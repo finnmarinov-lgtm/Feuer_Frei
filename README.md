@@ -167,6 +167,7 @@ Unter **Skins & Aufgaben** im Hauptmenü stehen links die Waffen (Natter, Kobra,
 Unter **Kisten** im Hauptmenü gibt es weitere Skins, die es nur dort gibt. Eine Kiste kostet 250 **Münzen**; die verdient man beim Spielen. Echtes Geld gibt es nirgends.
 
 - **Münzen:** Abschuss 10, Kopfschuss zusätzlich 5, Bombe legen oder entschärfen 15, Sieg 100, goldene Banane 250. Training gibt nichts. Jeder startet mit 250 (eine Kiste geschenkt). Die Auswertung nach der Partie zeigt die verdienten Münzen, der Knopf im Hauptmenü den Stand (er leuchtet, wenn es für eine Kiste reicht).
+- **Geschenk fürs Konto:** Wer ein Konto hat, bekommt 1.000 Münzen dazu (`CASE.account`). Sie werden nirgends gespeichert, sondern zählen mit, solange man angemeldet ist: so gibt es sie pro Konto genau einmal, auf jedem Gerät. Im Kisten-Bildschirm wirbt ein Knopf dafür, solange man nicht angemeldet ist. Nach dem Abmelden gibt es auf dem Gerät kein Startguthaben mehr (`feuer-frei-kein-startgeld`), sonst ließe sich damit immer wieder eine Kiste gratis öffnen.
 - **Inhalt:** 50 Skins in vier Stufen. Die Chancen stehen offen im Bildschirm: **Selten** 60 % (Minze, Violett, Signalorange, Pink, Mattschwarz, Titan), **Episch** 28 % (Stadttarn, Bonbon, Smaragd, Rubin, Karbon, Zebra, Tiger), **Legendär** 10 % (Plasma, Giftgrün, Blutmond: bewegte Energie), **Jackpot** 2 %.
 - **Jackpot:** ein **Diamant**-Skin (funkelnde Facetten), den man noch nicht hat, und 1.000 Münzen dazu. Hat man alle neun, gibt es 2.500 Münzen.
 - **Doppelte** geben Münzen zurück: 50, 100 oder 250 je nach Stufe.
